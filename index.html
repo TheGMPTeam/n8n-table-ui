@@ -1,0 +1,1876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>n8n Tables</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --success: #3fb950;
+    --warn: #d29922;
+    --danger: #f85149;
+    --row-hover: #1c2128;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 16px;
+  }
+  h1 { font-size: 18px; font-weight: 600; }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .tabs { display: flex; gap: 4px; margin-right: auto; }
+  .tab-btn {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  .tab-btn:hover { color: var(--text); border-color: var(--accent); }
+  .tab-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .refresh-btn {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .panel-title { font-size: 14px; font-weight: 600; }
+  .count-badge {
+    background: var(--border);
+    color: var(--muted);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    font-weight: 600;
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  tr:hover { background: var(--row-hover); }
+  .empty-line {
+    color: var(--muted);
+    font-style: italic;
+    padding: 12px;
+    text-align: center;
+  }
+  .edit-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .edit-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .push-btn {
+    background: var(--warn);
+    border: none;
+    color: #000;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .push-btn:hover { opacity: 0.85; }
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .modal-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 700px;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .modal h2 { font-size: 16px; margin-bottom: 14px; }
+  .field-group {
+    margin-bottom: 12px;
+  }
+  .field-group label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .field-group input[type="text"],
+  .field-group select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  .field-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+  }
+  .field-group textarea {
+    width: 100%;
+    min-height: 220px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    resize: vertical;
+  }
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .btn-row button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    border: none;
+  }
+  .btn-save {
+    background: var(--success);
+    color: #000;
+    font-weight: 600;
+  }
+  .btn-cancel {
+    background: var(--border);
+    color: var(--text);
+  }
+  .btn-row button:hover { opacity: 0.85; }
+  .template-preview {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 14px;
+  }
+  .template-preview h4 {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .template-preview textarea {
+    width: 100%;
+    min-height: 120px;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    resize: vertical;
+  }
+  .status-bar {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--muted);
+    min-height: 20px;
+  }
+  .status-bar.warn { color: var(--warn); }
+  .status-bar.success { color: var(--success); }
+  .status-bar.danger { color: var(--danger); }
+  .working-done {
+    color: var(--muted);
+    animation: pulse 2s infinite;
+  }
+  .working-active {
+    color: var(--warn);
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .url-cell { max-width: 260px; max-height: 180px; }
+  .jobid-link, .jobs-link {
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .jobid-link:hover, .jobs-link:hover { opacity: 0.8; }
+  .url-link {
+    color: var(--accent);
+    text-decoration: underline;
+    font-size: 12px;
+    word-break: break-all;
+  }
+  .api-trunc {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
+    cursor: help;
+  }
+  .new-table-section {
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .new-table-section h3 { font-size: 14px; margin-bottom: 10px; }
+  .new-table-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 500px;
+  }
+  .new-table-form input,
+  .new-table-form textarea {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: 'Consolas', 'Monaco', monospace;
+  }
+  .new-table-form textarea { min-height: 80px; resize: vertical; }
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--bg);
+    padding: 8px 0;
+  }
+  .panel-title { display: inline-flex; align-items: center; gap: 6px; }
+  .panel-title svg { flex: none; }
+  .count-badge { min-width: 24px; text-align: center; display: inline-block; }
+  .icon-spin { display: inline-block; animation: spin 1.2s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .debug-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-bottom: none;
+    border-top-right-radius: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    width: 420px;
+    max-width: 90vw;
+    font-family: 'Consolas', 'Monaco', monospace;
+    z-index: 200;
+  }
+  .debug-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 600;
+  }
+  .debug-header button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 4px;
+    font-size: 10px;
+    padding: 1px 7px;
+    cursor: pointer;
+    margin-left: auto;
+  }
+  .debug-header button + button { margin-left: 0; }
+  .debug-header button:hover { color: var(--accent); border-color: var(--accent); }
+  .debug-body {
+    padding: 4px 10px 8px;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+  .debug-panel.collapsed .debug-body { display: none; }
+  body { padding-bottom: 44px; }
+
+  /* ── Job ID modal panel ─────────────────────────────────────────────── */
+  .jobid-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .jmh-top { display: flex; flex-direction: column; gap: 2px; }
+  .jmh-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .jmh-id {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    font-family: 'Consolas', 'Monaco', monospace;
+  }
+  .jmh-stats {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .jmh-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .jmh-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .jmh-stat-done .jmh-dot { background: var(--success); }
+  .jmh-stat-wrk .jmh-dot { background: var(--warn); }
+  .jmh-stat-pend .jmh-dot { background: var(--muted); }
+  .jmh-count {
+    color: var(--muted);
+    font-size: 11px;
+    margin-left: auto;
+  }
+
+  .jobid-job-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .jobid-job-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .jic-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    flex-wrap: wrap;
+  }
+  .jic-id {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    font-family: 'Consolas', 'Monaco', monospace;
+    min-width: 42px;
+  }
+  .jic-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .jic-type {
+    font-size: 12px;
+    color: var(--text);
+    margin-left: auto;
+  }
+  .jic-link {
+    margin-left: auto;
+    display: inline-flex;
+  }
+  .jic-prompt {
+    padding: 8px 12px 10px;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: pre-wrap;
+    word-break: break-word;
+    border-top: 1px solid var(--border);
+  }
+  .jobid-empty {
+    color: var(--muted);
+    font-size: 13px;
+    padding: 16px 0;
+    text-align: center;
+    font-style: italic;
+  }
+  .config-form fieldset {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 14px;
+  }
+  .config-form legend {
+    color: var(--muted);
+    font-size: 12px;
+    padding: 0 6px;
+  }
+  .config-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .cfg-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    flex: 1;
+    min-width: 200px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .cfg-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .cfg-input[readonly] {
+    color: var(--muted);
+    background: var(--panel);
+    cursor: default;
+  }
+  .config-row label {
+    font-size: 13px;
+    color: var(--muted);
+    min-width: 150px;
+  }
+  .config-row small {
+    color: var(--muted);
+    font-size: 11px;
+    flex-basis: 100%;
+  }
+  .config-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  .config-btn {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .config-btn-reset { background: var(--border); color: var(--text); }
+  .config-btn-reset:hover { border: 1px solid var(--danger); color: var(--danger); }
+  #cfg-status { font-size: 13px; margin-left: auto; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>n8n Tables</h1>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="panel-tables" data-role="home" data-table="xKckTZI3ZU5HqIpZ">Home</button>
+    <button class="tab-btn" data-tab="panel-tables" data-role="jobs" data-table="vN5vMR56WpEsdLMn">Jobs</button>
+    <button class="tab-btn" data-tab="panel-config">Config</button>
+    <button class="tab-btn" data-tab="panel-new">New</button>
+  </div>
+  <button class="refresh-btn" id="btn-refresh">Refresh</button>
+</div>
+
+<div class="tab-panel active" id="panel-tables">
+  <div class="panel" id="panel-completed">
+    <div class="panel-header">
+      <span class="panel-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="#3fb950"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Completed</span>
+      <span class="count-badge" id="count-completed">0</span>
+    </div>
+    <table>
+      <thead id="thead-completed"></thead>
+      <tbody id="tbody-completed"></tbody>
+    </table>
+    <div class="empty-line" id="empty-completed" style="display:none">No completed rows.</div>
+  </div>
+
+  <div class="panel" id="panel-next">
+    <div class="panel-header">
+      <span class="panel-title">Next Up</span>
+      <span class="count-badge" id="count-next">0</span>
+    </div>
+    <table>
+      <thead id="thead-next"></thead>
+      <tbody id="tbody-next"></tbody>
+    </table>
+    <div class="empty-line" id="empty-next" style="display:none">No pending rows.</div>
+  </div>
+
+  <div class="panel" id="panel-working">
+    <div class="panel-header">
+      <span class="panel-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2.4"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg> Working</span>
+      <span class="count-badge" id="count-working">0</span>
+    </div>
+    <table>
+      <thead id="thead-working"></thead>
+      <tbody id="tbody-working"></tbody>
+    </table>
+    <div class="empty-line" id="empty-working" style="display:none">No rows in progress.</div>
+  </div>
+
+  <div class="status-bar" id="status-bar"></div>
+</div>
+
+<div class="tab-panel" id="panel-new">
+  <div class="panel" id="panel-create">
+    <div class="panel-header">
+      <span class="panel-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg> New Table</span>
+    </div>
+    <div class="new-table-form">
+      <input type="text" id="new-name" placeholder="Table name (e.g. MyTable)">
+      <textarea id="new-cols" placeholder="One JSON object per line"></textarea>
+      <small style="color:var(--muted)">e.g. {"name": "prompt", "type": "string"} — one per line, or a JSON array</small>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-save" id="btn-create-table" style="padding:8px 16px;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Create Table</button>
+        <button class="btn-cancel" id="btn-cancel-create" style="padding:8px 16px;border:none;border-radius:4px;cursor:pointer;background:var(--border);color:var(--text);">Cancel</button>
+      </div>
+      <div class="status-bar" id="new-status" style="margin-top:8px;"></div>
+    </div>
+  </div>
+</div>
+
+<div class="tab-panel" id="panel-config">
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2.4"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.2.63.77 1.06 1.43 1.09H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings</span>
+      <span class="count-badge" id="cfg-source-badge">loading…</span>
+    </div>
+    <div class="config-form">
+
+      <fieldset>
+        <legend>Table Registry</legend>
+        <div class="config-row">
+          <label for="cfg-table-home">Home table ID</label>
+          <input type="text" id="cfg-table-home" class="cfg-input" placeholder="xKckTZI3ZU5HqIpZ" spellcheck="false">
+        </div>
+        <div class="config-row">
+          <label for="cfg-table-jobs">Jobs table ID</label>
+          <input type="text" id="cfg-table-jobs" class="cfg-input" placeholder="vN5vMR56WpEsdLMn" spellcheck="false">
+        </div>
+        <div class="config-row">
+          <label for="cfg-table-templates">Templates table ID</label>
+          <input type="text" id="cfg-table-templates" class="cfg-input" placeholder="haulC2FnGWqHb0no" spellcheck="false">
+        </div>
+        <div class="config-row">
+          <label for="cfg-table-link">Link rule</label>
+          <input type="text" id="cfg-table-link" class="cfg-input" placeholder="ComfyUI.JobID == Shorts_Production.id" spellcheck="false">
+          <small>Reference only. Describes how the Home and Jobs tables are joined for row linking.</small>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Webhook &amp; Endpoint Settings</legend>
+        <div class="config-row">
+          <label for="cfg-webhook-base">Webhook base URL</label>
+          <input type="text" id="cfg-webhook-base" class="cfg-input" placeholder="http://10.0.0.157:5678/webhook" spellcheck="false">
+          <small>Live. Overrides the base URL used for every /yt-* webhook call. Use an absolute URL.</small>
+        </div>
+        <div class="config-row">
+          <label for="cfg-n8n-host">N8N host (proxy target)</label>
+          <input type="text" id="cfg-n8n-host" class="cfg-input" readonly>
+          <small>Read-only. Set by the container's N8N_HOST env var in compose.</small>
+        </div>
+        <div class="config-row">
+          <label for="cfg-n8n-port">N8N port</label>
+          <input type="text" id="cfg-n8n-port" class="cfg-input" readonly>
+          <small>Read-only. Set by the container's N8N_PORT env var in compose.</small>
+        </div>
+        <div class="config-row">
+          <label for="cfg-api-base">API base (legacy)</label>
+          <input type="text" id="cfg-api-base" class="cfg-input" readonly>
+          <small>Read-only. Legacy direct-SQLite path; not present in the Docker image.</small>
+        </div>
+        <div class="config-row">
+          <label for="cfg-api-port">API port (legacy)</label>
+          <input type="text" id="cfg-api-port" class="cfg-input" readonly>
+          <small>Read-only. Legacy direct-SQLite path; not present in the Docker image.</small>
+        </div>
+        <div class="config-row">
+          <label for="cfg-proxy-base">Proxy base URL</label>
+          <input type="text" id="cfg-proxy-base" class="cfg-input" readonly>
+          <small>Read-only. Origin this page was served from; the proxy forwards /webhook/* here.</small>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>UI Behavior</legend>
+        <div class="config-row">
+          <label for="cfg-refresh-interval">Auto-refresh interval (ms)</label>
+          <input type="number" id="cfg-refresh-interval" class="cfg-input" min="1000" step="1000">
+          <small>Live. Restarted immediately when you save. Minimum 1000.</small>
+        </div>
+        <div class="config-row">
+          <label for="cfg-max-debug-lines">Max debug log lines</label>
+          <input type="number" id="cfg-max-debug-lines" class="cfg-input" min="10" step="10">
+          <small>Live. Caps how many lines the debug panel keeps.</small>
+        </div>
+        <div class="config-row">
+          <label for="cfg-debug-default">Debug panel</label>
+          <input type="checkbox" id="cfg-debug-default" style="accent-color:var(--accent);">
+          <label for="cfg-debug-default" style="min-width:auto;">Open by default on load</label>
+        </div>
+        <div class="config-row">
+          <label for="cfg-auto-refresh-default">Auto-refresh</label>
+          <input type="checkbox" id="cfg-auto-refresh-default" style="accent-color:var(--accent);">
+          <label for="cfg-auto-refresh-default" style="min-width:auto;">Enabled by default on load</label>
+        </div>
+      </fieldset>
+
+      <div class="config-actions">
+        <button class="btn-save config-btn" id="btn-save-config" style="background:var(--accent);color:#fff;">Save</button>
+        <button class="config-btn config-btn-reset" id="btn-reset-config">Reset to defaults</button>
+        <span id="cfg-status"></span>
+      </div>
+      <small style="color:var(--muted);display:block;margin-top:8px;">Saved to this browser's localStorage only. Table IDs and the webhook base URL are not secrets; nothing here is sent to n8n or the proxy.</small>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <h2 id="modal-title">Edit Row</h2>
+    <div id="modal-body"></div>
+    <div class="btn-row">
+      <button class="btn-save" id="btn-save">Save</button>
+      <button class="btn-cancel" id="btn-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="debug-panel collapsed" id="debug-panel">
+  <div class="debug-header" id="debug-header"><span id="debug-toggle">▸</span> Debug <button id="debug-clear">Clear</button></div>
+  <div class="debug-body" id="debug-body"></div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ─── Config (Settings tab) ────────────────────────────────────────────────
+  // Browser-side only: persisted to localStorage, never sent to n8n or the proxy.
+  const CONFIG_KEY = 'n8n-table-ui-config';
+  const CONFIG_DEFAULTS = {
+    tableHome: 'xKckTZI3ZU5HqIpZ',
+    tableJobs: 'vN5vMR56WpEsdLMn',
+    tableTemplates: 'haulC2FnGWqHb0no',
+    tableLink: 'ComfyUI.JobID == Shorts_Production.id',
+    webhookBase: 'http://10.0.0.157:5678/webhook',
+    n8nHost: 'n8n',
+    n8nPort: '5678',
+    apiBase: '127.0.0.1',
+    apiPort: '3456',
+    refreshInterval: 15000,
+    maxDebugLines: 100,
+    debugDefault: false,
+    autoRefreshDefault: true,
+  };
+  let config = { ...CONFIG_DEFAULTS };
+  // Populated from the proxy's GET /config so the read-only fields show the real
+  // container env rather than whatever was last saved in this browser.
+  let serverConfig = null;
+
+  function getWebhookBase() {
+    const b = (config.webhookBase || '').trim() || CONFIG_DEFAULTS.webhookBase;
+    return b.replace(/\/+$/, '');
+  }
+
+  // ─── State ───────────────────────────────────────────────────────────────
+  // TABLES is mutated in place by applyLiveConfig() so every existing
+  // TABLES.comfy / TABLES.shorts reference keeps working.
+  const TABLES = {
+    comfy: config.tableHome,
+    shorts: config.tableJobs,
+  };
+  const state = {
+    currentTableId: config.tableHome,
+    rows: [],
+    templates: [],
+    otherRows: [], // rows of the non-current table, for Job ID linking
+    otherTableId: null, // id of the sister table backing otherRows
+    modalOpen: false,
+    saveInFlight: false,
+    autoRefreshRunning: false,
+    autoRefreshTimer: null,
+    modalRow: null,
+    modalTableId: null, // table the modal row belongs to (== currentTableId for Edit, == otherTableId for JobID pop)
+  };
+
+  // Link rule: ComfyUI.JobID (string) === Shorts_Production.id (number→string).
+  function jobIdOfComfyRow(r) { return colVal(r, 'jobid', 'job_id', 'jobID'); }
+  function linkedJobsForShortsRow(srow) {
+    const jid = String(srow.id);
+    return state.otherRows.filter(j => String(jobIdOfComfyRow(j)) === jid);
+  }
+  function parentShortsForComfyRow(crow) {
+    const jid = String(jobIdOfComfyRow(crow));
+    return state.otherRows.find(s => String(s.id) === jid) || null;
+  }
+
+  const HIDDEN_COLS = new Set(['id', 'createdat', 'updatedat']);
+  // Home grid hides Prompt/Ref/API/Params too — edit modal still shows them (except API, linked to type pulldown).
+  const HOME_HIDDEN_COLS = new Set(['prompt', 'ref', 'reference', 'reffrence', 'api', 'params']);
+
+  function isHiddenCol(name) { return HIDDEN_COLS.has(colKey(name)); }
+  function isHomeHiddenCol(name) { return HOME_HIDDEN_COLS.has(colKey(name)); }
+
+  // ─── Helpers ─────────────────────────────────────────────────────
+  function $(sel) { return document.querySelector(sel); }
+  function log(msg) {
+    const db = $('#debug-body') || $('#debug-panel');
+    if (!db) return;
+    const line = document.createElement('div');
+    line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + String(msg).slice(0, 300);
+    db.appendChild(line);
+    const cap = parseInt(config.maxDebugLines, 10) || CONFIG_DEFAULTS.maxDebugLines;
+    while (db.children.length > cap) db.removeChild(db.firstChild);
+    db.scrollTop = db.scrollHeight;
+  }
+  function setStatus(msg, kind) {
+    const sb = $('#status-bar');
+    if (!sb) return;
+    sb.textContent = msg;
+    sb.className = 'status-bar' + (kind ? ' ' + kind : '');
+  }
+
+  function isTrue(v) { return v === true || v === 'true'; }
+  function isFalse(v) { return v === false || v === 'false' || v === null || v === undefined; }
+
+  function systemCols(cols) {
+    return cols.filter(c => isHiddenCol(c.name));
+  }
+  function visibleCols(cols) { return cols.filter(c => !isHiddenCol(c.name)); }
+
+  // ─── Webhook ─────────────────────────────────────────────────────────────
+  async function callWebhook(path, body) {
+    log('→ ' + path + ' ' + JSON.stringify(body).slice(0, 120));
+    const resp = await fetch(getWebhookBase() + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const text = await resp.text();
+    log('← ' + path + ' HTTP ' + resp.status + ' ' + text.slice(0, 120));
+    if (!resp.ok) throw new Error('HTTP ' + resp.status + ': ' + text.slice(0, 200));
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      throw new Error('Non-JSON response: ' + text.slice(0, 200));
+    }
+  }
+
+  // yt-get returns [ { data: [...], nextCursor: null } ] — unwrap to rows.
+  // Unknown table returns [{}] — unwraps to [].
+  function unwrapRows(body) {
+    if (Array.isArray(body) && body.length === 1 && body[0] && Array.isArray(body[0].data)) return body[0].data;
+    if (body && Array.isArray(body.data)) return body.data;
+    if (Array.isArray(body)) return body;
+    return [];
+  }
+  async function loadTable(tableId) {
+    log('loadTable ' + tableId);
+    try {
+      const body = await callWebhook('/yt-get', { operation: 'get', id: tableId });
+      const rows = unwrapRows(body);
+      state.rows = rows;
+      log('loadTable loaded ' + rows.length + ' rows');
+      await loadLinkedTable(tableId);
+      renderPanels();
+      return rows;
+    } catch (e) {
+      log('loadTable ERROR: ' + e.message);
+      setStatus('Load error: ' + e.message, 'danger');
+      return [];
+    }
+  }
+
+  // Background-fetch the sister table so rows can show Job ID links.
+  // Best-effort: never fails the main load.
+  async function loadLinkedTable(tableId) {
+    const otherId = tableId === TABLES.comfy ? TABLES.shorts : TABLES.comfy;
+    try {
+      const body = await callWebhook('/yt-get', { operation: 'get', id: otherId });
+      state.otherRows = unwrapRows(body);
+      state.otherTableId = otherId;
+      log('loadLinkedTable loaded ' + state.otherRows.length + ' rows from ' + otherId);
+    } catch (e) {
+      log('loadLinkedTable skipped: ' + e.message);
+    }
+  }
+
+  async function loadTemplates() {
+    log('loadTemplates');
+    try {
+      const body = await callWebhook('/yt-get', { operation: 'get', id: config.tableTemplates });
+      const rows = unwrapRows(body);
+      state.templates = rows;
+      log('loadTemplates loaded ' + rows.length + ' templates');
+      return rows;
+    } catch (e) {
+      log('loadTemplates ERROR: ' + e.message);
+      return [];
+    }
+  }
+
+  function enrichRowsWithTemplateAPI() {
+    const templateByType = {};
+    state.templates.forEach(t => {
+      if (t.type) templateByType[t.type] = t.API;
+    });
+    state.rows.forEach(row => {
+      try {
+        if (row.type && templateByType[row.type] !== undefined) {
+          row.API = templateByType[row.type];
+        }
+      } catch (e) {
+        log('enrich row ' + row.id + ' skipped: ' + e.message);
+      }
+    });
+    renderPanels();
+    log('enriched ' + state.rows.length + ' rows with template API');
+  }
+
+  // ─── Case-insensitive column key helper ──────────────────────────
+  // n8n data tables may have mixed-case column names (e.g. Shorts_Production
+  // uses all-uppercase: Completed, File, Reffrence, Status, Working).
+  // The row objects use the exact column names as stored in n8n, so we must
+  // compare case-insensitively everywhere we match column names.
+  function colKey(name) { return String(name).toLowerCase(); }
+
+  function isCol(name, ...candidates) {
+    const k = colKey(name);
+    return candidates.some(c => colKey(c) === k);
+  }
+
+  // Case-insensitive cell lookup: returns the value of the first column
+  // whose name matches (case-insensitively), or undefined.
+  function colVal(row, ...candidates) {
+    const k = Object.keys(row).find(k => candidates.some(c => colKey(c) === colKey(k)));
+    return k === undefined ? undefined : row[k];
+  }
+
+  function renderCell(col, val, row, panelId) {
+    // Dispatch to the typed renderers: URL/File → img/video preview,
+    // API → truncated JSON, Working → status spinner.
+    // Job ID columns are clickable — open the linked row like Edit does.
+    if (isCol(col.name, 'url', 'file')) return renderURL(col, val);
+    if (isCol(col.name, 'api')) return renderAPI(col, val, row);
+    if (isCol(col.name, 'working')) return workingRenderer(panelId, val);
+    if (isCol(col.name, 'jobid', 'job_id', 'jobID')) return renderJobIdCell(col, val, row);
+    if (isCol(col.name, 'completed')) {
+      if (isTrue(val)) return '<span style="color:var(--success)">✓</span>';
+      return '<span style="color:var(--muted)">—</span>';
+    }
+    const s = (val == null ? '' : String(val));
+    const title = s.slice(0, 120);
+    const tip = 'title="' + escapeAttr(s.slice(0, 500)) + '"';
+    return '<span class="api-trunc" ' + tip + '>' + escapeHtml(title) + (s.length > 120 ? '…' : '') + '</span>';
+  }
+
+  function renderURL(col, val) {
+    if (!val) return '<span style="color:var(--muted)">—</span>';
+    try {
+      const v = String(val);
+      if (v.startsWith('http://') || v.startsWith('https://')) {
+        if (/\.(mp4|webm|mov|mkv)(\?|&|$)/i.test(v)) {
+          return '<video class="url-cell" controls playsInline data-url-fallback="' + escapeAttr(v) + '"><source src="' + escapeAttr(v) + '"></video>';
+        }
+        return '<img class="url-cell" src="' + escapeAttr(v) + '" alt="preview" data-url-fallback="' + escapeAttr(v) + '" style="cursor:pointer" onclick="window.open(this.src)">';
+      }
+      return escapeHtml(v);
+    } catch (e) {
+      return '<a class="url-link" href="' + escapeAttr(String(val)) + '">' + escapeHtml(String(val)) + '</a>';
+    }
+  }
+
+  // Broken img/video previews fall back to a plain link.
+  // Capture phase: resource errors don't bubble, so listen at document.
+  document.addEventListener('error', (e) => {
+    const t = e.target;
+    if (t && (t.tagName === 'IMG' || t.tagName === 'VIDEO') && t.hasAttribute && t.hasAttribute('data-url-fallback')) {
+      const v = t.getAttribute('data-url-fallback');
+      const a = document.createElement('a');
+      a.className = 'url-link';
+      a.href = v;
+      a.target = '_blank';
+      a.textContent = v;
+      if (t.replaceWith) t.replaceWith(a);
+    }
+  }, true);
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[c]));
+  }
+  function escapeAttr(s) { return escapeHtml(s).replace(/\n/g, ' '); }
+
+  function renderAPI(col, val, row) {
+    const s = String(val == null ? '' : val);
+    return '<span class="api-trunc" title="' + escapeAttr(s.slice(0, 500)) + '">' + escapeHtml(s.slice(0, 120)) + (s.length >= 120 ? '…' : '') + '</span>';
+  }
+
+  var CHECK_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="#3fb950"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+  function workingRenderer(panelId, val) {
+    const t = isTrue(val);
+    // Completed + Next Up rows are never working — Working col is noise there, show dash.
+    if (panelId === 'panel-completed') {
+      return '<span style="color:var(--muted)">—</span>';
+    }
+    if (panelId === 'panel-next') {
+      return '<span style="color:var(--muted)">—</span>';
+    }
+    if (panelId === 'panel-working') {
+      if (t) return '<span class="working-active"><span class="icon-spin">⟳</span> Working...</span>';
+      return '<span style="color:var(--muted)">—</span>';
+    }
+    return escapeHtml(String(val));
+  }
+
+  // ─── Job ID link cell ──────────────────────────────────────────────────
+  // JobID value is clickable — pops the linked row from the OTHER table.
+  // ComfyUI.JobID === Shorts_Production.id (string-compared).
+  function renderJobIdCell(col, val, row) {
+    const s = (val == null || val === '' ? '—' : String(val));
+    if (s === '—') return '<span style="color:var(--muted)">—</span>';
+    return '<span class="jobid-link" data-row-id="' + row.id + '" data-jobid="' + escapeAttr(s) + '" title="Open linked row from other table">' +
+      escapeHtml(s) + '</span>';
+  }
+  // Jobs column removed 2026-09-14 per user request — linkCell kept dead
+  // (no header/cell rendered) so old cached builds don't break on call.
+  function linkCell(row) {
+    if (state.currentTableId === TABLES.shorts) {
+      const jobs = linkedJobsForShortsRow(row);
+      if (!jobs.length) return '<span style="color:var(--muted)">—</span>';
+      const done = jobs.filter(j => isTrue(colVal(j, 'completed'))).length;
+      const wrk = jobs.filter(j => isTrue(colVal(j, 'working'))).length;
+      return '<span class="jobs-link" data-row-id="' + row.id + '" title="Open linked jobs">' +
+        jobs.length + ' job' + (jobs.length === 1 ? '' : 's') + ' · ' + done + ' done' + (wrk ? ' · ' + wrk + ' wrk' : '') + '</span>';
+    }
+    if (state.currentTableId === TABLES.comfy) {
+      const p = parentShortsForComfyRow(row);
+      if (!p) return '<span style="color:var(--muted)">—</span>';
+      return '<span class="jobs-link" data-row-id="' + row.id + '" title="Open parent short #' + p.id + '">→ Shorts #' + p.id + '</span>';
+    }
+    return '<span style="color:var(--muted)">—</span>';
+  }
+
+  // ─── buildTable ──────────────────────────────────────────────────────────
+  function buildTable(thead, tbody, empty, rows, actionBtn, panelId) {
+  const sid = id => (id.charAt(0) === '#' ? id : '#' + id);
+  thead = sid(thead); tbody = sid(tbody); empty = sid(empty);
+  const cols = [];
+    if (rows.length) {
+      Object.keys(rows[0]).forEach(k => {
+        if (!isHiddenCol(k) && !isHomeHiddenCol(k)) cols.push({ name: k });
+      });
+    }
+    if (!cols.length) {
+      $(thead).innerHTML = '';
+      $(tbody).innerHTML = '';
+      $(empty).style.display = 'block';
+      return;
+    }
+    $(empty).style.display = 'none';
+
+    $(thead).innerHTML = '<tr>' + cols.map(c => '<th>' + escapeHtml(c.name) + '</th>').join('') +
+      (actionBtn ? '<th></th>' : '<th></th>') + '</tr>';
+
+    if (!rows.length) {
+      $(tbody).innerHTML = '<tr><td colspan="' + (cols.length + 1) + '" style="text-align:center;color:var(--muted);padding:12px">No rows</td></tr>';
+      return;
+    }
+
+    $(tbody).innerHTML = rows.map(row => {
+      let html = '<tr>';
+      cols.forEach(col => {
+        html += '<td>' + renderCell(col, row[col.name], row, panelId) + '</td>';
+      });
+      if (actionBtn) {
+        html += '<td><button class="push-btn" data-id="' + row.id + '" data-type="' + escapeAttr(colVal(row, 'type') || '') + '">Push</button></td>';
+      } else {
+        html += '<td><button class="edit-btn" data-row-id="' + row.id + '">Edit</button></td>';
+      }
+      html += '</tr>';
+      return html;
+    }).join('');
+  }
+
+  // ─── renderPanels (cached: only rebuild panels whose rows changed) ─────
+  var panelCache = { completed: null, next: null, working: null };
+  function rowsHash(rows) {
+    if (!rows.length) return 'empty';
+    // Include Job ID link state so badges refresh when the sister table changes.
+    const linkSig = state.otherRows.map(r => [r.id, colVal(r, 'completed'), colVal(r, 'working'), state.currentTableId === TABLES.shorts ? jobIdOfComfyRow(r) : null].join(',')).join(';');
+    const s = JSON.stringify(rows.map(r => [r.id, r])) + '|' + linkSig;
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return rows.length + ':' + (h >>> 0).toString(36);
+  }
+  function renderPanels() {
+    log('renderPanels rows=' + state.rows.length);
+    const hasCompleted = state.rows.length && Object.keys(state.rows[0]).some(k => colKey(k) === 'completed');
+    const hasWorking = state.rows.length && Object.keys(state.rows[0]).some(k => colKey(k) === 'working');
+
+    $('#panel-completed').style.display = hasCompleted ? '' : 'none';
+    $('#panel-next').style.display = hasCompleted ? '' : 'none';
+    $('#panel-working').style.display = hasWorking ? '' : 'none';
+
+    if (!hasCompleted && !hasWorking) {
+      setStatus('No Completed/Working columns in this table.', 'warn');
+      return;
+    }
+
+    const completedRows = hasCompleted
+      ? state.rows.filter(r => isTrue(colVal(r, 'completed')) && !isTrue(colVal(r, 'working')))
+      : [];
+    const nextRows = hasCompleted
+      ? state.rows.filter(r => !isTrue(colVal(r, 'completed')) && !isTrue(colVal(r, 'working')))
+      : [];
+    const workingRows = hasWorking
+      ? state.rows.filter(r => isTrue(colVal(r, 'working')))
+      : [];
+
+    $('#count-completed').textContent = completedRows.length;
+    $('#count-next').textContent = nextRows.length;
+    $('#count-working').textContent = workingRows.length;
+
+    const hC = rowsHash(completedRows), hN = rowsHash(nextRows), hW = rowsHash(workingRows);
+    let skipped = [];
+    if (panelCache.completed !== hC) {
+      buildTable('thead-completed', 'tbody-completed', 'empty-completed', completedRows, null, 'panel-completed');
+      panelCache.completed = hC;
+    } else skipped.push('completed');
+    if (panelCache.next !== hN) {
+      buildTable('thead-next', 'tbody-next', 'empty-next', nextRows, 'push', 'panel-next');
+      panelCache.next = hN;
+    } else skipped.push('next');
+    if (panelCache.working !== hW) {
+      buildTable('thead-working', 'tbody-working', 'empty-working', workingRows, null, 'panel-working');
+      panelCache.working = hW;
+    } else skipped.push('working');
+    if (skipped.length) log('renderPanels skipped unchanged: ' + skipped.join(','));
+
+    // wire Edit/Push/JobID links via delegation (bound once — survives cached skips)
+    // JobID click pops the linked row from the OTHER table (never the same row).
+    if (!renderPanels._wired) {
+      document.addEventListener('click', (e) => {
+        const jl = e.target.closest && e.target.closest('.jobid-link');
+        if (jl) {
+          e.stopPropagation();
+          const jobid = jl.getAttribute('data-jobid');
+          openLinkedRow(jobid);
+          return;
+        }
+        const eb = e.target.closest && e.target.closest('.edit-btn');
+        if (eb) {
+          e.stopPropagation();
+          const id = eb.getAttribute('data-row-id');
+          const row = state.rows.find(r => String(r.id) === String(id));
+          if (row) openModalByRow(row);
+          return;
+        }
+        const pb = e.target.closest && e.target.closest('.push-btn');
+        if (pb) {
+          e.stopPropagation();
+          doPush(pb.getAttribute('data-id'), pb.getAttribute('data-type'));
+        }
+      });
+      renderPanels._wired = true;
+    }
+
+    setStatus('Loaded ' + state.rows.length + ' rows', '');
+  }
+
+  // ─── Push ────────────────────────────────────────────────────────────
+  // Push moves a Next Up row to Working via the yt-wright webhook.
+  async function doPush(rowId, rowType) {
+    setStatus('Pushing ' + rowId + '...', 'warn');
+    log('doPush ' + rowId + ' type=' + rowType);
+    try {
+      await callWebhook('/yt-wright', {
+        operation: 'write',
+        id: state.currentTableId,
+        row: { data: [{ Type: rowType, Working: true }] },
+      });
+      log('yt-wright OK');
+      setStatus('Push sent', 'success');
+      setTimeout(async () => {
+        await loadTable(state.currentTableId);
+        await loadTemplates();
+        await enrichRowsWithTemplateAPI();
+      }, 1200);
+    } catch (e) {
+      log('doPush ERROR: ' + e.message);
+      setStatus('Push error: ' + e.message, 'danger');
+    }
+  }
+
+  // ─── Modal ───────────────────────────────────────────────────────────────
+  // JobID click: pop ONLY the linked row from the other table.
+  // Comfy tab: JobID === Shorts.id → open that single Shorts row.
+  // Shorts tab (rare JobID col): JobID → Comfy rows with that JobID → open first.
+  function openLinkedRow(jobid) {
+    const jid = String(jobid == null ? '' : jobid).trim();
+    if (!jid) { setStatus('Empty Job ID — nothing linked.', 'warn'); return; }
+    if (!state.otherRows.length) { setStatus('Linked table not loaded yet — refresh and retry.', 'warn'); log('openLinkedRow: otherRows empty'); return; }
+    // The table that carries the JobID column is always the ComfyUI table.
+    const comfyRows = state.currentTableId === TABLES.comfy ? state.rows : state.otherRows;
+    const shortsRows = state.currentTableId === TABLES.shorts ? state.rows : state.otherRows;
+    const jobs = comfyRows.filter(j => String(jobIdOfComfyRow(j)) === jid);
+    if (!jobs.length) { setStatus('No ComfyUI rows with Job ID ' + jid + '.', 'warn'); log('openLinkedRow: no jobs for ' + jid); return; }
+    if (jobs.length > 1) setStatus('Showing ' + jobs.length + ' ComfyUI rows with Job ID ' + jid + '.', 'warn');
+    const parent = shortsRows.find(s => String(s.id) === jid) || null;
+    openModalByRow({ jobs, parent, jid }, state.otherTableId, 'jobs');
+  }
+  // mode: 'edit' (inputs + type pulldown + API preview + Save) or
+  // 'view' (JobID pop: read-only descriptions only, no inputs/pulldown/API).
+  function openModalByRow(row, tableId, mode) {
+    mode = mode || 'edit';
+    log('openModalByRow row.id=' + row.id + ' table=' + (tableId || state.currentTableId) + ' mode=' + mode);
+    state.modalRow = row;
+    state.modalTableId = tableId || state.currentTableId;
+    state.modalMode = mode;
+    const overlay = $('#modal-overlay');
+    overlay.classList.add('open');
+    state.modalOpen = true;
+
+    const body = $('#modal-body');
+
+    // ── JOBS MODE: multi-row JobID panel — every Job ID click, any tab.
+    // row is { jobs: ComfyUI rows[], parent: Shorts row (Comfy tab only) or null, jid: string }.
+    // Columns out of order so title is set from real values before the title/mini-summary.
+    if (mode === 'jobs') {
+      const wrapped = row && typeof row === 'object' && 'jobs' in row ? row : null;
+      const jobs = wrapped ? wrapped.jobs : (Array.isArray(row) ? row : [row]);
+      const jid = wrapped ? wrapped.jid : String(jobIdOfComfyRow(jobs[0]) || '');
+      const parent = wrapped && wrapped.parent ? wrapped.parent : null;
+      const done = jobs.filter(j => isTrue(colVal(j, 'completed'))).length;
+      const wrk = jobs.filter(j => isTrue(colVal(j, 'working'))).length;
+      const pend = jobs.length - done - wrk;
+
+      // Title (set after jid/jobs extracted; before body.innerHTML swap below).
+      $('#modal-title').textContent = 'Job ID — ' + (jid || '—') + ' · ' + jobs.length + ' linked';
+
+      // Summary bar
+      let html = '';
+      html += '<div class="jobid-modal-header">' +
+        '<div class="jmh-top">' +
+          (parent
+            ? '<div class="jmh-label">Parent short · Job ID</div><div class="jmh-id">#' + escapeHtml(String(parent.id)) + '</div>'
+            : '<div class="jmh-label">Job ID</div><div class="jmh-id">' + escapeHtml(jid || '—') + '</div>') +
+        '</div>' +
+        '<div class="jmh-stats">' +
+          '<div class="jmh-stat jmh-stat-done"><span class="jmh-dot"></span>' + done + ' done</div>' +
+          '<div class="jmh-stat jmh-stat-wrk"><span class="jmh-dot"></span>' + wrk + ' working</div>' +
+          '<div class="jmh-stat jmh-stat-pend"><span class="jmh-dot"></span>' + pend + ' pending</div>' +
+          '<div class="jmh-count">' + jobs.length + ' linked job' + (jobs.length === 1 ? '' : 's') + '</div>' +
+        '</div>' +
+      '</div>';
+
+      if (parent) {
+        const ptype = String(colVal(parent, 'type') || '');
+        const pstatus = String(colVal(parent, 'Status') || colVal(parent, 'status') || '');
+        html += '<div class="linked-jobs" style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">' +
+          '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Parent</div>' +
+          '<div style="font-size:13px;font-weight:600">Shorts #' + escapeHtml(String(parent.id)) +
+          (ptype ? ' · ' + escapeHtml(ptype) : '') +
+          (pstatus ? ' · ' + escapeHtml(pstatus) : '') + '</div></div>';
+      }
+
+      if (!jobs.length) {
+        html += '<div class="jobid-empty">No ComfyUI rows with this Job ID yet.</div>';
+      } else {
+        const order = { 'working': 0, 'completed': 1, 'pending': 2 };
+        const ranked = jobs.map(j => {
+          if (isTrue(colVal(j, 'working'))) return { j, rank: 0 };
+          if (isTrue(colVal(j, 'completed'))) return { j, rank: 1 };
+          return { j, rank: 2 };
+        }).sort((a, b) => a.rank - b.rank || String(a.j.id) - String(b.j.id));
+
+        html += '<div class="jobid-job-list">';
+        ranked.forEach(({ j }) => {
+          const st = isTrue(colVal(j, 'completed')) ? 'done' :
+            isTrue(colVal(j, 'working')) ? 'working' : 'pending';
+          const stColor = st === 'done' ? 'var(--success)' :
+            st === 'working' ? 'var(--warn)' : 'var(--muted)';
+          const stLabel = st === 'done' ? '✓ done' :
+            st === 'working' ? '… working' : 'pending';
+          const url = colVal(j, 'url');
+          const link = url ? '<a class="url-link" href="' + escapeAttr(String(url)) + '" target="_blank">open output</a>' : '';
+          const prompt = String(colVal(j, 'prompt') || '');
+
+          html += '<div class="jobid-job-card">' +
+            '<div class="jic-head">' +
+              '<span class="jic-id">#' + j.id + '</span>' +
+              '<span class="jic-badge" style="color:' + stColor + ';background:' + stColor + '20;border:1px solid ' + stColor + '50">' + stLabel + '</span>' +
+              '<span class="jic-type">' + escapeHtml(String(colVal(j, 'type') || '')) + '</span>' +
+              (link ? '<span class="jic-link">' + link + '</span>' : '') +
+            '</div>' +
+            (prompt ? '<div class="jic-prompt">' + escapeHtml(prompt.slice(0, 280)) + (prompt.length > 280 ? '…' : '') + '</div>' : '') +
+          '</div>';
+        });
+        html += '</div>';
+      }
+      body.innerHTML = html;
+      log('modal opened (jobs) for JobID ' + jid + ' — ' + jobs.length + ' rows');
+      return;
+    }
+
+    // ── VIEW MODE: single row read-only panel (Comfy tab → parent Shorts row)
+    if (mode === 'view') {
+      let cols = [];
+      if (row) {
+        Object.keys(row).forEach(k => {
+          if (!isHiddenCol(k)) cols.push({ name: k });
+        });
+      }
+      const typeVal = colVal(row, 'type');
+      let html = '';
+      if (typeVal) {
+        html += '<div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">' +
+          '<div style="font-size:13px;color:var(--muted)">Type</div>' +
+          '<div style="font-size:15px;font-weight:600">' + escapeHtml(String(typeVal)) + '</div></div>';
+      }
+      html += '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Row #' + row.id + '</div>';
+      cols.forEach(col => {
+        if (isCol(col.name, 'api')) return;
+        const val = row[col.name];
+        if (isCol(col.name, 'url', 'file') && val) {
+          html += '<div style="margin-bottom:10px">' +
+            '<div style="font-size:11px;color:var(--muted);margin-bottom:3px">' + escapeHtml(col.name) + '</div>' +
+            '<div>' + renderURL(col, val) + '</div></div>';
+        } else if (isCol(col.name, 'completed')) {
+          html += '<div style="margin-bottom:10px">' +
+            '<div style="font-size:11px;color:var(--muted);margin-bottom:3px">' + escapeHtml(col.name) + '</div>' +
+            '<div style="font-size:14px">' + (isTrue(val) ? '<span style="color:var(--success)">✓ Completed</span>' : '<span style="color:var(--muted)">Not completed</span>') + '</div></div>';
+        } else if (isCol(col.name, 'working')) {
+          html += '<div style="margin-bottom:10px">' +
+            '<div style="font-size:11px;color:var(--muted);margin-bottom:3px">' + escapeHtml(col.name) + '</div>' +
+            '<div style="font-size:14px">' + (isTrue(val) ? '<span style="color:var(--warn)">Working…</span>' : '<span style="color:var(--muted)">Not working</span>') + '</div></div>';
+        } else {
+          const s = (val == null ? '' : String(val));
+          if (!s) return;
+          html += '<div style="margin-bottom:10px">' +
+            '<div style="font-size:11px;color:var(--muted);margin-bottom:3px">' + escapeHtml(col.name) + '</div>' +
+            '<div style="font-size:13px;white-space:pre-wrap;word-break:break-word">' + escapeHtml(s) + '</div></div>';
+        }
+      });
+      body.innerHTML = html;
+      log('modal opened (view) for row ' + row.id);
+      return;
+    }
+let cols = [];
+    if (row) {
+      Object.keys(row).forEach(k => {
+        if (!isHiddenCol(k)) cols.push({ name: k });
+      });
+    }
+    // order: type, Completed, Working, URL, then rest (API hidden — linked to type pulldown)
+    const order = ['type', 'Completed', 'Working', 'URL'];
+    const ordered = [];
+    order.forEach(name => {
+      const c = cols.find(c => colKey(c.name) === colKey(name));
+      if (c) { ordered.push(c); cols = cols.filter(c => colKey(c.name) !== colKey(name)); }
+    });
+    ordered.push(...cols);
+
+    let html = '';
+    ordered.forEach(col => {
+      const val = row[col.name];
+      if (isCol(col.name, 'API')) return; // hidden — linked to type pulldown, preview below shows it
+      if (isCol(col.name, 'type')) {
+        html += '<div class="field-group"><label>' + escapeHtml(col.name) + '</label><select id="modal-type"><option value="">—</option>';
+        state.templates.forEach(t => {
+          html += '<option value="' + escapeAttr(t.type) + '"' + (t.type === val ? ' selected' : '') + '>' + escapeHtml(t.type) + '</option>';
+        });
+        html += '</select></div>';
+      } else if (isCol(col.name, 'Completed', 'completed')) {
+        html += '<div class="field-group checkbox-row"><label>' + escapeHtml(col.name) + '</label><input type="checkbox" id="modal-completed"' + (isTrue(val) ? ' checked' : '') + '></div>';
+      } else if (isCol(col.name, 'Working', 'working')) {
+        html += '<div class="field-group checkbox-row"><label>' + escapeHtml(col.name) + '</label><input type="checkbox" id="modal-working"' + (isTrue(val) ? ' checked' : '') + '></div>';
+      } else {
+        html += '<div class="field-group"><label>' + escapeHtml(col.name) + '</label><input type="text" id="modal-' + escapeAttr(col.name) + '" value="' + escapeAttr(String(val == null ? '' : val)) + '"></div>';
+      }
+    });
+
+    // template preview
+    html += '<div class="template-preview"><h4>Template API (from selected type)</h4><textarea id="modal-template-api" readonly>' + escapeHtml('') + '</textarea></div>';
+
+    body.innerHTML = html;
+
+    // wire type select to update template preview + row.API
+    const typeSel = $('#modal-type');
+    if (typeSel) {
+      typeSel.addEventListener('change', () => {
+        const t = state.templates.find(t => t.type === typeSel.value);
+        const ta = $('#modal-template-api');
+        if (t && t.API) {
+          ta.value = t.API;
+          state.modalRow.API = t.API;
+        } else {
+          ta.value = '';
+          state.modalRow.API = null;
+        }
+      });
+      // trigger initial
+      setTimeout(() => typeSel.dispatchEvent(new Event('change')), 0);
+    }
+
+    // wire Completed + Working checkboxes to update row state live
+    // (case-insensitive: resolve the row's actual key casing first)
+    const cbCompleted = $('#modal-completed');
+    if (cbCompleted) {
+      cbCompleted.disabled = false;
+      cbCompleted.addEventListener('change', () => {
+        const k = Object.keys(state.modalRow).find(k => isCol(k, 'completed')) || 'Completed';
+        state.modalRow[k] = cbCompleted.checked;
+      });
+    }
+    const cbWorking = $('#modal-working');
+    if (cbWorking) {
+      cbWorking.disabled = false;
+      cbWorking.addEventListener('change', () => {
+        const k = Object.keys(state.modalRow).find(k => isCol(k, 'working')) || 'Working';
+        state.modalRow[k] = cbWorking.checked ? true : null;
+      });
+    }
+
+    log('modal opened for row ' + row.id);
+  }
+
+  function closeModal() {
+    const overlay = $('#modal-overlay');
+    overlay.classList.remove('open');
+    state.modalOpen = false;
+    state.modalRow = null;
+  }
+
+  async function sendPatch() {
+    if (!state.modalRow) return;
+    if (state.modalMode === 'view' || state.modalMode === 'jobs') return; // view-only JobID panel never saves
+    if (state.saveInFlight) { setStatus('Save already in progress...', 'warn'); return; }
+    state.saveInFlight = true;
+    const row = state.modalRow;
+    const patch = {};
+    const inputs = $('#modal-body').querySelectorAll('input, textarea, select');
+    inputs.forEach(inp => {
+      const group = inp.closest('.field-group');
+      if (!group) return;
+      const label = group.querySelector('label');
+      if (!label) return;
+      const colLabel = label.textContent.trim();
+      if (!colLabel) return;
+      // Find the actual column name from state.modalRow keys (case-insensitive match)
+      const actualKey = Object.keys(row).find(k => colKey(k) === colKey(colLabel));
+      if (!actualKey) return;
+      if (isCol(actualKey, 'API')) return; // read-only
+      if (isCol(actualKey, 'Completed', 'completed')) {
+        patch[actualKey] = inp.checked;
+      } else if (isCol(actualKey, 'Working', 'working')) {
+        patch[actualKey] = inp.checked ? true : null;
+      } else if (isCol(actualKey, 'type')) {
+        patch[actualKey] = inp.value;
+        const t = state.templates.find(t => t.type === inp.value);
+        if (t) patch.API = t.API;
+      } else {
+        patch[actualKey] = inp.value;
+      }
+    });
+    log('sendPatch patch=' + JSON.stringify(patch));
+    try {
+      await callWebhook('/yt-update', {
+        operation: 'update',
+        id: state.currentTableId,
+        match: { id: String(row.id) },
+        row: patch,
+      });
+      setStatus('Saved row ' + row.id, 'success');
+      log('sendPatch OK');
+      closeModal();
+      setTimeout(async () => {
+        state.saveInFlight = false;
+        await loadTable(state.currentTableId);
+        await loadTemplates();
+        await enrichRowsWithTemplateAPI();
+      }, 1200);
+    } catch (e) {
+      state.saveInFlight = false;
+      log('sendPatch ERROR: ' + e.message);
+      setStatus('Save error: ' + e.message, 'danger');
+    }
+  }
+
+  // ─── Config load / save ───────────────────────────────────────────────────
+  function loadConfig() {
+    let stored = null;
+    try {
+      const raw = localStorage.getItem(CONFIG_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) stored = parsed;
+      }
+    } catch (e) {
+      log('config load error: ' + e.message);
+    }
+    config = { ...CONFIG_DEFAULTS, ...(stored || {}) };
+    if (typeof config.debugDefault !== 'boolean') config.debugDefault = CONFIG_DEFAULTS.debugDefault;
+    if (typeof config.autoRefreshDefault !== 'boolean') config.autoRefreshDefault = CONFIG_DEFAULTS.autoRefreshDefault;
+  }
+
+  // Read-only fields mirror the proxy's env, not localStorage.
+  function readOnlyValues() {
+    return {
+      n8nHost: serverConfig ? serverConfig.n8nHost : config.n8nHost,
+      n8nPort: serverConfig ? serverConfig.n8nPort : config.n8nPort,
+      apiBase: serverConfig ? serverConfig.apiBase : config.apiBase,
+      apiPort: serverConfig ? serverConfig.apiPort : config.apiPort,
+    };
+  }
+
+  function readConfigForm() {
+    return {
+      tableHome: $('#cfg-table-home').value.trim(),
+      tableJobs: $('#cfg-table-jobs').value.trim(),
+      tableTemplates: $('#cfg-table-templates').value.trim(),
+      tableLink: $('#cfg-table-link').value.trim(),
+      webhookBase: $('#cfg-webhook-base').value.trim(),
+      refreshInterval: $('#cfg-refresh-interval').value,
+      maxDebugLines: $('#cfg-max-debug-lines').value,
+      debugDefault: $('#cfg-debug-default').checked,
+      autoRefreshDefault: $('#cfg-auto-refresh-default').checked,
+    };
+  }
+
+  function populateConfigForm() {
+    const ro = readOnlyValues();
+    $('#cfg-table-home').value = config.tableHome;
+    $('#cfg-table-jobs').value = config.tableJobs;
+    $('#cfg-table-templates').value = config.tableTemplates;
+    $('#cfg-table-link').value = config.tableLink;
+    $('#cfg-webhook-base').value = config.webhookBase;
+    $('#cfg-n8n-host').value = ro.n8nHost;
+    $('#cfg-n8n-port').value = ro.n8nPort;
+    $('#cfg-api-base').value = ro.apiBase;
+    $('#cfg-api-port').value = ro.apiPort;
+    $('#cfg-proxy-base').value = serverConfig ? serverConfig.proxyBase : location.origin;
+    $('#cfg-refresh-interval').value = config.refreshInterval;
+    $('#cfg-max-debug-lines').value = config.maxDebugLines;
+    $('#cfg-debug-default').checked = config.debugDefault;
+    $('#cfg-auto-refresh-default').checked = config.autoRefreshDefault;
+  }
+
+  // Push config into the live runtime. TABLES is mutated in place so existing
+  // references stay valid; the Home/Jobs tab buttons are re-pointed so the tab
+  // switcher loads the configured tables.
+  function applyLiveConfig() {
+    TABLES.comfy = config.tableHome;
+    TABLES.shorts = config.tableJobs;
+
+    const homeBtn = document.querySelector('.tab-btn[data-role="home"]');
+    const jobsBtn = document.querySelector('.tab-btn[data-role="jobs"]');
+    if (homeBtn) homeBtn.setAttribute('data-table', config.tableHome);
+    if (jobsBtn) jobsBtn.setAttribute('data-table', config.tableJobs);
+
+    // If a data tab is active, keep state.currentTableId in sync with it.
+    const activeTab = document.querySelector('.tab-btn.active');
+    if (activeTab) {
+      const activeTable = activeTab.getAttribute('data-table');
+      if (activeTable && activeTable !== state.currentTableId) {
+        state.currentTableId = activeTable;
+        panelCache.completed = panelCache.next = panelCache.working = null;
+      }
+    }
+
+    if (state.autoRefreshRunning || config.autoRefreshDefault) {
+      startAutoRefresh(config.refreshInterval);
+    }
+  }
+
+  function showConfigStatus(msg, color) {
+    const el = $('#cfg-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = color || 'var(--muted)';
+  }
+
+  function saveConfig() {
+    const next = readConfigForm();
+    if (!next.webhookBase) {
+      showConfigStatus('Webhook base URL is required.', 'var(--danger)');
+      return;
+    }
+    if (!next.tableHome) {
+      showConfigStatus('Home table ID is required.', 'var(--danger)');
+      return;
+    }
+    if (!next.tableJobs) {
+      showConfigStatus('Jobs table ID is required.', 'var(--danger)');
+      return;
+    }
+    if (!next.tableTemplates) {
+      showConfigStatus('Templates table ID is required.', 'var(--danger)');
+      return;
+    }
+    const interval = parseInt(next.refreshInterval, 10);
+    if (!interval || interval < 1000) {
+      showConfigStatus('Refresh interval must be a number ≥ 1000 ms.', 'var(--danger)');
+      return;
+    }
+    const maxLines = parseInt(next.maxDebugLines, 10);
+    if (!maxLines || maxLines < 10) {
+      showConfigStatus('Max debug lines must be a number ≥ 10.', 'var(--danger)');
+      return;
+    }
+    if (next.webhookBase && !/^https?:\/\//i.test(next.webhookBase)) {
+      showConfigStatus('Webhook base URL must start with http:// or https://', 'var(--danger)');
+      return;
+    }
+
+    const tableChanged = next.tableHome !== config.tableHome || next.tableJobs !== config.tableJobs
+      || next.tableTemplates !== config.tableTemplates;
+    const baseChanged = next.webhookBase !== config.webhookBase;
+
+    config = {
+      ...config,
+      ...next,
+      refreshInterval: interval,
+      maxDebugLines: maxLines,
+    };
+    try {
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+    } catch (e) {
+      showConfigStatus('Could not write localStorage: ' + e.message, 'var(--danger)');
+      return;
+    }
+    applyLiveConfig();
+    populateConfigForm();
+    log('config saved');
+    showConfigStatus('Saved.', 'var(--success)');
+
+    if (tableChanged || baseChanged) {
+      fullReload().catch(e => log('post-config reload error: ' + e.message));
+    }
+  }
+
+  function resetConfig() {
+    try {
+      localStorage.removeItem(CONFIG_KEY);
+    } catch (e) {
+      log('config reset error: ' + e.message);
+    }
+    config = { ...CONFIG_DEFAULTS };
+    applyLiveConfig();
+    populateConfigForm();
+    showConfigStatus('Reset to defaults.', 'var(--muted)');
+    log('config reset to defaults');
+    fullReload().catch(e => log('post-reset reload error: ' + e.message));
+  }
+
+  // Ask the proxy what its endpoint env actually is, so the read-only fields
+  // are accurate instead of guessed. Same-origin, so it works without CORS.
+  async function fetchServerConfig() {
+    const badge = $('#cfg-source-badge');
+    try {
+      const resp = await fetch('/config', { headers: { 'Accept': 'application/json' } });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      serverConfig = await resp.json();
+      if (badge) badge.textContent = 'proxy: ' + serverConfig.n8nHost + ':' + serverConfig.n8nPort;
+    } catch (e) {
+      log('server config unavailable: ' + e.message);
+      if (badge) badge.textContent = 'proxy: defaults (offline)';
+    }
+    populateConfigForm();
+  }
+
+  init();
+
+  function init() {
+    // config first — everything below reads from it
+    loadConfig();
+    applyLiveConfig();
+
+    // debug panel: collapse toggle + clear
+    const dh = $('#debug-header');
+    if (dh) dh.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'debug-clear') return;
+      $('#debug-panel').classList.toggle('collapsed');
+      const t = $('#debug-toggle');
+      if (t) t.textContent = $('#debug-panel').classList.contains('collapsed') ? '▸' : '▾';
+    });
+    const dc = $('#debug-clear');
+    if (dc) dc.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const db = $('#debug-body');
+      if (db) db.innerHTML = '';
+    });
+    if (config.debugDefault) {
+      $('#debug-panel').classList.remove('collapsed');
+      const dt = $('#debug-toggle');
+      if (dt) dt.textContent = '▾';
+    }
+    // tab switching — Home = ComfyUI, Jobs = Shorts_Production (single table each, no chooser)
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const panel = document.getElementById(btn.getAttribute('data-tab'));
+        if (panel) panel.classList.add('active');
+        const tbl = btn.getAttribute('data-table');
+        if (tbl && tbl !== state.currentTableId) {
+          state.currentTableId = tbl;
+          panelCache.completed = panelCache.next = panelCache.working = null;
+          log('switched to table ' + state.currentTableId);
+          fullReload().catch(e => log('switch error: ' + e.message));
+        }
+      });
+    });
+
+    // refresh button
+    $('#btn-refresh').addEventListener('click', () => {
+      fullReload().catch(e => log('refresh error: ' + e.message));
+    });
+
+    // modal
+    $('#modal-overlay').addEventListener('transitionend', () => {
+      // Only flip modalOpen when NOT mid-save — sendPatch's own closeModal()
+      // removes the 'open' class after the webhook returns, which would trigger
+      // this handler and clobber modalRow while the reload setTimeout is pending.
+      if (!state.saveInFlight) {
+        state.modalOpen = $('#modal-overlay').classList.contains('open');
+        if (!state.modalOpen) {
+          state.modalRow = null;
+        }
+      }
+    });
+    $('#btn-save').addEventListener('click', sendPatch);
+    $('#btn-cancel').addEventListener('click', closeModal);
+    $('#btn-cancel-create').addEventListener('click', () => {
+      $('#new-name').value = '';
+      $('#new-cols').value = '';
+      const ns = $('#new-status');
+      if (ns) ns.textContent = '';
+    });
+
+    // config tab
+    $('#btn-save-config').addEventListener('click', (e) => { e.preventDefault(); saveConfig(); });
+    $('#btn-reset-config').addEventListener('click', (e) => { e.preventDefault(); resetConfig(); });
+
+    // auto-refresh — applyLiveConfig() already started it if enabled by default
+    if (!config.autoRefreshDefault) {
+      stopAutoRefresh();
+      log('autoRefresh disabled by config');
+    }
+
+    // visibility change
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && !state.modalOpen) {
+        fullReload().catch(e => log('visibility reload error: ' + e.message));
+      }
+    });
+
+    log('init complete, loading table ' + state.currentTableId);
+    populateConfigForm();
+    fetchServerConfig();
+    (async () => {
+      await loadTable(state.currentTableId);
+      await loadTemplates();
+      await enrichRowsWithTemplateAPI();
+    })().catch(e => log('init chain error: ' + e.message));
+  }
+
+  function fullReload() {
+    return (async () => {
+      await loadTable(state.currentTableId);
+      await loadTemplates();
+      enrichRowsWithTemplateAPI();
+    })();
+  }
+
+  function stopAutoRefresh() {
+    if (state.autoRefreshTimer) {
+      clearInterval(state.autoRefreshTimer);
+      state.autoRefreshTimer = null;
+    }
+    state.autoRefreshRunning = false;
+  }
+
+  // Always restarts: clears any existing timer first so a changed interval
+  // from the Config tab doesn't leave a second ticker running.
+  function startAutoRefresh(interval) {
+    stopAutoRefresh();
+    const ms = parseInt(interval, 10) || CONFIG_DEFAULTS.refreshInterval;
+    log('startAutoRefresh ' + ms + 'ms');
+    state.autoRefreshRunning = true;
+    state.autoRefreshTimer = setInterval(() => {
+      if (!state.modalOpen) {
+        (async () => {
+          await loadTable(state.currentTableId);
+          await loadTemplates();
+          enrichRowsWithTemplateAPI();
+        })().catch(e => log('autoRefresh tick error: ' + e.message));
+      }
+    }, ms);
+  }
+
+  // ─── Create table ────────────────────────────────────────────────────────
+  async function parseColumns(text) {
+    text = (text || '').trim();
+    if (!text) return null;
+    try {
+      const arr = JSON.parse(text);
+      if (Array.isArray(arr)) return arr.filter(c => c && typeof c === 'object' && c.name);
+    } catch (e) {}
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    const cols = [];
+    for (const line of lines) {
+      try {
+        const obj = JSON.parse(line);
+        if (obj && typeof obj === 'object' && obj.name) cols.push(obj);
+      } catch (e) {}
+    }
+    return cols.length ? cols : null;
+  }
+
+  function showNewStatus(msg, color) {
+    const el = $('#new-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = color || 'var(--muted)';
+  }
+
+  async function createTable() {
+    const nameInput = $('#new-name');
+    const colsInput = $('#new-cols');
+    const name = (nameInput.value || '').trim();
+    const columns = parseColumns(colsInput.value);
+
+    if (!name) { showNewStatus('Table name is required.', 'var(--danger)'); return; }
+    if (!columns || columns.length === 0) { showNewStatus('Provide at least one column as JSON.', 'var(--danger)'); return; }
+
+    showNewStatus('Creating...', 'var(--warn)');
+    try {
+      const data = await callWebhook('/yt-create', {
+        operation: 'create',
+        row: { name, columns }
+      });
+      let tbl = data;
+      if (Array.isArray(data) && data.length && typeof data[0] === 'object') tbl = data[0];
+      if (!tbl || typeof tbl !== 'object' || !tbl.id) throw new Error('Unexpected response: ' + JSON.stringify(data).slice(0, 160));
+
+      // switch to Tables tab
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      const tTab = document.querySelector('.tab-btn[data-tab="panel-tables"]');
+      const tPanel = $('#panel-tables');
+      if (tTab) tTab.classList.add('active');
+      if (tPanel) tPanel.classList.add('active');
+
+      state.currentTableId = tbl.id;
+      panelCache.completed = panelCache.next = panelCache.working = null;
+      await loadTable(tbl.id);
+      await loadTemplates();
+      enrichRowsWithTemplateAPI();
+      showNewStatus('Created "' + name + '" — loaded.', 'var(--success)');
+      nameInput.value = '';
+      colsInput.value = '';
+    } catch (e) {
+      showNewStatus('Error: ' + e.message, 'var(--danger)');
+    }
+  }
+
+  $('#btn-create-table').addEventListener('click', (e) => { e.preventDefault(); createTable(); });
+
+})();
+</script>
+</body>
+</html>

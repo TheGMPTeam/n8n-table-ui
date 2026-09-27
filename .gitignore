@@ -1,0 +1,32 @@
+# local node deps
+node_modules/
+
+# runtime state — bind mounted at runtime, never commit host state
+.data/
+
+# logs
+*.log
+logs/
+
+# local dev/repair tooling & backups — not part of the shipped app
+index.html.bak*
+*.bak*
+_check_wf.sh
+start-proxy.vbs
+open_firewall.cmd
+nul
+fix_workflow.py
+fix_all_pks.py
+patch_jobid.py
+REBUILD_PLAN.md
+PROJECT_PLAN.md
+PROJECT_STATUS.md
+FACTS.md
+VERIFIED_TABLES.md
+SPEC.md
+SPEC_V2.md
+UPDATE_CHECKLIST.md
+pk_rebuild_reference.md
+crud_workflow.json
+references/
+node_modules/

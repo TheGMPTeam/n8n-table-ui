@@ -1,0 +1,44 @@
+# n8n-table-ui (speck) — server docker-compose service
+#
+# Drop into the server's docker-compose.yml (e.g. /opt/docker-compose/ or
+# wherever the n8n service already lives). This service runs alongside the
+# existing n8n container on the same Docker network and talks to it by service
+# name, NOT by hardcoded IP.
+#
+# Assumptions about the server's existing compose (from local SPEC.md):
+#   - n8n service name:  "n8n"
+#   - n8n API port:      5678 (exposed on the Docker network)
+#   - n8n API key:       set in the n8n service's env; re-declare here so the
+#                        UI proxy can forward /webhook/* calls with X-N8N-API-KEY.
+#
+# If the server's n8n service name or network differs, adjust "n8n" references
+# below and the networks block.
+
+services:
+  n8n-table-ui:
+    build:
+      context: ./n8n-table-ui        # path to the folder containing this file's
+                                      # sibling Dockerfile + proxy-server.cjs + index.html
+      dockerfile: Dockerfile
+    container_name: n8n-table-ui
+    restart: unless-stopped
+    ports:
+      - "3458:3458"                  # LAN access: http://<server-ip>:3458/
+    environment:
+      - NODE_ENV=production
+      - PORT=3458
+      - N8N_HOST=n8n                 # service name on the shared Docker network
+      - N8N_PORT=5678
+      - N8N_API_KEY=${N8N_API_KEY}   # inject from host env / .env file
+      - API_BASE=127.0.0.1
+      - API_PORT=3456
+    networks:
+      - n8n_network                  # MUST be the same network the n8n service uses
+    # Optional: bind-mount a local edit of index.html for dev without a rebuild.
+    # volumes:
+    #   - ./index.html:/app/index.html:ro
+
+networks:
+  n8n_network:                       # replace with the server's existing network name
+    external: true                   # if the network is already declared by the n8n service
+    # name: n8n_default              # uncomment + set to the actual network name if external:true alone is ambiguous
