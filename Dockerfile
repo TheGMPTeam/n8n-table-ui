@@ -17,10 +17,9 @@ ENV N8N_PORT=5678
 # N8N_API_KEY is deliberately NOT baked in here — inject it at runtime via
 # compose (N8N_API_KEY=${N8N_API_KEY}) or the .data/env drop-in. The proxy
 # simply omits the X-N8N-API-KEY header when it is unset.
-# Legacy server.js routing target (/api/*). server.js is not in this image, so
-# /api/* will 502 unless you mount it alongside.
-ENV API_BASE=127.0.0.1
-ENV API_PORT=3456
+# /api/* and /webhook/* are both proxied to n8n in the Docker-only stack.
+ENV API_BASE=n8n
+ENV API_PORT=5678
 # Writable runtime state: env drop-in, logs/, optional index.html override.
 ENV DATA_DIR=/app/.data
 

@@ -1,0 +1,42 @@
+# n8n-table-ui — drop-in service for the server's automation stack
+#
+# Add this file to the server's /home/dad/Config/ and append the n8n-table-ui
+# service block to docker-compose.yml, or include it from there.
+#
+# Server context (from /home/dad/Config/docker-compose.yml):
+#   network: automation
+#   n8n service name: n8n
+#   n8n port: 5678
+#   n8n webhook URL: http://10.0.0.157:5678/
+#   n8n data volume: ./data/n8n:/home/node/.n8n
+#   n8n shared data: ./data:/data:ro
+
+services:
+  n8n-table-ui:
+    build:
+      context: ./n8n-table-ui
+      dockerfile: Dockerfile
+    container_name: n8n-table-ui
+    restart: unless-stopped
+    ports:
+      - "3458:3458"
+    environment:
+      - NODE_ENV=production
+      - PORT=3458
+      - N8N_HOST=n8n
+      - N8N_PORT=5678
+      - N8N_API_KEY=${N8N_API_KEY}
+      - API_BASE=n8n
+      - API_PORT=5678
+      - DATA_DIR=/app/.data
+    volumes:
+      - ./data/n8n-table-ui/.data:/app/.data
+    networks:
+      - automation
+    depends_on:
+      - n8n
+
+networks:
+  automation:
+    external: true
+    name: automation

@@ -1,34 +1,42 @@
 # n8n Tables
 
-Web UI for the n8n webhooks API that lets you browse and edit the relational **speck** tables n8n buffers rows in (postgres/mysql/sqlite/ODBC). Runs directly on **Windows** and in **Docker**.
+Web UI for the n8n webhooks API that lets you browse and edit the relational **speck** tables n8n buffers rows in (postgres/mysql/sqlite/ODBC). Docker-only deployment on the server stack.
 
-- **speck-local mode** — a single proxy fans out `job_id`-scoped webhook calls to each speck job, one per table; permissive CORS + JSON body.
-- **speck-server mode** — the same proxy served from multiple Docker containers behind `n8n-webhooks`, a reverse proxy.
-- **17 tools** total across `SpeckJob`/`SpeckTable` rows, keyed by a stable `job_id`.
+- **server-stack mode** — the proxy runs as a Docker service on the same `automation` network as n8n, talking to it by service name (`n8n:5678`).
+- Single compose drop-in at `docker-compose.n8n-table-ui.yml`.
+- 17 tools total across `SpeckJob`/`SpeckTable` rows, keyed by a stable `job_id`.
 
 ## Run
 
-Two ways to run:
+### Server stack (10.0.0.157)
+
+The server compose lives at `/home/dad/Config/docker-compose.yml` on `10.0.0.157`. Add the n8n-table-ui service from this repo:
 
 ```bash
-git clone --recurse-submodules git@github.com:TheGMPTeam/n8n-table-ui.git
-git submodule update --init
+# From the server's Config dir, after copying docker-compose.n8n-table-ui.yml next to docker-compose.yml:
+docker compose up -d n8n-table-ui
 
-docker compose -f docker/speck-local.yml up --build
-docker compose -f docker/speck-server.yml up --build
-
-web: http://localhost:4400/n8n-table-ui/index.html?v=1.0.0
+# Or build from this repo and point at the server compose:
+docker compose -f docker-compose.n8n-table-ui.yml up --build
 ```
 
+Web UI:
+
 ```bash
-curl http://windows-server:3458/config
+curl http://10.0.0.157:3458/config
 curl http://127.0.0.1:3458/config
+```
+
+### Local smoke test (standalone)
+
+```bash
+docker compose -f docker/speck-local.yml up --build
 ```
 
 ## Architecture
 
-- **Docker (default)** — the proxy and one container per speck job.
-- **Native Windows** — runs the Node runtime directly on the host.
+- **Docker-only** — the proxy and n8n share the `automation` network; the proxy reaches n8n by service name.
+- Legacy native-Windows `server.js` direct-SQLite path is not part of the Docker image.
 - Speck jobs driven by `SpeckJob`/`SpeckTable` rows, keyed by a stable `job_id`.
 
 ## Dockerfile
@@ -39,10 +47,12 @@ ENV NODE_ENV=production
 ENV PORT=3458
 ENV N8N_HOST=n8n
 ENV N8N_PORT=5678
+ENV API_BASE=n8n
+ENV API_PORT=5678
+ENV DATA_DIR=/app/.data
 WORKDIR /app
-COPY proxy-server.cjs .
+COPY proxy-server.cjs ./
 COPY index.html ./
-COPY docker/cors.json .
 EXPOSE 3458
 CMD ["node", "proxy-server.cjs"]
 ```
