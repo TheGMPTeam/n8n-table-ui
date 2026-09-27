@@ -140,12 +140,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route /api/* to server.js (port 3456) — reads n8n SQLite directly
-  if (pathname.startsWith('/api/')) {
-    proxyReq(res, API_BASE, API_PORT, pathname, u.search, method, buf, req);
-    return;
-  }
-
   // Route /webhook/* to n8n
   if (pathname.startsWith('/webhook/')) {
     writeLog('-> ' + method + ' ' + pathname + '  n8n=' + N8N_HOST + ':' + N8N_PORT);

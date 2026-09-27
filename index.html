@@ -556,6 +556,7 @@
     <button class="tab-btn" data-tab="panel-tables" data-role="jobs" data-table="vN5vMR56WpEsdLMn">Jobs</button>
     <button class="tab-btn" data-tab="panel-config">Config</button>
     <button class="tab-btn" data-tab="panel-new">New</button>
+    <button class="tab-btn" data-tab="panel-setup">Setup</button>
   </div>
   <button class="refresh-btn" id="btn-refresh">Refresh</button>
 </div>
@@ -618,104 +619,20 @@
   </div>
 </div>
 
-<div class="tab-panel" id="panel-config">
+<div class="tab-panel" id="panel-setup">
   <div class="panel">
     <div class="panel-header">
-      <span class="panel-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2.4"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.2.63.77 1.06 1.43 1.09H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings</span>
-      <span class="count-badge" id="cfg-source-badge">loading…</span>
+      <span class="panel-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2.4"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <span id="setup-panel-title">Settings</span>
+      </span>
+      <span class="count-badge" id="setup-status">Ready</span>
     </div>
-    <div class="config-form">
-
-      <fieldset>
-        <legend>Table Registry</legend>
-        <div class="config-row">
-          <label for="cfg-table-home">Home table ID</label>
-          <input type="text" id="cfg-table-home" class="cfg-input" placeholder="xKckTZI3ZU5HqIpZ" spellcheck="false">
-        </div>
-        <div class="config-row">
-          <label for="cfg-table-jobs">Jobs table ID</label>
-          <input type="text" id="cfg-table-jobs" class="cfg-input" placeholder="vN5vMR56WpEsdLMn" spellcheck="false">
-        </div>
-        <div class="config-row">
-          <label for="cfg-table-templates">Templates table ID</label>
-          <input type="text" id="cfg-table-templates" class="cfg-input" placeholder="haulC2FnGWqHb0no" spellcheck="false">
-        </div>
-        <div class="config-row">
-          <label for="cfg-table-link">Link rule</label>
-          <input type="text" id="cfg-table-link" class="cfg-input" placeholder="ComfyUI.JobID == Shorts_Production.id" spellcheck="false">
-          <small>Reference only. Describes how the Home and Jobs tables are joined for row linking.</small>
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <legend>Webhook &amp; Endpoint Settings</legend>
-        <div class="config-row">
-          <label for="cfg-webhook-base">Webhook base URL</label>
-          <input type="text" id="cfg-webhook-base" class="cfg-input" placeholder="http://10.0.0.157:5678/webhook" spellcheck="false">
-          <small>Live. Overrides the base URL used for every /yt-* webhook call. Use an absolute URL.</small>
-        </div>
-        <div class="config-row">
-          <label for="cfg-n8n-host">N8N host (proxy target)</label>
-          <input type="text" id="cfg-n8n-host" class="cfg-input" readonly>
-          <small>Read-only. Set by the container's N8N_HOST env var in compose.</small>
-        </div>
-        <div class="config-row">
-          <label for="cfg-n8n-port">N8N port</label>
-          <input type="text" id="cfg-n8n-port" class="cfg-input" readonly>
-          <small>Read-only. Set by the container's N8N_PORT env var in compose.</small>
-        </div>
-        <div class="config-row">
-          <label for="cfg-api-base">API base (legacy)</label>
-          <input type="text" id="cfg-api-base" class="cfg-input" readonly>
-          <small>Read-only. Legacy direct-SQLite path; not present in the Docker image.</small>
-        </div>
-        <div class="config-row">
-          <label for="cfg-api-port">API port (legacy)</label>
-          <input type="text" id="cfg-api-port" class="cfg-input" readonly>
-          <small>Read-only. Legacy direct-SQLite path; not present in the Docker image.</small>
-        </div>
-        <div class="config-row">
-          <label for="cfg-proxy-base">Proxy base URL</label>
-          <input type="text" id="cfg-proxy-base" class="cfg-input" readonly>
-          <small>Read-only. Origin this page was served from; the proxy forwards /webhook/* here.</small>
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <legend>UI Behavior</legend>
-        <div class="config-row">
-          <label for="cfg-refresh-interval">Auto-refresh interval (ms)</label>
-          <input type="number" id="cfg-refresh-interval" class="cfg-input" min="1000" step="1000">
-          <small>Live. Restarted immediately when you save. Minimum 1000.</small>
-        </div>
-        <div class="config-row">
-          <label for="cfg-max-debug-lines">Max debug log lines</label>
-          <input type="number" id="cfg-max-debug-lines" class="cfg-input" min="10" step="10">
-          <small>Live. Caps how many lines the debug panel keeps.</small>
-        </div>
-        <div class="config-row">
-          <label for="cfg-debug-default">Debug panel</label>
-          <input type="checkbox" id="cfg-debug-default" style="accent-color:var(--accent);">
-          <label for="cfg-debug-default" style="min-width:auto;">Open by default on load</label>
-        </div>
-        <div class="config-row">
-          <label for="cfg-auto-refresh-default">Auto-refresh</label>
-          <input type="checkbox" id="cfg-auto-refresh-default" style="accent-color:var(--accent);">
-          <label for="cfg-auto-refresh-default" style="min-width:auto;">Enabled by default on load</label>
-        </div>
-      </fieldset>
-
-      <div class="config-actions">
-        <button class="btn-save config-btn" id="btn-save-config" style="background:var(--accent);color:#fff;">Save</button>
-        <button class="config-btn config-btn-reset" id="btn-reset-config">Reset to defaults</button>
-        <span id="cfg-status"></span>
-      </div>
-      <small style="color:var(--muted);display:block;margin-top:8px;">Saved to this browser's localStorage only. Table IDs and the webhook base URL are not secrets; nothing here is sent to n8n or the proxy.</small>
-    </div>
+    <div id="setup-content"></div>
   </div>
 </div>
 
-<div class="modal-overlay" id="modal-overlay">
+      <div class="modal-overlay" id="modal-overlay">
   <div class="modal" id="modal">
     <h2 id="modal-title">Edit Row</h2>
     <div id="modal-body"></div>
@@ -898,6 +815,36 @@
       log('loadTemplates ERROR: ' + e.message);
       return [];
     }
+  }
+
+  // Returns true if n8n is reachable and the configured tables exist.
+  async function checkSetupHealthy() {
+    try {
+      // 1. Webhook base reachable?
+      await callWebhook('/yt-get', { operation: 'get', id: config.tableHome });
+    } catch (e) {
+      log('checkSetupHealthy: webhook unreachable — ' + e.message);
+      return false;
+    }
+    // 2. Home table has rows?
+    try {
+      const home = await loadTable(config.tableHome);
+      if (!home.length) {
+        log('checkSetupHealthy: home table empty');
+        return false;
+      }
+    } catch (e) {
+      log('checkSetupHealthy: home table error — ' + e.message);
+      return false;
+    }
+    // 3. Jobs table reachable?
+    try {
+      await loadTable(config.tableJobs);
+    } catch (e) {
+      log('checkSetupHealthy: jobs table error — ' + e.message);
+      return false;
+    }
+    return true;
   }
 
   function enrichRowsWithTemplateAPI() {
@@ -1762,6 +1709,21 @@ let cols = [];
     populateConfigForm();
     fetchServerConfig();
     (async () => {
+      const healthy = await checkSetupHealthy();
+      if (!healthy) {
+        // n8n unreachable or tables not configured — go to Setup
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        const setupTab = document.querySelector('.tab-btn[data-tab="panel-setup"]');
+        const setupPanel = $('#panel-setup');
+        if (setupTab) setupTab.classList.add('active');
+        if (setupPanel) setupPanel.classList.add('active');
+        const ss = $('#setup-status');
+        if (ss) ss.textContent = 'n8n not ready — configure below';
+        setStatus('n8n not reachable or tables missing — check Setup', 'warn');
+        log('setup healthy=false — switched to Setup tab');
+        return;
+      }
       await loadTable(state.currentTableId);
       await loadTemplates();
       await enrichRowsWithTemplateAPI();
