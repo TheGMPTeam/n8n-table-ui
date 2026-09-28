@@ -140,6 +140,47 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Version / build info. The proxy seeds .data/version.json from env on first
+  // startup so the version string can be updated without a rebuild (drop a new
+  // version.json into the data dir and restart). The /version endpoint is read
+  // by the UI's bottom bar and updater popup.
+  const VERSION_PATH = path.join(DATA_DIR, 'version.json');
+  let _versionInfo = null;
+  function readVersionInfo() {
+    if (_versionInfo) return _versionInfo;
+    try {
+      if (fs.existsSync(VERSION_PATH)) {
+        _versionInfo = JSON.parse(fs.readFileSync(VERSION_PATH, 'utf8'));
+      }
+    } catch (e) { /* fall through to env */ }
+    if (!_versionInfo) {
+      _versionInfo = {
+        version: process.env.VERSION || process.env.npm_package_version || '0.0.0',
+        commit: process.env.GIT_COMMIT || 'unknown',
+        branch: process.env.GIT_BRANCH || 'unknown',
+      };
+    }
+    return _versionInfo;
+  }
+  // Seed .data/version.json from env if it doesn't exist yet (first startup or
+  // after a rebuild). A later no-rebuild update drops a new file here.
+  // The volume mount is expected to already exist; this is best-effort.
+  if (!fs.existsSync(VERSION_PATH)) {
+    try {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+      fs.writeFileSync(VERSION_PATH, JSON.stringify(readVersionInfo(), null, 2) + '\n');
+      writeLog('version.json seeded: ' + JSON.stringify(readVersionInfo()));
+    } catch (e) {
+      writeLog('WARNING: could not seed .data/version.json — ' + e.message);
+    }
+  }
+
+  // Serve /version so the UI can show build info in the bottom bar + updater popup.
+  if (pathname === '/version') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(readVersionInfo()));
+    return;
+  }
   // Serve the n8n Data Table CRUD workflow import template so the setup wizard
   // can download it without the user having to find the file in the repo.
   if (pathname === '/webhook-workflow-template.json') {

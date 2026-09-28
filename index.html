@@ -545,6 +545,47 @@
   .config-btn-reset { background: var(--border); color: var(--text); }
   .config-btn-reset:hover { border: 1px solid var(--danger); color: var(--danger); }
   #cfg-status { font-size: 13px; margin-left: auto; }
+
+  /* ── Bottom bar: version + update checker ─────────────────────────── */
+  .bottombar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 0 16px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .bottombar-version {
+    font-family: 'Consolas', 'Monaco', monospace;
+    color: var(--text);
+    white-space: nowrap;
+    cursor: default;
+  }
+  .bottombar-update-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .bottombar-update-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  #updater-overlay { z-index: 90; }
 </style>
 </head>
 <body>
@@ -646,6 +687,21 @@
 <div class="debug-panel collapsed" id="debug-panel">
   <div class="debug-header" id="debug-header"><span id="debug-toggle">▸</span> Debug <button id="debug-clear">Clear</button></div>
   <div class="debug-body" id="debug-body"></div>
+</div>
+
+<div class="bottombar" id="bottombar" style="display:none">
+  <span class="bottombar-version" id="bottombar-version"></span>
+  <button class="bottombar-update-btn" id="bottombar-update-btn">Check for updates</button>
+</div>
+
+<div class="modal-overlay" id="updater-overlay">
+  <div class="modal" id="updater-modal">
+    <h2 id="updater-title">Check for updates</h2>
+    <div id="updater-body"></div>
+    <div class="btn-row">
+      <button class="btn-cancel" id="updater-close">Close</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -2092,6 +2148,111 @@ let cols = [];
     log('init complete, loading table ' + state.currentTableId);
     populateConfigForm();
     fetchServerConfig();
+    updateBottomBar();
+    attachBottomBarHandlers();
+  }
+
+  function updateBottomBar() {
+    const bar = $('#bottombar');
+    if (!bar) return;
+    bar.style.display = 'flex';
+    const verSpan = $('#bottombar-version');
+    if (!verSpan) return;
+    (async () => {
+      let verInfo = null;
+      try {
+        const r = await fetch('/version');
+        if (r.ok) verInfo = await r.json();
+      } catch (e) { /* keep masked values */ }
+      const commit = (verInfo && verInfo.commit && verInfo.commit !== 'unknown') ? verInfo.commit : '—';
+      const branch = (verInfo && verInfo.branch && verInfo.branch !== 'unknown') ? verInfo.branch : '—';
+      const version = (verInfo && verInfo.version && verInfo.version !== '0.0.0') ? verInfo.version : '—';
+      verSpan.textContent = 'n8n-table-ui  ' + version + '   commit ' + commit + '   (' + branch + ')';
+    })();
+  }
+
+  function attachBottomBarHandlers() {
+    const openBtn = $('#bottombar-update-btn');
+    if (openBtn) openBtn.addEventListener('click', (e) => { e.preventDefault(); openUpdaterModal(); });
+    const closeBtn = $('#updater-close');
+    if (closeBtn) closeBtn.addEventListener('click', (e) => { e.preventDefault(); hideUpdaterModal(); });
+    const overlay = $('#updater-overlay');
+    if (overlay) overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) hideUpdaterModal();
+    });
+  }
+
+  function showUpdaterModal(htmlBody, options) {
+    const overlay = $('#updater-overlay');
+    const body = $('#updater-body');
+    if (!overlay || !body) return;
+    options = options || {};
+    body.innerHTML = htmlBody;
+    overlay.style.display = 'flex';
+    state.modalOpen = true;
+    $('#updater-title').textContent = options.title || 'Check for updates';
+    const closeBtn = $('#updater-close');
+    if (closeBtn) closeBtn.style.display = (options.hideClose === true) ? 'none' : 'inline-block';
+    if (options.onClose && typeof options.onClose === 'function') state._updaterOnClose = options.onClose;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function hideUpdaterModal() {
+    const overlay = $('#updater-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'none';
+    state.modalOpen = false;
+    document.body.style.overflow = '';
+    if (state._updaterOnClose && typeof state._updaterOnClose === 'function') {
+      state._updaterOnClose();
+      state._updaterOnClose = null;
+    }
+  }
+
+  function openUpdaterModal() {
+    const body = [];
+    body.push('<p class="updater-intro">This page is served by the n8n-table-ui proxy. '
+      + 'The version, commit, and branch shown in the bottom bar come from the running container — '
+      + 'they are not fetched from GitHub.</p>');
+    body.push('<div class="updater-section">');
+    body.push('<h4>How updates reach the UI</h4>');
+    body.push('<p><b>Fast path (no rebuild):</b> the proxy serves <code>/app/.data/index.html</code> when it exists, '
+      + 'so you can drop a new <code>index.html</code> into <code>./data/n8n-table-ui/.data/</code> on the server and '
+      + 'restart the container to apply it. The same goes for <code>webhook-workflow-template.json</code>.</p>');
+    body.push('<p><b>Full path (rebuild required):</b> changes to <code>proxy-server.cjs</code>, the Dockerfile, '
+      + 'or the image dependencies need a new image build + deploy + restart.</p>');
+    body.push('</div>');
+    body.push('<div class="updater-section">');
+    body.push('<h4>Beta vs main</h4>');
+    body.push('<p><b>Main</b> is production. <b>Beta</b> is for testing new UI/build changes before they go to main. '
+      + 'Pull the <code>beta</code> branch, build + deploy, and point the container at it when you want to test. '
+      + 'Do not run beta in place of the production container unless you intend a beta rollout.</p>');
+    body.push('</div>');
+    body.push('<div class="updater-section">');
+    body.push('<h4>Quick verify (after you deploy a new image or drop a new .data file)</h4>');
+    body.push('<pre class="updater-pre"># Confirm the version bar updated (refresh the page first if you dropped a new .data/index.html):');
+    body.push('curl -s http://localhost:3458/version | python3 -m json.tool');
+    body.push('');
+    body.push('# Confirm the UI file in .data is the new one (no-rebuild path):');
+    body.push('ls -la /home/dad/Config/data/n8n-table-ui/.data/');
+    body.push('</pre>');
+    body.push('</div>');
+    body.push('<div class="updater-actions">');
+    body.push('<button class="btn-apply" id="updater-apply">Reload to pick up changes</button>'
+      + '<button class="btn-cancel" id="updater-close">Close</button>');
+    body.push('</div>');
+    body.push('<p class="updater-footer">No automatic GitHub check is wired in. If you want a "new version available" '
+      + 'poll, add a <code>/git/refs?keys=refs/heads/main</code> call against the GitHub API here and compare '
+      + 'the returned sha against the bottom-bar commit.</p>');
+    showUpdaterModal(body.join(''), { title: 'Check for updates', hideClose: true,
+      onClose: null });
+    const applyBtn = $('#updater-apply');
+    if (applyBtn) applyBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      hideUpdaterModal();
+      fullReload().catch(e => log('updater reload error: ' + e.message));
+    });
+  }
     (async () => {
       const healthy = await checkSetupHealthy();
       if (!healthy) {
