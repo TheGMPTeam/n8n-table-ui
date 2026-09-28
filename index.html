@@ -935,13 +935,16 @@ const SETUP_STEPS = [
   {
     key: 'workflow',
     title: 'Add the webhook workflow to n8n',
-    description: 'The UI calls five webhook paths: yt-get, yt-create, yt-wright, yt-update, yt-remove. Those must map to a Data Table CRUD workflow in n8n that knows how to read/write rows. Import the workflow template below into n8n. If the proxy has an n8n API key configured, the download will also check whether the workflow\'s stored credential is valid.',
-    instructions: 'In n8n, click **Workflows → Import from File**, select the file you downloaded, then click **Activate**. After importing, open each HTTP node (HTTP Create Table, HTTP Write Rows, HTTP Get Rows, HTTP Remove Table) and check that the credential field shows your n8n API credential — if it shows a red warning, re-select the credential from the dropdown. The workflow uses the URL `http://n8n:5678/api/v1/data-tables`; if your n8n instance is on a different host, update the URL field on each node.',
+    description: 'The UI calls five webhook paths: yt-get, yt-create, yt-wright, yt-update, yt-remove. Those must map to a Data Table CRUD workflow in n8n that knows how to read/write rows. Import the workflow template below into n8n. n8n will prompt you to select an n8n API credential on each of the 4 HTTP nodes — choose your n8n API credential (needs data-table read/write access) on all of them.',
+    instructions: 'In n8n, click **Workflows → Import from File**, select the file you downloaded, then click **Activate**. n8n will prompt you to select an **n8n API** credential on each of the 4 HTTP nodes — choose your n8n API credential (needs data-table read/write access) on HTTP Create Table, HTTP Write Rows, HTTP Get Rows, and HTTP Remove Table. The workflow uses the URL `http://n8n:5678/api/v1/data-tables`; if your n8n instance is on a different host, update the URL field on each node.',
     action: {
       label: 'Download workflow template',
       run: async () => {
-        // Phase 1: report the proxy API-key state so the user knows whether the
-        // workflow's stored n8n credential will work out of the box.
+        // Phase 1: report the proxy API-key state. This is about whether the proxy
+        // sends X-N8N-API-KEY when forwarding webhook requests to n8n — it's separate
+        // from the workflow credential you'll select on import. The workflow ships with
+        // no stored credential; n8n prompts you to pick an n8n API credential on each
+        // of the 4 HTTP nodes during import, so it works on any n8n instance.
         let hasApiKey = null;
         let apiKeyStatus = '';
         try {
@@ -950,8 +953,8 @@ const SETUP_STEPS = [
             const cBody = await cResp.json();
             hasApiKey = cBody.hasApiKey;
             apiKeyStatus = hasApiKey
-              ? 'The proxy is configured with an n8n API key. The workflow\'s stored credential may work as-is — test it in n8n after import.'
-              : 'The proxy has no n8n API key. After importing, open each HTTP node in the workflow and re-select your n8n API credential so the workflow can call the n8n REST API.';
+              ? 'The proxy is configured with an n8n API key — webhook requests from the UI will include X-N8N-API-KEY when forwarded to n8n.'
+              : 'The proxy has no n8n API key set — webhook requests from the UI are forwarded to n8n without an API key. If n8n requires API auth on webhook hits, set N8N_API_KEY in the proxy compose.';
           }
         } catch (e) {
           apiKeyStatus = 'Could not read proxy config: ' + e.message;
