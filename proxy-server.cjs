@@ -12,6 +12,9 @@ const HTML_OVERRIDE = path.join(DATA_DIR, 'index.html');
 
 // Optional .data/env drop-in. Real environment variables always win, so this
 // only fills gaps — it can never override what compose passes in.
+// git-commit detection: the proxy tries to read .git at runtime (when the
+// image includes .git or the build context is a git checkout) and falls back
+// to GIT_COMMIT env (build arg) → 'unknown'.
 function loadEnvFile() {
   let raw;
   try {
@@ -140,6 +143,79 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Version / build info. Priority:
+  //   1. .data/version.json  (no-rebuild update: drop this file + restart)
+  //   2. /app/git-commit.txt, /app/git-branch.txt, /app/version.txt  (baked at
+  //      build time from --build-arg; survives compose not passing those envs)
+  //   3. GIT_COMMIT / GIT_BRANCH / VERSION env  (baked in by Dockerfile ENV)
+  //   4. 'unknown' / '0.0.0' fallback
+  const VERSION_PATH = path.join(DATA_DIR, 'version.json');
+  const BAKED_COMMIT_PATH = path.join(__dirname, 'git-commit.txt');
+  const BAKED_BRANCH_PATH = path.join(__dirname, 'git-branch.txt');
+  const BAKED_VERSION_PATH = path.join(__dirname, 'version.txt');
+  let _versionInfo = null;
+  function readVersionInfo() {
+    if (_versionInfo) return _versionInfo;
+    let commit = null, branch = null, version = null;
+    // 1. .data/version.json (runtime override / no-rebuild update). A file that
+    //    was auto-seeded by a previous container run carries "_seeded": true and
+    //    can be safely refreshed from the new build's baked files. A file dropped
+    //    by hand (e.g. an ops person updating the version string) has no such
+    //    marker and is left alone — it wins over the baked values.
+    let fromOverride = false;
+    let overriddenByHand = false;
+    try {
+      if (fs.existsSync(VERSION_PATH)) {
+        const v = JSON.parse(fs.readFileSync(VERSION_PATH, 'utf8'));
+        if (!v._seeded) overriddenByHand = true;   // manual drop — preserve
+        if (v.commit) commit = String(v.commit).trim();
+        if (v.branch) branch = String(v.branch).trim();
+        if (v.version) version = String(v.version).trim();
+        fromOverride = true;
+      }
+    } catch (e) { /* fall through */ }
+    // 2. baked files from build args — win over a stale AUTO-seeded .data/version.json
+    //    so a fresh build always corrects a version that a prior container seeded.
+    let bakedCommit = null, bakedBranch = null, bakedVersion = null;
+    if (!bakedCommit) { try { if (fs.existsSync(BAKED_COMMIT_PATH)) bakedCommit = String(fs.readFileSync(BAKED_COMMIT_PATH, 'utf8')).trim(); } catch (e) {} }
+    if (!bakedBranch) { try { if (fs.existsSync(BAKED_BRANCH_PATH)) bakedBranch = String(fs.readFileSync(BAKED_BRANCH_PATH, 'utf8')).trim(); } catch (e) {} }
+    if (!bakedVersion) { try { if (fs.existsSync(BAKED_VERSION_PATH)) bakedVersion = String(fs.readFileSync(BAKED_VERSION_PATH, 'utf8')).trim(); } catch (e) {} }
+    if (bakedCommit || bakedBranch || bakedVersion) {
+      if (!overriddenByHand) {
+        if (!commit || commit === 'unknown') commit = bakedCommit || 'unknown';
+        if (!branch || branch === 'unknown') branch = bakedBranch || 'unknown';
+        if (!version || version === '0.0.0') version = bakedVersion || '0.0.0';
+        fromOverride = false; // force re-seed from baked below
+      }
+    }
+    // 3. env fallback
+    if (!commit || commit === 'unknown') commit = (process.env.GIT_COMMIT || '').trim() || 'unknown';
+    if (!branch || branch === 'unknown') branch = (process.env.GIT_BRANCH || '').trim() || 'unknown';
+    if (!version || version === '0.0.0') version = (process.env.VERSION || process.env.npm_package_version || '').trim() || '0.0.0';
+    _versionInfo = { version, commit, branch };
+    // Write .data/version.json when it is missing or was auto-seeded by a prior
+    // container and the baked values changed. A hand-dropped file (no _seeded
+    // marker) is never overwritten.
+    try {
+      const onDisk = fs.existsSync(VERSION_PATH) ? JSON.parse(fs.readFileSync(VERSION_PATH, 'utf8')) : null;
+      const needsWrite = !onDisk || (onDisk._seeded && (onDisk.commit !== _versionInfo.commit || onDisk.branch !== _versionInfo.branch || onDisk.version !== _versionInfo.version));
+      if (needsWrite) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+        fs.writeFileSync(VERSION_PATH, JSON.stringify({ ..._versionInfo, _seeded: true }, null, 2) + '\n');
+        writeLog('version.json updated: ' + JSON.stringify(_versionInfo));
+      }
+    } catch (e) {
+      writeLog('WARNING: could not write .data/version.json — ' + e.message);
+    }
+    return _versionInfo;
+  }
+
+  // Serve /version so the UI can show build info in the bottom bar + updater popup.
+  if (pathname === '/version') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(readVersionInfo()));
+    return;
+  }
   // Serve the n8n Data Table CRUD workflow import template so the setup wizard
   // can download it without the user having to find the file in the repo.
   if (pathname === '/webhook-workflow-template.json') {
