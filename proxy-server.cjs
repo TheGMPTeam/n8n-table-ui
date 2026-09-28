@@ -140,6 +140,23 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Serve the n8n Data Table CRUD workflow import template so the setup wizard
+  // can download it without the user having to find the file in the repo.
+  if (pathname === '/webhook-workflow-template.json') {
+    const tpl = path.join(__dirname, 'webhook-workflow-template.json');
+    let content;
+    try {
+      content = fs.readFileSync(tpl, 'utf8');
+    } catch (e) {
+      res.writeHead(404, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+      res.end('workflow template not found');
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' });
+    res.end(content);
+    return;
+  }
+
   // Route /webhook/* to n8n
   if (pathname.startsWith('/webhook/')) {
     writeLog('-> ' + method + ' ' + pathname + '  n8n=' + N8N_HOST + ':' + N8N_PORT);

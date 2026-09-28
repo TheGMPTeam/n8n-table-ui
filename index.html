@@ -817,7 +817,385 @@
     }
   }
 
-  // Returns true if n8n is reachable and the configured tables exist.
+  // ─── Setup wizard ────────────────────────────────────────────────────────────
+// Step-by-step walkthrough for first-time n8n + data table setup.
+// Each step shows guidance + an action button; completing it advances.
+const SETUP_STEPS = [
+  {
+    key: 'connect',
+    title: 'Connect to n8n',
+    description: 'Two things have to work before the UI can talk to your data: the proxy must be reachable, and n8n must answer on the webhook path. The test below checks both and tells you which one failed.',
+    checks: [
+      { label: 'n8n host', value: config.n8nHost },
+      { label: 'n8n port', value: config.n8nPort },
+      { label: 'webhook base', value: config.webhookBase },
+    ],
+    action: {
+      label: 'Test connection',
+      run: async () => {
+        // Phase 1: is the proxy itself reachable? Uses the same origin, so this
+        // confirms the browser can reach the container and the proxy is up.
+        let proxyOk = false;
+        let proxyMsg = '';
+        try {
+          const cResp = await fetch('/config');
+          if (!cResp.ok) throw new Error('HTTP ' + cResp.status);
+          const cBody = await cResp.json();
+          proxyOk = true;
+          proxyMsg = 'proxy reachable — n8nHost=' + cBody.n8nHost + ', n8nPort=' + cBody.n8nPort + ', hasApiKey=' + cBody.hasApiKey;
+        } catch (e) {
+          proxyMsg = 'proxy unreachable: ' + e.message;
+        }
+
+        // Phase 2: if the proxy is up, does the n8n webhook path work? We hit
+        // yt-get against the home table (or the configured table) — anything other
+        // than a clean parseable response means n8n has a problem.
+        let n8nOk = false;
+        let n8nMsg = '';
+        if (proxyOk) {
+          try {
+            const targetId = config.tableHome || config.n8nHost + ':' + config.n8nPort;
+            const body = await callWebhook('/yt-get', { operation: 'get', id: targetId });
+            // yt-get on a real table returns [ { data: [...] } ] or [ {} ] for unknown.
+            // Either way a parseable array from n8n is success here.
+            if (Array.isArray(body)) {
+              n8nOk = true;
+              const rowCount = body.length && body[0] && Array.isArray(body[0].data) ? body[0].data.length : (body.length ? 'parseable' : 'empty');
+              n8nMsg = 'n8n webhook responded — rows=' + rowCount;
+            } else {
+              n8nMsg = 'n8n responded but not as expected: ' + JSON.stringify(body).slice(0, 160);
+            }
+          } catch (e) {
+            n8nMsg = 'n8n webhook failed: ' + e.message;
+          }
+        } else {
+          n8nMsg = 'skipped — proxy not reachable';
+        }
+
+        return {
+          ok: proxyOk && n8nOk,
+          results: [
+            { name: 'Proxy reachable', ok: proxyOk, message: proxyMsg },
+            { name: 'n8n webhook path', ok: n8nOk, message: n8nMsg },
+          ],
+        };
+      },
+    },
+  },
+  {
+    key: 'tables',
+    title: 'Configure your n8n data tables',
+    description: 'Four tables are required for the pipeline: ComfyUI Jobs (image/video generation queue), Shorts_Production (script + scene data), ComfyUI_Templates (ComfyUI workflow templates per type), and a working-job tracker. These are created in the n8n UI — the UI below records their IDs so the proxy can find them.',
+    instructions: 'Data tables are created in n8n only — not from this UI. In n8n, go to **Data Tables → Create**, create each table with the columns your pipeline needs, copy the table ID from the URL or the list view, and paste it below. Then click **Verify tables exist** — the UI reads each table back and reports row counts so you know the IDs are live.',
+    fields: [
+      { id: 'step-table-home', label: 'ComfyUI Jobs table ID', placeholder: 'xKckTZI3ZU5HqIpZ', hint: 'Generation queue. ComfyUI Runner reads this.' },
+      { id: 'step-table-jobs', label: 'Shorts_Production table ID', placeholder: 'vN5vMR56WpEsdLMn', hint: 'Script + scene source. Shorts Dispatcher reads this.' },
+      { id: 'step-table-templates', label: 'ComfyUI_Templates table ID', placeholder: 'haulC2FnGWqHb0no', hint: 'Template storage. ComfyUI Runner reads this per type.' },
+      { id: 'step-table-link', label: 'Link rule', placeholder: 'ComfyUI.JobID == Shorts_Production.id', hint: 'Reference only. Describes how Home and Jobs rows are joined.' },
+    ],
+    action: {
+      label: 'Verify tables exist',
+      run: async () => {
+        const homeId = $('#step-table-home').value.trim() || config.tableHome;
+        const jobsId = $('#step-table-jobs').value.trim() || config.tableJobs;
+        const tmplId = $('#step-table-templates').value.trim() || config.tableTemplates;
+        const linkRule = $('#step-table-link').value.trim() || config.tableLink;
+        const ids = [['ComfyUI Jobs', homeId], ['Shorts_Production', jobsId], ['ComfyUI_Templates', tmplId]];
+        const results = [];
+        let allGood = true;
+        for (const [name, id] of ids) {
+          if (!id) {
+            results.push({ name, ok: false, id: null, message: 'no ID entered' });
+            allGood = false;
+            continue;
+          }
+          try {
+            const body = await callWebhook('/yt-get', { operation: 'get', id: id });
+            const rows = unwrapRows(body);
+            results.push({ name, ok: true, id, count: rows.length, message: rows.length + ' rows' });
+          } catch (e) {
+            results.push({ name, ok: false, id, message: e.message });
+            allGood = false;
+          }
+        }
+        // Save the IDs into config whether or not verification passed — the user
+        // entered them intentionally, so record them. Verification results tell the
+        // user whether the table IDs are actually live yet.
+        config.tableHome = homeId;
+        config.tableJobs = jobsId;
+        config.tableTemplates = tmplId;
+        config.tableLink = linkRule;
+        try { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); } catch (e) {}
+        TABLES.comfy = homeId; TABLES.shorts = jobsId;
+        applyLiveConfig();
+        return { ok: allGood, results };
+      },
+    },
+  },
+  {
+    key: 'workflow',
+    title: 'Add the webhook workflow to n8n',
+    description: 'The UI calls five webhook paths: yt-get, yt-create, yt-wright, yt-update, yt-remove. Those must map to a Data Table CRUD workflow in n8n that knows how to read/write rows. Import the workflow template below into n8n. If the proxy has an n8n API key configured, the download will also check whether the workflow\'s stored credential is valid.',
+    instructions: 'In n8n, click **Workflows → Import from File**, select the file you downloaded, then click **Activate**. After importing, open each HTTP node (HTTP Create Table, HTTP Write Rows, HTTP Get Rows, HTTP Remove Table) and check that the credential field shows your n8n API credential — if it shows a red warning, re-select the credential from the dropdown. The workflow uses the URL `http://n8n:5678/api/v1/data-tables`; if your n8n instance is on a different host, update the URL field on each node.',
+    action: {
+      label: 'Download workflow template',
+      run: async () => {
+        // Phase 1: report the proxy API-key state so the user knows whether the
+        // workflow's stored n8n credential will work out of the box.
+        let hasApiKey = null;
+        let apiKeyStatus = '';
+        try {
+          const cResp = await fetch('/config');
+          if (cResp.ok) {
+            const cBody = await cResp.json();
+            hasApiKey = cBody.hasApiKey;
+            apiKeyStatus = hasApiKey
+              ? 'The proxy is configured with an n8n API key. The workflow\'s stored credential may work as-is — test it in n8n after import.'
+              : 'The proxy has no n8n API key. After importing, open each HTTP node in the workflow and re-select your n8n API credential so the workflow can call the n8n REST API.';
+          }
+        } catch (e) {
+          apiKeyStatus = 'Could not read proxy config: ' + e.message;
+        }
+
+        // Phase 2: download the bundled workflow template so the user can import it
+        // into n8n via Workflows → Import from JSON.
+        try {
+          const resp = await fetch('/webhook-workflow-template.json');
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          const blob = await resp.blob();
+          if (!blob.size) throw new Error('empty download');
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'n8n-table-ui-data-table-crud.json';
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+          return {
+            ok: true,
+            message: 'Downloaded n8n-table-ui-data-table-crud.json — import it in n8n.',
+            detail: apiKeyStatus,
+          };
+        } catch (e) {
+          return {
+            ok: false,
+            message: 'Download failed: ' + e.message + '. Copy webhook-workflow-template.json from the repo and import it manually into n8n.',
+            detail: apiKeyStatus,
+          };
+        }
+      },
+    },
+  },
+  {
+    key: 'verify',
+    title: 'Verify everything works',
+    description: 'Run a smoke test: create a row in ComfyUI Jobs, read it back, update it, then clean up. If all four pass, the pipeline is fully wired.',
+    action: {
+      label: 'Run smoke test',
+      run: async () => {
+        const id = config.tableHome;
+        if (!id) return { ok: false, message: 'No ComfyUI Jobs table configured yet.' };
+        const results = [];
+        // create
+        try {
+          const created = await callWebhook('/yt-create', { operation: 'create', row: { name: 'smoke_test_' + Date.now(), columns: [{ name: 'type', type: 'string' }, { name: 'prompt', type: 'string' }] } });
+          const tbl = Array.isArray(created) && created.length ? created[0] : created;
+          results.push({ step: 'create table', ok: !!tbl && tbl.id, id: tbl && tbl.id, message: tbl && tbl.id ? 'created ' + tbl.id : 'unexpected' });
+          if (!results[0].ok) return { ok: false, results, message: 'table creation failed' };
+          const tblId = results[0].id;
+          // write a row
+          const wrote = await callWebhook('/yt-wright', { operation: 'write', id: tblId, row: { data: [{ type: 'Test', prompt: 'setup wizard smoke test', Working: true, Completed: false }] } });
+          results.push({ step: 'write row', ok: true, message: 'row written' });
+          // read back
+          const got = await callWebhook('/yt-get', { operation: 'get', id: tblId });
+          const rows = unwrapRows(got);
+          results.push({ step: 'read rows', ok: rows.length > 0, count: rows.length, message: rows.length + ' rows returned' });
+          // update
+          const rowId = rows[0] && rows[0].id;
+          if (rowId) {
+            await callWebhook('/yt-update', { operation: 'update', id: tblId, match: { id: String(rowId) }, row: { prompt: 'updated by setup wizard', Completed: true, Working: false } });
+            results.push({ step: 'update row', ok: true, message: 'row updated' });
+          } else {
+            results.push({ step: 'update row', ok: false, message: 'no row id to update' });
+          }
+          // remove table
+          await callWebhook('/yt-remove', { operation: 'remove', id: tblId });
+          results.push({ step: 'remove table', ok: true, message: 'table removed' });
+          return { ok: results.every(r => r.ok), results };
+        } catch (e) {
+          return { ok: false, results, message: e.message };
+        }
+      },
+    },
+  },
+];
+
+// Walk the user through SETUP_STEPS, rendering one at a time.
+// Calling renderSetupPanel() with no args re-renders the current step;
+// renderSetupPanel('next') advances; renderSetupPanel('done') finishes.
+let setupStepIndex = 0;
+let setupDone = false;
+
+async function setupRunAction(step) {
+  const btn = $('#setup-action-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Running…'; }
+  try {
+    const result = await step.action.run();
+    $('#setup-action-msg').textContent = result.message || '';
+    $('#setup-action-msg').className = 'status-bar ' + (result.ok ? 'success' : 'danger');
+    // action result → detail line
+    if (result.detail) {
+      $('#setup-action-detail').innerHTML = '<strong>Note:</strong><br>' + escapeHtml(result.detail);
+      $('#setup-action-detail').style.display = '';
+    } else if (result.results) {
+      const list = result.results.map(r => '• ' + r.name + (r.ok ? ' ✓' : ' ✗ — ' + (r.message || ''))).join('<br>');
+      $('#setup-action-detail').innerHTML = '<strong>Details:</strong><br>' + list;
+      $('#setup-action-detail').style.display = '';
+    } else {
+      $('#setup-action-detail').style.display = 'none';
+    }
+    return result;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = step.action.label; }
+  }
+}
+
+function renderSetupPanel(direction) {
+  const content = $('#setup-content');
+  const titleEl = $('#setup-panel-title');
+  const statusEl = $('#setup-status');
+  if (!content) return;
+
+  if (setupDone) {
+    titleEl.textContent = 'Setup complete';
+    statusEl.textContent = 'Done';
+    content.innerHTML =
+      '<div class="status-bar success" style="margin-bottom:12px">' +
+      '<strong>All checks passed.</strong> The UI is wired to your n8n data tables. ' +
+      'Switch to the Home or Jobs tab to start working.' +
+      '</div>' +
+      '<div style="margin-bottom:12px">' +
+      '<button class="btn-save" id="setup-back-btn" style="padding:8px 16px;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Back to steps</button> ' +
+      '<button class="btn-cancel" id="setup-restart-btn" style="padding:8px 16px;border:none;border-radius:4px;cursor:pointer;background:var(--border);color:var(--text);">Restart setup</button>' +
+      '</div>';
+    const back = $('#setup-back-btn');
+    if (back) back.addEventListener('click', () => { setupDone = false; renderSetupPanel(); });
+    const restart = $('#setup-restart-btn');
+    if (restart) restart.addEventListener('click', () => { setupDone = false; setupStepIndex = 0; renderSetupPanel(); });
+    return;
+  }
+
+  if (setupStepIndex >= SETUP_STEPS.length) {
+    setupDone = true;
+    renderSetupPanel();
+    return;
+  }
+
+  const step = SETUP_STEPS[setupStepIndex];
+  titleEl.textContent = 'Step ' + (setupStepIndex + 1) + ' of ' + SETUP_STEPS.length + ' — ' + step.title;
+  statusEl.textContent = 'Step ' + (setupStepIndex + 1);
+
+  let html = '';
+
+  // description
+  html += '<div style="margin-bottom:14px"><p style="color:var(--muted);font-size:13px;line-height:1.5;margin:0">' + step.description + '</p></div>';
+
+  // instructions callout (how-to guidance shown alongside the step, e.g. "create
+  // tables in the n8n UI first, then paste the IDs below")
+  if (step.instructions) {
+    html += '<div class="panel" style="margin-bottom:14px;background:var(--panel);border-left:3px solid var(--accent)">' +
+      '<div class="panel-header" style="cursor:default"><span class="panel-title">How to</span></div>' +
+      '<div style="color:var(--muted);font-size:13px;line-height:1.55;margin:8px 12px">' + step.instructions + '</div>' +
+      '</div>';
+  }
+
+  // info/checks
+  if (step.checks && step.checks.length) {
+    html += '<div class="panel" style="margin-bottom:14px">';
+    html += '<div class="panel-header"><span class="panel-title">Current values</span></div>';
+    html += '<table style="font-size:12px"><tbody>';
+    step.checks.forEach(c => {
+      html += '<tr><td style="color:var(--muted);width:140px">' + c.label + '</td><td>' + escapeHtml(String(c.value)) + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+
+  // fields
+  if (step.fields && step.fields.length) {
+    html += '<div class="panel" style="margin-bottom:14px">';
+    html += '<div class="panel-header"><span class="panel-title">Table IDs</span></div>';
+    step.fields.forEach(f => {
+      html += '<div class="config-row" style="margin-bottom:10px">';
+      html += '<label for="' + f.id + '" style="min-width:160px">' + f.label + '</label>';
+      html += '<input type="text" id="' + f.id + '" class="cfg-input" placeholder="' + escapeAttr(f.placeholder) + '" spellcheck="false" value="' + escapeAttr(config[f.id.replace('step-table-', 'table')] || f.placeholder) + '">';
+      html += '</div>';
+      html += '<small style="color:var(--muted);display:block;margin-left:170px">' + f.hint + '</small>';
+    });
+    html += '</div>';
+  }
+
+  // action button + message area
+  html += '<div class="panel" style="margin-bottom:14px">';
+  html += '<button id="setup-action-btn" class="btn-save" style="padding:8px 16px;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">' + step.action.label + '</button>';
+  html += '</div>';
+  html += '<div id="setup-action-msg" class="status-bar" style="margin-bottom:8px"></div>';
+  html += '<div id="setup-action-detail" class="status-bar" style="margin-bottom:8px;display:none"></div>';
+
+  // nav buttons
+  html += '<div class="btn-row">';
+  html += '<button id="setup-back-btn" class="config-btn config-btn-reset">Back</button> ';
+  if (setupStepIndex < SETUP_STEPS.length - 1) {
+    html += '<button id="setup-next-btn" class="btn-save" style="padding:8px 16px;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Next</button>';
+  } else {
+    html += '<button id="setup-next-btn" class="btn-save" style="padding:8px 16px;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Finish</button>';
+  }
+  html += '</div>';
+
+  content.innerHTML = html;
+
+  // wire action button
+  const actionBtn = $('#setup-action-btn');
+  if (actionBtn) {
+    actionBtn.onclick = async (e) => {
+      e.preventDefault();
+      const result = await setupRunAction(step);
+      if (result.ok) {
+        // auto-advance after a short pause so the user sees the success message
+        setTimeout(() => {
+          if (setupStepIndex < SETUP_STEPS.length - 1) {
+            setupStepIndex++;
+            renderSetupPanel();
+          } else {
+            setupDone = true;
+            renderSetupPanel();
+          }
+        }, 1200);
+      }
+    };
+  }
+
+  // wire nav
+  const backBtn = $('#setup-back-btn');
+  if (backBtn) backBtn.onclick = () => {
+    if (setupStepIndex > 0) { setupStepIndex--; renderSetupPanel(); }
+  };
+  const nextBtn = $('#setup-next-btn');
+  if (nextBtn) nextBtn.onclick = () => {
+    // Run the action if not already done, then advance
+    setupRunAction(step).then(result => {
+      if (result.ok || setupStepIndex < SETUP_STEPS.length - 1) {
+        if (setupStepIndex < SETUP_STEPS.length - 1) {
+          setupStepIndex++;
+        } else {
+          setupDone = true;
+        }
+        renderSetupPanel();
+      }
+    });
+  };
+}
+
+// Returns true if n8n is reachable and the configured tables exist.
   async function checkSetupHealthy() {
     try {
       // 1. Webhook base reachable?
@@ -827,12 +1205,15 @@
       return false;
     }
     // 2. Home table has rows?
+    // Use a real read call so the check exercises the actual webhook path, not a
+    // cached load. If the table is empty the UI will show empty panels but the
+    // setup pass is still valid — an empty table is not a broken setup.
     try {
-      const home = await loadTable(config.tableHome);
-      if (!home.length) {
-        log('checkSetupHealthy: home table empty');
-        return false;
-      }
+      const body = await callWebhook('/yt-get', { operation: 'get', id: config.tableHome });
+      const rows = unwrapRows(body);
+      log('checkSetupHealthy: home table id=' + config.tableHome + ' rows=' + rows.length);
+      // Empty table is a valid setup state — still healthy. We only fail if the
+      // webhook itself errored.
     } catch (e) {
       log('checkSetupHealthy: home table error — ' + e.message);
       return false;

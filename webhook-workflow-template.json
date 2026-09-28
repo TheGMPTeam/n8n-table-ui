@@ -1,0 +1,543 @@
+{
+  "name": "Data Table CRUD",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yt-create",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook create",
+      "webhookId": "00bd136d-c7a7-4a61-bcc3-cd5bb9e18d7d",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "id": "57aef33e-e7d0-4a5f-af6c-9d529e046dea"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yt-wright",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook write",
+      "webhookId": "fe47be31-4110-4c1c-93c0-0c23e1c541c8",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 192],
+      "id": "b42f003a-0d3e-4873-be3c-cef200a45690"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yt-update",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook update",
+      "webhookId": "db666457-08b9-4a0c-bde4-f434f4c1f777",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 384],
+      "id": "bfc96253-ec24-48e7-a551-f3a6bbc01485"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yt-get",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook get",
+      "webhookId": "4d7b004b-bf6c-460d-9546-3b803a50b8b5",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 576],
+      "id": "6e01a2bb-2d9e-43d8-b88e-7c558d5cc584"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yt-remove",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook remove",
+      "webhookId": "f3bb0d35-4e3a-488c-95cd-674df8d2fb6b",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 768],
+      "id": "f8dde1ab-d41c-44e7-ba0a-b46bd48895c1"
+    },
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{ \"operation\": \"get\", \"id\": \"\", \"row\": {}, \"match\": {} }"
+      },
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 960],
+      "id": "8056a570-4a61-4539-838d-31cd6c7080f1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize both entry paths (webhook body-wrapped, or direct from Tool Workflow trigger) into one consistent shape, and validate before anything downstream runs.\nconst raw = $json.body || $json;\nconst triggerSource = $json.body ? 'webhook' : 'workflow';\nconst operation = String(raw.operation || '').toLowerCase();\nconst validOps = ['create', 'write', 'update', 'get', 'remove'];\n\nif (!validOps.includes(operation)) {\n  throw new Error(`Invalid operation \"${raw.operation}\". Must be one of: ${validOps.join(', ')}`);\n}\nif (operation !== 'create' && !raw.id) {\n  throw new Error(`Missing required \"id\" (data table ID) for operation \"${operation}\"`);\n}\nif (['write', 'update', 'create'].includes(operation) && !raw.row) {\n  throw new Error(`Missing required \"row\" for operation \"${operation}\"`);\n}\nif (operation === 'update' && (!raw.match || raw.match.id === undefined || raw.match.id === null)) {\n  throw new Error('Missing required \"match.id\" for update operation');\n}\nif (operation === 'write' && !Array.isArray(raw.row?.data)) {\n  throw new Error('For \"write\", row.data must be an array of row objects, e.g. { \"data\": [{...}] }');\n}\nif (operation === 'create' && (!raw.row?.name || !Array.isArray(raw.row?.columns))) {\n  throw new Error('For \"create\", row must include \"name\" and a \"columns\" array');\n}\n\nreturn [{\n  json: {\n    operation,\n    id: raw.id || null,\n    row: raw.row || null,\n    match: raw.match || null,\n    _triggerSource: triggerSource\n  }\n}];"
+      },
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 480],
+      "id": "d098916d-203e-4cc9-80ea-ade65a6f7e36"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cond-create",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "create",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cond-write",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "write",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cond-update",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cond-get",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "get",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cond-remove",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "remove",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [448, 432],
+      "id": "0715e23d-18cd-4937-9174-ae24549d5f21"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://n8n:5678/api/v1/data-tables",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { name: $json.row.name, columns: $json.row.columns } }}",
+        "options": {}
+      },
+      "name": "HTTP Create Table",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [896, 96],
+      "id": "da1630d1-f929-4e3b-9e1b-b6e84504c096",
+      "credentials": {
+        "n8nApi": {
+          "id": "pGnySYqCqyJo5BZ8",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://n8n:5678/api/v1/data-tables/{{ $json.id }}/rows",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { data: $json.row.data } }}",
+        "options": {}
+      },
+      "name": "HTTP Write Rows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [896, 288],
+      "id": "305d1bc5-abb3-4280-be3f-68464280b6e7",
+      "credentials": {
+        "n8nApi": {
+          "id": "pGnySYqCqyJo5BZ8",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $json.row || {};\nconst out = {};\nfor (const [k, v] of Object.entries(row)) {\n  out[k] = v;\n}\nreturn [{ json: out }];"
+      },
+      "name": "Prep Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [672, 480],
+      "id": "5cbc2a53-3990-4a6f-bd47-f7c5a03788b4"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "={{ $('Normalize Input').item.json.id }}",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Normalize Input').item.json.match.id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "Completed": false,
+            "Working": false
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "Type", "displayName": "Type", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "Reffrence", "displayName": "Reffrence", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "Completed", "displayName": "Completed", "required": false, "defaultMatch": false, "display": true, "type": "boolean", "readOnly": false, "removed": false },
+            { "id": "File", "displayName": "File", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "Script", "displayName": "Script", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "Scenes", "displayName": "Scenes", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "Status", "displayName": "Status", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "Working", "displayName": "Working", "required": false, "defaultMatch": false, "display": true, "type": "boolean", "readOnly": false, "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Update row (dataTable)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [896, 480],
+      "id": "7c7b67e2-0f99-4bd6-9751-1afee7ea56d8"
+    },
+    {
+      "parameters": {
+        "url": "=http://n8n:5678/api/v1/data-tables/{{ $json.id }}/rows",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "options": {}
+      },
+      "name": "HTTP Get Rows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [896, 672],
+      "id": "e83e42b8-c8c8-464d-9465-bfd2402be080",
+      "credentials": {
+        "n8nApi": {
+          "id": "pGnySYqCqyJo5BZ8",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=http://n8n:5678/api/v1/data-tables/{{ $json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "options": {}
+      },
+      "name": "HTTP Remove Table",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [896, 864],
+      "id": "45929f96-b4cf-4c95-9b69-7311e13490be",
+      "credentials": {
+        "n8nApi": {
+          "id": "pGnySYqCqyJo5BZ8",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $items().map(item => item.json) }}",
+        "options": {}
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1120, 480],
+      "id": "eba47833-aae7-463a-ad65-594dded00dc2"
+    },
+    {
+      "parameters": {},
+      "name": "When clicking 'Execute workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-352, 480],
+      "id": "b6c05fd3-a536-4dff-a8b9-d18f4d08005c"
+    },
+    {
+      "parameters": {
+        "content": "## Data Table CRUD\n\nNormalizes and routes **data table operations** — used by the Shorts Dispatcher agent as a tool and by webhooks for direct API access.\n\n### Entry points\n\n- **Webhooks** — `yt-create`, `yt-wright`, `yt-update`, `yt-get`, `yt-remove` (direct API calls)\n- **Execute Workflow Trigger** — called by the Shorts Dispatcher agent as a tool (agent tool mode)\n\n### How it works\n\n1. **Normalize input** — the `Normalize Input` code node handles both entry paths:\n   - Webhook: data comes under `$json.body`\n   - Agent tool: data comes directly as `$json`\n   Extracts `operation`, validates it, checks required fields per operation type.\n\n2. **Validate** — throws if:\n   - `operation` is missing or not one of: `create`, `write`, `update`, `get`, `remove`\n   - `id` is missing for non-create operations\n   - `row` is missing for write/update/create\n   - `match.id` is missing for update\n   - `row.data` is not an array for write\n\n3. **Route via Switch** — dispatches to the correct operation:\n   - **create** — `POST /api/v1/data-tables` (create a new table)\n   - **write** — `POST /api/v1/data-tables/<id>/rows` (insert rows)\n   - **update** — native dataTable update node (update existing rows by match)\n   - **get** — `GET /api/v1/data-tables/<id>/rows` (read rows)\n   - **remove** — `DELETE /api/v1/data-tables/<id>` (delete a table)\n\n4. **Respond** — all paths return through a single `Respond to Webhook` node\n\n### Used by\n\nThe Shorts Dispatcher agent calls this as a tool to:\n- Lock/unlock Shorts_Production rows (`update` with `Working`)\n- Save enriched Scenes JSON (`update` with `Scenes`)\n- Queue ComfyUI Jobs rows (`write` to ComfyUI Jobs table)\n- Mark rows as queued (`update` with `Status`)",
+        "height": 540,
+        "width": 720,
+        "color": 4
+      },
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-1008, -256],
+      "id": "06eec397-f02c-46cf-94ee-042c4d3efbce"
+    }
+  ],
+  "pinData": {
+    "When clicking 'Execute workflow'": [
+      {
+        "json": {
+          "id": "vN5vMR56WpEsdLMn",
+          "match": { "id": "3" },
+          "row": { "Working": true },
+          "operation": "update"
+        }
+      }
+    ],
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "operation": "update",
+          "id": "vN5vMR56WpEsdLMn",
+          "row": {
+            "Scenes": "[{\"duration\":\"0-3\",\"on_screen_text\":\"AI BUILDS THE WORKFLOW\",\"prompt\":\"Cyberpunk AI command interface...\"}]"
+          },
+          "match": { "id": 3 }
+        },
+        "pairedItem": { "item": 0 }
+      }
+    ],
+    "Webhook get": [
+      {
+        "json": {
+          "headers": {
+            "host": "10.0.0.157:5678",
+            "connection": "keep-alive",
+            "content-length": "25",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "origin": "http://10.0.0.120:3458",
+            "referer": "http://10.0.0.120:3458/",
+            "accept-encoding": "gzip, deflate",
+            "accept-language": "en-US,en;q=0.9"
+          },
+          "params": {},
+          "query": {},
+          "body": { "id": "haulC2FnGWqHb0no" },
+          "webhookUrl": "http://10.0.0.157:5678/webhook/yt-get",
+          "executionMode": "production"
+        },
+        "pairedItem": { "item": 0 }
+      }
+    ],
+    "Webhook write": [
+      {
+        "json": {
+          "headers": {
+            "accept-encoding": "identity",
+            "content-length": "11882",
+            "host": "10.0.0.157:5678",
+            "user-agent": "Python-urllib/3.12",
+            "content-type": "application/json",
+            "connection": "close"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "id": "vN5vMR56WpEsdLMn",
+            "rows": [
+              {
+                "Type": "script",
+                "Reffrence": ".md",
+                "Completed": false,
+                "File": "",
+                "Script": "# YouTube Short Script\n\n**TITLE:**\nAI That Can Build Its Own Workflow\n\n**HOOK — 0–3 sec:**\nWhat if you could tell an AI what you want—and it builds the entire workflow for you?\n\n**SETUP — 3–8 sec:**\nInstead of manually connecting nodes, configuring settings, and building every generation step, you give the AI the goal—and it builds the production path for you.\n\n**MAIN CONTENT — 8–35 sec:**\nYou give it the goal.\n\nThe AI breaks the idea into scenes.\n\nIt decides which scenes need images and which need video.\n\nThen it builds the prompts, generation settings, and production instructions.\n\nFirst, it generates the required images and keyframes.\n\nOnce those images are finished, the system uses them as the starting and ending frames for video generation.\n\nIt sends each FLF video job to the correct ComfyUI workflow.\n\nOne scene can stay as a still image.\n\nAnother can become a cinematic video.\n\nThe system handles the routing automatically.\n\n**PAYOFF — 35–50 sec:**\nThat means you're not manually building every generation anymore.\n\nThe AI can build the production path, generate the images, create the FLF videos, and move everything through the pipeline.\n\nYour production system can go from idea, to scene, to images, to FLF video, to finished content.\n\n**CTA — 50–60 sec:**\nSo instead of building the workflow yourself, you just give the AI the goal.\n\nWould you trust an AI to build your entire creative pipeline?\n\nFollow for more AI automation.\n\n---\n\n**VISUALS:**\n\n* **0–3 sec — IMAGE FIRST:** Create a hero still image of a futuristic AI production interface generating a complex interconnected workflow. This image becomes the primary visual keyframe for the opening shot. After all images are generated, animate this image with FLF video generation: subtle workflow-node activation, glowing connections, data movement, interface illumination, and controlled screen motion.\n\n* **3–8 sec — IMAGE FIRST:** Create a still image showing a simple production idea/scene layout beside an empty workflow structure. This becomes the starting visual for FLF animation. Animate the image so the scene layout progressively transforms into connected workflow nodes, with data flowing between the sections.\n\n* **8–13 sec — IMAGE FIRST:** Create a detailed still image of an AI production system analyzing a structured production table containing multiple scene rows. Include visible image/video classifications and generation requirements. Use this still as the FLF starting frame. Animate the table being analyzed, rows highlighting, and generation requirements becoming active.\n\n* **13–18 sec — IMAGE FIRST:** Create a still image showing the AI breaking a production idea into multiple organized scenes and generation tasks. Include clearly separated scene cards, image-generation tasks, video-generation tasks, prompts, and settings. Animate the scene cards separating and organizing themselves into a production sequence.\n\n* **18–24 sec — IMAGE FIRST:** Create a still image showing several finished cinematic images/keyframes arranged inside an automated production workspace. Some scenes are marked IMAGE and others marked VIDEO/FLF. Use these images as visual anchors for FLF animation. Animate generation completion indicators, image previews appearing, and completed assets moving into the next production stage.\n\n* **24–30 sec — IMAGE FIRST:** Create a still image of ComfyUI-style generation workflows with separate IMAGE and FLF VIDEO processing paths. Show scene jobs being routed toward the correct workflow. Animate the queue processing, glowing connections activating, and jobs moving through the correct generation paths.\n\n* **30–35 sec — IMAGE FIRST:** Create a still image of multiple completed scene assets moving through an automated production queue. Include image assets, first frames, last frames, FLF video jobs, and completed clips. Animate the production queue processing multiple jobs simultaneously.\n\n* **35–42 sec — IMAGE FIRST:** Create a strong cinematic still showing the complete production pipeline: **IDEA -> SCENE -> IMAGES -> FLF VIDEO**. Use this as the primary FLF starting frame. Animate each stage lighting up sequentially as data flows through the pipeline.\n\n* **42–50 sec — IMAGE FIRST:** Create a final polished still showing the completed production pipeline ending at **FINISHED CONTENT** with multiple finished cinematic scenes displayed. Animate the final assets assembling into one finished Short while the pipeline reaches completion.\n\n* **50–60 sec — IMAGE FIRST:** Create a polished final still showing a finished cinematic YouTube Short playing inside a futuristic production interface with a clean follow/subscribe area. Use FLF video generation for subtle screen movement, finished-content playback, interface glow, and restrained CTA animation.\n\n**IMPORTANT PRODUCTION ORDER:**\n\n1. Generate **ALL required still images first**.\n2. Validate that every required image/keyframe exists.\n3. Do NOT begin video generation until the complete image set is available.\n4. Identify which scenes are still-image scenes.\n5. Identify which scenes require FLF video generation.\n6. For every FLF scene, use the appropriate generated image(s) as the first-frame and/or last-frame references.\n7. Generate FLF videos only after their required image references are complete.\n8. Preserve character, environment, composition, lighting, objects, and visual identity between FLF frames.\n9. Do not invent replacement characters or environments during video generation.\n10. Keep every scene visually consistent with its corresponding source image.\n11. Route each image and FLF video job to its appropriate ComfyUI workflow.\n12. After all generation jobs are complete, pass the completed assets to the next production stage for stitching, voiceover, sound design, translations, and text overlays.\n\n**VOICEOVER:**\n\nWhat if you could tell an AI what you want—and it builds the entire workflow for you?\n\nInstead of manually connecting nodes, configuring settings, and building every generation step, you give the AI the goal—and it builds the production path for you.\n\nYou give it the goal.\n\nThe AI breaks the idea into scenes.\n\nIt decides which scenes need images and which need video.\n\nThen it builds the prompts, generation settings, and production instructions.\n\nFirst, it generates the required images and keyframes.\n\nOnce those images are finished, the system uses them as the starting and ending frames for video generation.\n\nIt sends each FLF video job to the correct ComfyUI workflow.\n\nOne scene can stay as a still image.\n\nAnother can become a cinematic video.\n\nThe system handles the routing automatically.\n\nThat means you're not manually building every generation anymore.\n\nThe AI can build the production path, generate the images, create the FLF videos, and move everything through the pipeline.\n\nYour production system can go from idea, to scene, to images, to FLF video, to finished content.\n\nSo instead of building the workflow yourself, you just give the AI the goal.\n\nWould you trust an AI to build your entire creative pipeline?\n\nFollow for more AI automation.\n\n**DIALOGUE / SYSTEM AUDIO:**\n\n* 0-3 sec: Very subtle synthetic AI voice/system whisper: \"Building workflow.\"\n* 8-13 sec: Quiet AI processing confirmation: \"Analyzing scenes.\"\n* 13-18 sec: Short system confirmation: \"Generation paths identified.\"\n* 18-24 sec: Short confirmation: \"Images complete.\"\n* 24-30 sec: Short system confirmation: \"FLF video generation started.\"\n* 30-35 sec: Short confirmation: \"Jobs routed.\"\n* 35-42 sec: Quiet confirmation: \"Production pipeline active.\"\n* 42-50 sec: Final system confirmation: \"Content complete.\"\n* 50-60 sec: No additional system dialogue during the main CTA.\n\nDialogue should sound like restrained futuristic AI system communication, not a human conversation. Keep all system dialogue brief and subordinate to the main voiceover.\n\n**ON-SCREEN TEXT:**\n\n* \"AI BUILDS THE WORKFLOW\"\n* \"IDEA -> SCENE\"\n* \"SCENE -> GENERATION\"\n* \"IMAGE OR VIDEO\"\n* \"GENERATE IMAGES FIRST\"\n* \"KEYFRAMES READY\"\n* \"FLF VIDEO\"\n* \"AUTOMATED COMFYUI\"\n* \"IMAGE -> FLF VIDEO\"\n* \"IDEA -> FINISHED CONTENT\"\n* \"WOULD YOU TRUST IT?\"\n\n**SOUND:**\n\n* 0-3 sec: Deep futuristic impact, sharp electronic activation, layered digital startup tones, subtle low-frequency pulse, faint electrical crackle, fast cyberpunk interface sweep.\n* 3-8 sec: Rapid UI clicks, digital node activation sounds, soft holographic interface movement, tiny electrical pulses, subtle data-transfer sounds, mechanical interface clicks, rising electronic texture.\n* 8-13 sec: Production-table scanning sounds, rapid digital cursor movement, individual confirmation beeps, data parsing tones, subtle computational pulses, low electronic processing hum.\n* 13-18 sec: Multiple digital sorting sounds, scene-card activation clicks, routing beeps, electronic confirmation tones, layered data movement, subtle rising processing energy.\n* 18-24 sec: Image-generation ambience, GPU-like processing hum, subtle electrical buzzing, digital rendering pulses, image-completion chimes, soft crystalline confirmation tones, several assets activating in sequence.\n* 24-30 sec: ComfyUI processing ambience, node connection clicks, workflow activation tones, queue-start sounds, digital routing sweeps, GPU processing resonance, image-to-video transition sound, deeper electronic processing pulse.\n* 30-35 sec: Multiple queue-processing sounds, rapid confirmation clicks, job-routing tones, completed-job chimes, digital movement between workflow stages, subtle rhythmic processing pulses.\n* 35-42 sec: Rising cinematic electronic energy, layered data-flow sounds, deep synthetic pulse, sequential stage activation impacts, increasingly powerful digital transitions, bright completion tones as each pipeline stage activates.\n* 42-50 sec: Large cinematic build, layered electronic pulses, completed-render confirmation sounds, subtle digital sparkle, deep low-frequency impact, multiple finished-content activation tones, powerful but clean final completion sound.\n* 50-55 sec: Music-like atmosphere drops dramatically, leaving mostly rooftop/technology ambience, soft interface hum, subtle digital particles, gentle electronic pulse underneath the voiceover.\n* 55-60 sec: Minimal futuristic ambience, soft UI confirmation tones, subtle rising electronic shimmer beneath the question, gentle final notification tone after the CTA, then natural audio decay.\n\n**OVERALL SOUND DESIGN:**\n\nDense, cinematic, immersive cyberpunk production environment. Use many individual sound layers rather than a single generic electronic sound. Combine UI clicks, digital beeps, data transfers, processing tones, electrical energy, GPU/computation ambience, workflow activation sounds, queue movement, image-generation sounds, FLF transition sounds, confirmation tones, deep cinematic impacts, subtle futuristic system dialogue, and atmospheric electronic ambience.\n\nSounds should respond directly to what is happening in the production system. Every major workflow action should have its own identifiable audio cue.\n\nKeep the main voiceover clearly intelligible above all sound effects. System dialogue should be quieter and shorter than the main narration.\n\nNo explosions, weapons, gunfire, footsteps, random mechanical sounds, comedy effects, or unrelated sound effects.",
+                "Scenes": "",
+                "Status": "Idea",
+                "Working": false
+              }
+            ]
+          },
+          "webhookUrl": "http://10.0.0.157:5678/webhook/yt-wright",
+          "executionMode": "production"
+        },
+        "pairedItem": { "item": 0 }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook create": {
+      "main": [[{ "node": "Normalize Input", "type": "main", "index": 0 }]]
+    },
+    "Webhook write": {
+      "main": [[{ "node": "Normalize Input", "type": "main", "index": 0 }]]
+    },
+    "Webhook update": {
+      "main": [[{ "node": "Normalize Input", "type": "main", "index": 0 }]]
+    },
+    "Webhook get": {
+      "main": [[{ "node": "Normalize Input", "type": "main", "index": 0 }]]
+    },
+    "Webhook remove": {
+      "main": [[{ "node": "Normalize Input", "type": "main", "index": 0 }]]
+    },
+    "When Executed by Another Workflow": {
+      "main": [[{ "node": "Normalize Input", "type": "main", "index": 0 }]]
+    },
+    "Normalize Input": {
+      "main": [[{ "node": "Switch", "type": "main", "index": 0 }]]
+    },
+    "Switch": {
+      "main": [
+        [{ "node": "HTTP Create Table", "type": "main", "index": 0 }],
+        [{ "node": "HTTP Write Rows", "type": "main", "index": 0 }],
+        [{ "node": "Prep Update", "type": "main", "index": 0 }],
+        [{ "node": "HTTP Get Rows", "type": "main", "index": 0 }],
+        [{ "node": "HTTP Remove Table", "type": "main", "index": 0 }]
+      ]
+    },
+    "HTTP Create Table": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    },
+    "HTTP Write Rows": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    },
+    "Prep Update": {
+      "main": [[{ "node": "Update row (dataTable)", "type": "main", "index": 0 }]]
+    },
+    "Update row (dataTable)": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    },
+    "HTTP Get Rows": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    },
+    "HTTP Remove Table": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    },
+    "When clicking 'Execute workflow'": {
+      "main": [[{ "node": "Normalize Input", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "ac03e370-cc70-49fd-a103-fb93adef001f",
+  "meta": {
+    "instanceId": "19373d14322c2b7cf420ac7ce71a29ade31973412995149eb84350b906ba6f7f"
+  },
+  "nodeGroups": [],
+  "id": "5x0Dy4rbBRZfov7K",
+  "tags": []
+}
