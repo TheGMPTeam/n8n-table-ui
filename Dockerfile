@@ -19,6 +19,12 @@ ENV PORT=3458
 ARG GIT_COMMIT=unknown
 ARG GIT_BRANCH=unknown
 ARG VERSION=0.0.0
+# Persist build args into the image as files so the proxy can read them at
+# runtime even when the container env does not carry them (the common case with
+# compose). GIT_COMMIT is the short hash from the build context's git checkout.
+RUN printf '%s' "${GIT_COMMIT}" > /app/git-commit.txt \
+ && printf '%s' "${GIT_BRANCH}" > /app/git-branch.txt \
+ && printf '%s' "${VERSION}" > /app/version.txt
 ENV GIT_COMMIT=${GIT_COMMIT}
 ENV GIT_BRANCH=${GIT_BRANCH}
 ENV VERSION=${VERSION}

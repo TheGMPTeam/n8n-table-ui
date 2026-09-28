@@ -12,6 +12,9 @@ const HTML_OVERRIDE = path.join(DATA_DIR, 'index.html');
 
 // Optional .data/env drop-in. Real environment variables always win, so this
 // only fills gaps — it can never override what compose passes in.
+// git-commit detection: the proxy tries to read .git at runtime (when the
+// image includes .git or the build context is a git checkout) and falls back
+// to GIT_COMMIT env (build arg) → 'unknown'.
 function loadEnvFile() {
   let raw;
   try {
@@ -140,31 +143,43 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Version / build info. The proxy seeds .data/version.json from env on first
-  // startup so the version string can be updated without a rebuild (drop a new
-  // version.json into the data dir and restart). The /version endpoint is read
-  // by the UI's bottom bar and updater popup.
+  // Version / build info. Priority:
+  //   1. .data/version.json  (no-rebuild update: drop this file + restart)
+  //   2. /app/git-commit.txt, /app/git-branch.txt, /app/version.txt  (baked at
+  //      build time from --build-arg; survives compose not passing those envs)
+  //   3. GIT_COMMIT / GIT_BRANCH / VERSION env  (baked in by Dockerfile ENV)
+  //   4. 'unknown' / '0.0.0' fallback
   const VERSION_PATH = path.join(DATA_DIR, 'version.json');
+  const BAKED_COMMIT_PATH = path.join(__dirname, 'git-commit.txt');
+  const BAKED_BRANCH_PATH = path.join(__dirname, 'git-branch.txt');
+  const BAKED_VERSION_PATH = path.join(__dirname, 'version.txt');
   let _versionInfo = null;
   function readVersionInfo() {
     if (_versionInfo) return _versionInfo;
+    let commit = null, branch = null, version = null;
+    // 1. .data/version.json (runtime override / no-rebuild update)
     try {
       if (fs.existsSync(VERSION_PATH)) {
-        _versionInfo = JSON.parse(fs.readFileSync(VERSION_PATH, 'utf8'));
+        const v = JSON.parse(fs.readFileSync(VERSION_PATH, 'utf8'));
+        if (v.commit) commit = String(v.commit).trim();
+        if (v.branch) branch = String(v.branch).trim();
+        if (v.version) version = String(v.version).trim();
       }
-    } catch (e) { /* fall through to env */ }
-    if (!_versionInfo) {
-      _versionInfo = {
-        version: process.env.VERSION || process.env.npm_package_version || '0.0.0',
-        commit: process.env.GIT_COMMIT || 'unknown',
-        branch: process.env.GIT_BRANCH || 'unknown',
-      };
-    }
+    } catch (e) { /* fall through */ }
+    // 2. baked files from build args
+    if (!commit) { try { if (fs.existsSync(BAKED_COMMIT_PATH)) commit = String(fs.readFileSync(BAKED_COMMIT_PATH, 'utf8')).trim(); } catch (e) {} }
+    if (!branch) { try { if (fs.existsSync(BAKED_BRANCH_PATH)) branch = String(fs.readFileSync(BAKED_BRANCH_PATH, 'utf8')).trim(); } catch (e) {} }
+    if (!version) { try { if (fs.existsSync(BAKED_VERSION_PATH)) version = String(fs.readFileSync(BAKED_VERSION_PATH, 'utf8')).trim(); } catch (e) {} }
+    // 3. env fallback
+    if (!commit) commit = (process.env.GIT_COMMIT || '').trim() || 'unknown';
+    if (!branch) branch = (process.env.GIT_BRANCH || '').trim() || 'unknown';
+    if (!version) version = (process.env.VERSION || process.env.npm_package_version || '').trim() || '0.0.0';
+    _versionInfo = { version, commit, branch };
     return _versionInfo;
   }
-  // Seed .data/version.json from env if it doesn't exist yet (first startup or
-  // after a rebuild). A later no-rebuild update drops a new file here.
-  // The volume mount is expected to already exist; this is best-effort.
+  // Seed .data/version.json from baked info if it doesn't exist yet (first
+  // startup or after a rebuild). A later no-rebuild update drops a new file
+  // here. The volume mount is expected to already exist; this is best-effort.
   if (!fs.existsSync(VERSION_PATH)) {
     try {
       fs.mkdirSync(DATA_DIR, { recursive: true });
