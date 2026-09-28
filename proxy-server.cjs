@@ -157,37 +157,49 @@ const server = http.createServer(async (req, res) => {
   function readVersionInfo() {
     if (_versionInfo) return _versionInfo;
     let commit = null, branch = null, version = null;
-    // 1. .data/version.json (runtime override / no-rebuild update)
+    // 1. .data/version.json (runtime override / no-rebuild update) — only used
+    //    when the image did NOT bake git-commit.txt (i.e. a truly manual drop-in).
+    let fromOverride = false;
     try {
       if (fs.existsSync(VERSION_PATH)) {
         const v = JSON.parse(fs.readFileSync(VERSION_PATH, 'utf8'));
         if (v.commit) commit = String(v.commit).trim();
         if (v.branch) branch = String(v.branch).trim();
         if (v.version) version = String(v.version).trim();
+        fromOverride = true;
       }
     } catch (e) { /* fall through */ }
-    // 2. baked files from build args
-    if (!commit) { try { if (fs.existsSync(BAKED_COMMIT_PATH)) commit = String(fs.readFileSync(BAKED_COMMIT_PATH, 'utf8')).trim(); } catch (e) {} }
-    if (!branch) { try { if (fs.existsSync(BAKED_BRANCH_PATH)) branch = String(fs.readFileSync(BAKED_BRANCH_PATH, 'utf8')).trim(); } catch (e) {} }
-    if (!version) { try { if (fs.existsSync(BAKED_VERSION_PATH)) version = String(fs.readFileSync(BAKED_VERSION_PATH, 'utf8')).trim(); } catch (e) {} }
-    // 3. env fallback
-    if (!commit) commit = (process.env.GIT_COMMIT || '').trim() || 'unknown';
-    if (!branch) branch = (process.env.GIT_BRANCH || '').trim() || 'unknown';
-    if (!version) version = (process.env.VERSION || process.env.npm_package_version || '').trim() || '0.0.0';
-    _versionInfo = { version, commit, branch };
-    return _versionInfo;
-  }
-  // Seed .data/version.json from baked info if it doesn't exist yet (first
-  // startup or after a rebuild). A later no-rebuild update drops a new file
-  // here. The volume mount is expected to already exist; this is best-effort.
-  if (!fs.existsSync(VERSION_PATH)) {
-    try {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-      fs.writeFileSync(VERSION_PATH, JSON.stringify(readVersionInfo(), null, 2) + '\n');
-      writeLog('version.json seeded: ' + JSON.stringify(readVersionInfo()));
-    } catch (e) {
-      writeLog('WARNING: could not seed .data/version.json — ' + e.message);
+    // 2. baked files from build args — these win over a stale .data/version.json
+    //    so a fresh build always corrects the cached version info.
+    let bakedCommit = null, bakedBranch = null, bakedVersion = null;
+    if (!bakedCommit) { try { if (fs.existsSync(BAKED_COMMIT_PATH)) bakedCommit = String(fs.readFileSync(BAKED_COMMIT_PATH, 'utf8')).trim(); } catch (e) {} }
+    if (!bakedBranch) { try { if (fs.existsSync(BAKED_BRANCH_PATH)) bakedBranch = String(fs.readFileSync(BAKED_BRANCH_PATH, 'utf8')).trim(); } catch (e) {} }
+    if (!bakedVersion) { try { if (fs.existsSync(BAKED_VERSION_PATH)) bakedVersion = String(fs.readFileSync(BAKED_VERSION_PATH, 'utf8')).trim(); } catch (e) {} }
+    if (bakedCommit || bakedBranch || bakedVersion) {
+      // Fresh build present — use baked values and refresh the override file.
+      if (!commit || commit === 'unknown') commit = bakedCommit || 'unknown';
+      if (!branch || branch === 'unknown') branch = bakedBranch || 'unknown';
+      if (!version || version === '0.0.0') version = bakedVersion || '0.0.0';
+      fromOverride = false; // force re-seed below
     }
+    // 3. env fallback
+    if (!commit || commit === 'unknown') commit = (process.env.GIT_COMMIT || '').trim() || 'unknown';
+    if (!branch || branch === 'unknown') branch = (process.env.GIT_BRANCH || '').trim() || 'unknown';
+    if (!version || version === '0.0.0') version = (process.env.VERSION || process.env.npm_package_version || '').trim() || '0.0.0';
+    _versionInfo = { version, commit, branch };
+    // Re-seed .data/version.json when the cached info differs from what's on disk
+    // (fresh build correcting a stale override, or first run).
+    try {
+      const onDisk = fs.existsSync(VERSION_PATH) ? JSON.parse(fs.readFileSync(VERSION_PATH, 'utf8')) : null;
+      if (!onDisk || onDisk.commit !== _versionInfo.commit || onDisk.branch !== _versionInfo.branch || onDisk.version !== _versionInfo.version) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+        fs.writeFileSync(VERSION_PATH, JSON.stringify(_versionInfo, null, 2) + '\n');
+        writeLog('version.json updated: ' + JSON.stringify(_versionInfo));
+      }
+    } catch (e) {
+      writeLog('WARNING: could not write .data/version.json — ' + e.message);
+    }
+    return _versionInfo;
   }
 
   // Serve /version so the UI can show build info in the bottom bar + updater popup.
