@@ -94,7 +94,71 @@ The Setup tab walks through first-time configuration:
 - **Edit modal** — inline edit with type→API template mapping from the templates table.
 - **Config tab** — view/edit localStorage config + read-only proxy env fields.
 - **Debug panel** — toggleable request/response log.
++ - **Bottom bar** — always-visible strip at the bottom showing the running version, git commit short hash, and branch, served by `GET /version`. The values come from the container, not GitHub.
++ - **Check for updates popup** — click the bottom-bar button to open a modal explaining the two update paths (drop into `.data/` for no-rebuild UI/version changes vs full image rebuild for proxy/dependency changes), the beta-vs-main split, and quick verify commands.
 
++## Version Bar, Updater Popup, Beta vs Main
++
++### Bottom bar
++
++The bottom bar is fixed to the bottom of the viewport and shows `n8n-table-ui  <version>  commit <sha>  (<branch>)` pulled from `GET /version`. It is visible on every tab. A **Check for updates** button opens the updater popup.
++
++`GET /version` returns a JSON object shaped `{ version, commit, branch }`. Priority:
++
++1. `.data/version.json` when it was **hand-dropped by an operator** (no `_seeded` marker) — wins over everything, never overwritten by a restart/rebuild.
++2. `.data/version.json` auto-seeded by a prior container run (`_seeded: true`) — corrected by the new build's baked files when they differ.
++3. `/app/version.txt`, `/app/git-commit.txt`, `/app/git-branch.txt` baked into the image at build time from `--build-arg`.
++4. `VERSION` / `GIT_COMMIT` / `GIT_BRANCH` env (baked in by Dockerfile `ENV`, surviving when compose doesn't pass them).
++5. `'0.0.0'` / `'unknown'` fallback.
++
++On first run (or after a clean `.data/`), the proxy auto-seeds `.data/version.json` from the baked files and writes `_seeded: true` into it.
++
++### Updater popup
++
++The popup explains two update paths and the beta/main split, and gives quick verify commands (`curl -s http://localhost:3458/version`, `ls -la .../.data/`). It is not a GitHub poll — there is no automatic "new version available" check. To wire one, add a call against the GitHub API and compare the returned ref SHA against the bottom-bar commit.
++
++### Beta vs main
++
++- **main** = production.
++- **beta** = testing. Build from the `beta` branch, deploy, and point the container at it when you want to test new UI or build changes. Do not swap beta onto the production container unless you intend a beta rollout.
++
++When building for beta, pass the branch so the bottom bar reads `(beta)`:
++
++```bash
++docker build \
++  --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) \
++  --build-arg GIT_BRANCH=beta \
++  --build-arg VERSION=0.1.0-beta.1 \
++  -t n8n-table-ui:beta-v1 .
++```
++
++When building for main, pass `GIT_BRANCH=main` and a release `VERSION`.
++
++### No-rebuild updates (drop into `.data/`)
++
++The proxy serves `.data/index.html` when it exists, and reads `.data/version.json` for the version bar. So UI tweaks and version bumps can be applied without a build:
++
++```bash
++# On the server (10.0.0.157), drop the new UI file and an optional version bump:
++cp new-index.html /home/dad/Config/data/n8n-table-ui/.data/index.html
++echo '{"version":"0.1.0","commit":"manual","branch":"main","_seeded":false}' \
++  > /home/dad/Config/data/n8n-table-ui/.data/version.json
++
++# Restart to pick it up (no docker build):
++docker restart n8n-table-ui
++```
++
++Notes:
++
++- A hand-dropped `version.json` must **not** carry `_seeded` (or carry `_seeded: false`) so a later rebuild does not overwrite it. The proxy writes `_seeded: true` only on files it auto-generates.
++- Changes to `proxy-server.cjs`, the Dockerfile, or image dependencies still require a build + deploy + restart.
++- The `.data/` dir is owned by `dad` and writable by the container (the container runs as root, so files it writes end up root-owned — re-own with `sudo chown -R dad:dad .../.data` if you need to edit them as `dad`). Set up the `.data/` dir once before first run:
++
++```bash
++ssh dad@10.0.0.157 'mkdir -p /home/dad/Config/data/n8n-table-ui/.data && sudo chown -R dad:dad /home/dad/Config/data/n8n-table-ui/.data'
++```
++
++## Build Args
 ## Configuration
 
 ### Proxy environment variables
@@ -120,6 +184,35 @@ The Setup tab walks through first-time configuration:
 | `maxDebugLines` | 100 | Debug panel scrollback |
 | `debugDefault` | false | Open debug panel on load |
 | `autoRefreshDefault` | true | Auto-refresh enabled by default |
+
+## Build Args
+
+The image bakes three values at build time via `--build-arg`; these survive when compose does not pass them as env vars, and they seed `.data/version.json` on first run:
+
+|| Build arg | Default | Description ||
+|| `GIT_COMMIT` | `unknown` | Short git commit hash baked into `/app/git-commit.txt` and the bottom bar ||
+|| `GIT_BRANCH` | `unknown` | Branch name baked into `/app/git-branch.txt` (e.g. `beta` or `main`) ||
+|| `VERSION` | `0.0.0` | Version string baked into `/app/version.txt` and the bottom bar ||
+
+Example (beta build):
+
+```bash
+docker build \
+  --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) \
+  --build-arg GIT_BRANCH=beta \
+  --build-arg VERSION=0.1.0-beta.1 \
+  -t n8n-table-ui:beta-v1 .
+```
+
+Example (main build):
+
+```bash
+docker build \
+  --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) \
+  --build-arg GIT_BRANCH=main \
+  --build-arg VERSION=1.0.0 \
+  -t n8n-table-ui:1.0.0 .
+```
 
 ### Files
 
