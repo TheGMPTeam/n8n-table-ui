@@ -7,6 +7,7 @@ WORKDIR /app
 # legacy direct-SQLite path and are NOT included in this image.
 COPY proxy-server.cjs ./
 COPY index.html ./
+COPY webhook-workflow-template.json ./
 
 ENV NODE_ENV=production
 ENV PORT=3458
