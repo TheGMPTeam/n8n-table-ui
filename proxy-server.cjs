@@ -175,23 +175,24 @@ const server = http.createServer(async (req, res) => {
       }
     } catch (e) { /* fall through */ }
     // 2. baked files from build args — win over a stale AUTO-seeded .data/version.json
-    //    so a fresh build always corrects a version that a prior container seeded.
+    //    so a fresh build always corrects a version that a prior container seeded,
+    //    even when the stale value was a real (non-unknown) string.
     let bakedCommit = null, bakedBranch = null, bakedVersion = null;
     if (!bakedCommit) { try { if (fs.existsSync(BAKED_COMMIT_PATH)) bakedCommit = String(fs.readFileSync(BAKED_COMMIT_PATH, 'utf8')).trim(); } catch (e) {} }
     if (!bakedBranch) { try { if (fs.existsSync(BAKED_BRANCH_PATH)) bakedBranch = String(fs.readFileSync(BAKED_BRANCH_PATH, 'utf8')).trim(); } catch (e) {} }
     if (!bakedVersion) { try { if (fs.existsSync(BAKED_VERSION_PATH)) bakedVersion = String(fs.readFileSync(BAKED_VERSION_PATH, 'utf8')).trim(); } catch (e) {} }
     if (bakedCommit || bakedBranch || bakedVersion) {
       if (!overriddenByHand) {
-        if (!commit || commit === 'unknown') commit = bakedCommit || 'unknown';
-        if (!branch || branch === 'unknown') branch = bakedBranch || 'unknown';
-        if (!version || version === '0.0.0') version = bakedVersion || '0.0.0';
+        if (bakedCommit) commit = bakedCommit;
+        if (bakedBranch) branch = bakedBranch;
+        if (bakedVersion) version = bakedVersion;
         fromOverride = false; // force re-seed from baked below
       }
     }
-    // 3. env fallback
-    if (!commit || commit === 'unknown') commit = (process.env.GIT_COMMIT || '').trim() || 'unknown';
-    if (!branch || branch === 'unknown') branch = (process.env.GIT_BRANCH || '').trim() || 'unknown';
-    if (!version || version === '0.0.0') version = (process.env.VERSION || process.env.npm_package_version || '').trim() || '0.0.0';
+    // 3. env fallback (only when no baked file supplied the field)
+    if (!commit) commit = (process.env.GIT_COMMIT || '').trim() || 'unknown';
+    if (!branch) branch = (process.env.GIT_BRANCH || '').trim() || 'unknown';
+    if (!version) version = (process.env.VERSION || process.env.npm_package_version || '').trim() || '0.0.0';
     _versionInfo = { version, commit, branch };
     // Write .data/version.json when it is missing or was auto-seeded by a prior
     // container and the baked values changed. A hand-dropped file (no _seeded
