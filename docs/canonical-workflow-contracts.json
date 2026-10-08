@@ -1,0 +1,86 @@
+{
+  "chain": [
+    "Research",
+    "Script",
+    "Scenes",
+    "Review",
+    "Video Review",
+    "Uploaded"
+  ],
+  "gates": [
+    {
+      "workflow": "Research",
+      "result": "passed 4 aliases; wrong/null/locked/completed excluded",
+      "code": "const allowed = new Set([\"Research\", \"ReSearch\", \"research\", \"Ideas\", \"ideas\"]);\nreturn $input.all().flatMap((item, index) => { const r = item.json; return r && Number.isSafeInteger(r.id) && r.id > 0 && allowed.has(r.Type) && r.Completed === false && r.Working === false ? [{json:r, pairedItem:{item:index}}] : []; });",
+      "aliases": [
+        "Research",
+        "ReSearch",
+        "research",
+        "Ideas",
+        "ideas"
+      ]
+    },
+    {
+      "workflow": "Scene Production",
+      "result": "passed 2 aliases; wrong/null/locked/completed excluded",
+      "code": "const allowed = new Set([\"Script\", \"script\"]);\nreturn $input.all().flatMap((item, index) => { const r = item.json; return r && Number.isSafeInteger(r.id) && r.id > 0 && allowed.has(r.Type) && r.Completed === false && r.Working === false ? [{json:r, pairedItem:{item:index}}] : []; });",
+      "aliases": [
+        "Script",
+        "script"
+      ]
+    },
+    {
+      "workflow": "Shorts Dispatcher",
+      "result": "passed 4 aliases; wrong/null/locked/completed excluded",
+      "code": "const allowed = new Set([\"Scenes\", \"scenes\", \"Scene\", \"scene\"]);\nreturn $input.all().flatMap((item, index) => { const r = item.json; return r && Number.isSafeInteger(r.id) && r.id > 0 && allowed.has(r.Type) && r.Completed === false && r.Working === false ? [{json:r, pairedItem:{item:index}}] : []; });",
+      "aliases": [
+        "Scenes",
+        "scenes",
+        "Scene",
+        "scene"
+      ]
+    }
+  ],
+  "publishedVersions": {
+    "Research": "86e59376-acd6-4656-a39c-ed5f3d70e420",
+    "Scene Production": "f1f4a0f1-b41f-4a14-a58d-0dd8bbdf7653",
+    "Shorts Dispatcher": "36258b08-7a51-40f5-9422-b891eddf37b8",
+    "Review \u2014 Manual Approval Gate": "f5fbd990-af8e-4ffb-92d9-9514ec75557e"
+  },
+  "missingStages": [
+    "Video Review",
+    "Uploaded"
+  ],
+  "readOnlyProbes": [
+    {
+      "workflow": "Research",
+      "cloneId": "F2WXx2eK2BW3sIas",
+      "executionId": "57183",
+      "httpStatus": 200,
+      "selectedIds": [
+        11
+      ],
+      "status": "success"
+    },
+    {
+      "workflow": "Scene Production",
+      "cloneId": "7Jc1bQkDDpkll5YY",
+      "executionId": "57184",
+      "httpStatus": 200,
+      "selectedIds": [
+        11
+      ],
+      "status": "success"
+    },
+    {
+      "workflow": "Shorts Dispatcher",
+      "cloneId": "JA9TJLCHmroahPmX",
+      "executionId": "57185",
+      "httpStatus": 200,
+      "selectedIds": [
+        11
+      ],
+      "status": "success"
+    }
+  ]
+}

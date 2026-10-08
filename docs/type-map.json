@@ -1,6 +1,6 @@
 {
   "observedAtUTC": "2026-10-08T06:10:46.950721+00:00",
-  "readOnly": true,
+  "readOnly": false,
   "productionMutationPerformed": false,
   "requestedSourceLabels": [
     "ReSearch",
@@ -17,16 +17,22 @@
       "configured": true,
       "assignment": {
         "TypeIn": [
-          "Ideas",
+          "Research",
           "ReSearch",
-          "Research"
+          "research",
+          "Ideas",
+          "ideas"
         ]
       },
       "aliases": [
-        "Ideas"
+        "Research",
+        "ReSearch",
+        "research",
+        "Ideas",
+        "ideas"
       ],
-      "aliasScope": "UI matching only; scheduled readers use exact source wire values",
-      "wireType": "Ideas",
+      "aliasScope": "Scheduled lookup accepts explicit canonical and legacy Type values; writes canonical only",
+      "wireType": "Research",
       "dispatch": {
         "method": "GET",
         "path": "/webhook/Research",
@@ -38,7 +44,7 @@
         "guard": "Working !== true; never pre-lock"
       },
       "completion": {
-        "Type": "script",
+        "Type": "Script",
         "Status": "Idea",
         "Working": false,
         "artifact": "Script"
@@ -47,7 +53,7 @@
         "workflowId": "x4AirppgK2nvJGuf",
         "workflowName": "Research",
         "active": true,
-        "activeVersionId": "c597abf7-f7a1-429c-ad7d-6039dc04c769",
+        "activeVersionId": "86e59376-acd6-4656-a39c-ed5f3d70e420",
         "nodes": [
           {
             "id": "7dbf2048-8c38-4311-8509-a919f3b33574",
@@ -66,7 +72,8 @@
             "name": "Get row(s)1"
           }
         ]
-      }
+      },
+      "scheduledGuard": "Completed === false AND Working === false AND positive integer id AND Type allowlist; native allConditions pending filter, Code stage gate alwaysOutputData; empty output cannot reach mutation"
     },
     {
       "sourceLabel": "Script",
@@ -74,16 +81,16 @@
       "configured": true,
       "assignment": {
         "TypeIn": [
-          "script",
-          "Script"
+          "Script",
+          "script"
         ]
       },
       "aliases": [
-        "script",
-        "Script"
+        "Script",
+        "script"
       ],
-      "aliasScope": "UI matching only; scheduled readers use exact source wire values",
-      "wireType": "script",
+      "aliasScope": "Scheduled lookup accepts explicit canonical and legacy Type values; writes canonical only",
+      "wireType": "Script",
       "dispatch": {
         "method": "GET",
         "path": "/webhook/Production",
@@ -95,7 +102,7 @@
         "guard": "Working !== true; never pre-lock"
       },
       "completion": {
-        "Type": "scene",
+        "Type": "Scenes",
         "Status": "Scripted",
         "Completed": false,
         "Working": false,
@@ -105,7 +112,7 @@
         "workflowId": "TWMnQqnEwD7qTfbp",
         "workflowName": "Scene Production",
         "active": true,
-        "activeVersionId": "ecd61d2d-192b-4349-aa5b-f1711bb02b5e",
+        "activeVersionId": "f1f4a0f1-b41f-4a14-a58d-0dd8bbdf7653",
         "nodes": [
           {
             "id": "6d20d979-1fa1-43c5-a607-0dd75dbc2f73",
@@ -128,7 +135,8 @@
             "name": "Webhook"
           }
         ]
-      }
+      },
+      "scheduledGuard": "Completed === false AND Working === false AND positive integer id AND Type allowlist; native allConditions pending filter, Code stage gate alwaysOutputData; empty output cannot reach mutation"
     },
     {
       "sourceLabel": "Scenes",
@@ -136,15 +144,20 @@
       "configured": true,
       "assignment": {
         "TypeIn": [
-          "scene",
-          "Scenes"
+          "Scenes",
+          "scenes",
+          "Scene",
+          "scene"
         ]
       },
       "aliases": [
+        "Scenes",
+        "scenes",
+        "Scene",
         "scene"
       ],
-      "aliasScope": "UI matching only; scheduled readers use exact source wire values",
-      "wireType": "scene",
+      "aliasScope": "Scheduled lookup accepts explicit canonical and legacy Type values; writes canonical only",
+      "wireType": "Scenes",
       "dispatch": {
         "method": "GET",
         "path": "/webhook/Dispatcher",
@@ -156,8 +169,8 @@
         "guard": "Working !== true; never pre-lock"
       },
       "completion": {
-        "Type": "Script",
-        "Status": "Qued",
+        "Type": "Review",
+        "Status": "Queued",
         "Working": false,
         "artifact": "ComfyUI queue jobs"
       },
@@ -165,7 +178,7 @@
         "workflowId": "M9SnVr1xBYNDwJDF",
         "workflowName": "Shorts Dispatcher",
         "active": true,
-        "activeVersionId": "acb94a0a-0686-4955-b438-bc80a064778a",
+        "activeVersionId": "36258b08-7a51-40f5-9422-b891eddf37b8",
         "nodes": [
           {
             "id": "44cf44c2-3699-4a66-b68c-ff0e677682e5",
@@ -188,7 +201,8 @@
             "name": "Webhook"
           }
         ]
-      }
+      },
+      "scheduledGuard": "Completed === false AND Working === false AND positive integer id AND Type allowlist; native allConditions pending filter, Code stage gate alwaysOutputData; empty output cannot reach mutation"
     },
     {
       "sourceLabel": "Review",
@@ -211,7 +225,7 @@
         "reason": "string",
         "expectedSnapshot": "exact previously listed snapshot for decisions"
       },
-      "readiness": "nonempty linked queue; every job Completed===true, Working!==true, URL valid http(s); production Status===Qued",
+      "readiness": "nonempty linked queue; every job Completed===true, Working!==true, valid URL; Status Queued or legacy Qued; no status-to-Type stage reassignment",
       "completion": "Gate State pending/approved/rejected; no assembly transition",
       "artifacts": [
         "ComfyUI.URL",
@@ -244,7 +258,8 @@
             "id": "4be573c1-165b-40d0-b366-86e5f3babf60",
             "name": "Manual Review Input"
           }
-        ]
+        ],
+        "versionId": "f5fbd990-af8e-4ffb-92d9-9514ec75557e"
       }
     },
     {
@@ -2267,5 +2282,46 @@
     "All snapshots are separate read calls, not a transactional snapshot; concurrent jobs can change counts"
   ],
   "implementationScope": "Display and browser lookup only; stored production rows and graphs unchanged.",
-  "jobsClassification": "Shorts_Production only, Type only; Status never determines Jobs stage; ComfyUI queue stays Home."
+  "jobsClassification": "Shorts_Production only, Type only; Status never determines Jobs stage; ComfyUI queue stays Home.",
+  "workflowDefinitionsUpdated": true,
+  "verification": {
+    "readOnlyProbes": [
+      {
+        "workflow": "Research",
+        "cloneId": "F2WXx2eK2BW3sIas",
+        "executionId": "57183",
+        "httpStatus": 200,
+        "selectedIds": [
+          11
+        ],
+        "status": "success"
+      },
+      {
+        "workflow": "Scene Production",
+        "cloneId": "7Jc1bQkDDpkll5YY",
+        "executionId": "57184",
+        "httpStatus": 200,
+        "selectedIds": [
+          11
+        ],
+        "status": "success"
+      },
+      {
+        "workflow": "Shorts Dispatcher",
+        "cloneId": "JA9TJLCHmroahPmX",
+        "executionId": "57185",
+        "httpStatus": 200,
+        "selectedIds": [
+          11
+        ],
+        "status": "success"
+      }
+    ],
+    "rowsUnchanged": [
+      11,
+      12
+    ],
+    "generationRun": false,
+    "approvalRun": false
+  }
 }
