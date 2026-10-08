@@ -2085,6 +2085,8 @@ let cols = [];
         if (!isHiddenCol(k)) cols.push({ name: k });
       });
     }
+    const isJobsEditor = state.modalTableId === TABLES.shorts;
+    // Jobs preserves its pipeline type/API; only generation rows select templates.
     // order: type, Completed, Working, URL, then rest (API hidden — linked to type pulldown)
     const order = ['type', 'Completed', 'Working', 'URL'];
     const ordered = [];
@@ -2099,6 +2101,7 @@ let cols = [];
       const val = row[col.name];
       if (isCol(col.name, 'API')) return; // hidden — linked to type pulldown, preview below shows it
       if (isCol(col.name, 'type')) {
+        if (isJobsEditor) return;
         html += '<div class="field-group"><label>' + escapeHtml(col.name) + '</label><select id="modal-type"><option value="">—</option>';
         if (val && !state.templates.some(t => canonicalType(t.type) === canonicalType(val))) html += '<option selected value="' + escapeAttr(val) + '">' + escapeHtml(val) + ' (no template)</option>';
         state.templates.forEach(t => {
@@ -2115,7 +2118,7 @@ let cols = [];
     });
 
     // template preview
-    html += '<div class="template-preview"><h4>Template API (from selected type)</h4><textarea id="modal-template-api" readonly>' + escapeHtml('') + '</textarea></div>';
+    if (!isJobsEditor) html += '<div class="template-preview"><h4>Template API (from selected type)</h4><textarea id="modal-template-api" readonly>' + escapeHtml('') + '</textarea></div>';
 
     body.innerHTML = html;
 
@@ -2170,6 +2173,7 @@ let cols = [];
     if (state.saveInFlight) { setStatus('Save already in progress...', 'warn'); return; }
     state.saveInFlight = true;
     const row = state.modalRow;
+    const isJobsEditor = state.modalTableId === TABLES.shorts;
     const patch = {};
     const inputs = $('#modal-body').querySelectorAll('input, textarea, select');
     inputs.forEach(inp => {
@@ -2182,6 +2186,7 @@ let cols = [];
       // Find the actual column name from state.modalRow keys (case-insensitive match)
       const actualKey = Object.keys(row).find(k => colKey(k) === colKey(colLabel));
       if (!actualKey) return;
+      if (isJobsEditor && isCol(actualKey, 'type', 'API')) return;
       if (isCol(actualKey, 'API')) return; // read-only
       if (isCol(actualKey, 'Completed', 'completed')) {
         patch[actualKey] = inp.checked;
@@ -2209,8 +2214,10 @@ let cols = [];
       setTimeout(async () => {
         state.saveInFlight = false;
         await loadTable(state.currentTableId);
-        await loadTemplates();
-        await enrichRowsWithTemplateAPI();
+        if (!isJobsEditor) {
+          await loadTemplates();
+          await enrichRowsWithTemplateAPI();
+        }
       }, 1200);
     } catch (e) {
       state.saveInFlight = false;
