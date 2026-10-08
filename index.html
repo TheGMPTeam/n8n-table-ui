@@ -752,7 +752,10 @@
   /* Restrained shared form borders; keep the restored dashboard layout. */
   .config-row .cfg-input, .modal input:not([type="checkbox"]), .modal textarea, .modal select { border-radius: 8px !important; border: 1px solid var(--border); }
   .modal, .panel { border-radius: 12px; }
-  #updater-modal > .btn-row { position: sticky; bottom: -20px; padding: 12px 0; background: var(--panel); border-top: 1px solid var(--border); }
+  .popup-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; position: sticky; top: 0; z-index: 2; background: var(--panel); padding: 4px 0 10px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .popup-header h2 { min-width: 0; overflow-wrap: anywhere; margin: 0; }
+  .popup-header .btn-cancel { flex: 0 0 auto; min-height: 36px; }
+  .btn-save[hidden] { display: none !important; }
   /* Reference-mapped restrained accents: section structure, not a full HUD. */
   .topbar, .modal-overlay { backdrop-filter: none; }
   #panel-tables .panel { padding: 0; border-radius: 10px; }
@@ -950,12 +953,11 @@
 </div>
 
       <div class="modal-overlay" id="modal-overlay">
-  <div class="modal" id="modal">
-    <h2 id="modal-title">Edit Row</h2>
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
+    <div class="popup-header"><h2 id="modal-title">Edit Row</h2><button class="btn-cancel" id="btn-cancel" aria-label="Close row dialog">Close</button></div>
     <div id="modal-body"></div>
     <div class="btn-row">
       <button class="btn-save" id="btn-save">Save</button>
-      <button class="btn-cancel" id="btn-cancel">Cancel</button>
     </div>
   </div>
 </div>
@@ -972,11 +974,8 @@
 
 <div class="modal-overlay" id="updater-overlay">
   <div class="modal" id="updater-modal" role="dialog" aria-modal="false" aria-labelledby="updater-title" tabindex="-1">
-    <h2 id="updater-title">Check for updates</h2>
+    <div class="popup-header"><h2 id="updater-title">Check for updates</h2><button class="btn-cancel" id="updater-close" aria-label="Close information dialog">Close</button></div>
     <div id="updater-body"></div>
-    <div class="btn-row">
-      <button class="btn-cancel" id="updater-close">Close</button>
-    </div>
   </div>
 </div>
 
@@ -2016,6 +2015,11 @@ function renderSetupPanel(direction) {
   // 'view' (JobID pop: read-only descriptions only, no inputs/pulldown/API).
   function openModalByRow(row, tableId, mode) {
     mode = mode || 'edit';
+    if (!state.modalOpen) state._modalFocus = document.activeElement;
+    $('#btn-save').hidden = mode !== 'edit';
+    if (mode === 'edit') $('#modal-title').textContent = 'Edit Row';
+    $('#modal').scrollTop = 0;
+    $('#modal').focus({preventScroll:true});
     log('openModalByRow row.id=' + row.id + ' table=' + (tableId || state.currentTableId) + ' mode=' + mode);
     state.modalRow = row;
     state.modalTableId = tableId || state.currentTableId;
@@ -2235,6 +2239,9 @@ let cols = [];
     overlay.classList.remove('open');
     state.modalOpen = false;
     state.modalRow = null;
+    const focus = state._modalFocus;
+    state._modalFocus = null;
+    if (focus && typeof focus.focus === 'function') focus.focus({preventScroll:true});
   }
 
   async function sendPatch() {
@@ -2541,6 +2548,8 @@ let cols = [];
     });
     $('#btn-save').addEventListener('click', sendPatch);
     $('#btn-cancel').addEventListener('click', closeModal);
+    $('#modal-overlay').addEventListener('click', e => { if (e.target === $('#modal-overlay')) closeModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.modalOpen && $('#updater-overlay').style.display !== 'flex') { e.preventDefault(); closeModal(); } });
     $('#btn-cancel-create').addEventListener('click', () => {
       $('#new-name').value = '';
       $('#new-cols').value = '';

@@ -4,10 +4,10 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const html=fs.readFileSync('index.html','utf8');
 function editor(table){
-  const nodes=new Map(); const node=id=>{if(!nodes.has(id))nodes.set(id,{innerHTML:'',textContent:'',style:{},classList:{add(){},remove(){}},addEventListener(){},querySelectorAll(){return []}});return nodes.get(id)};
+  const nodes=new Map(); const node=id=>{if(!nodes.has(id))nodes.set(id,{innerHTML:'',textContent:'',style:{},focus(){},classList:{add(){},remove(){}},addEventListener(){},querySelectorAll(){return []}});return nodes.get(id)};
   const requests=[],timers=[];
   const row={id:17,Type:'script',API:'original API',prompt:'original prompt',Params:'{"seed":17}',Completed:false,Working:null};
-  const c={state:{currentTableId:table,templates:[],modalRow:null},TABLES:{shorts:'jobs',comfy:'home'},$:s=>s==='#modal-type'?null:node(s),log(){},escapeHtml:String,escapeAttr:String,colKey:k=>String(k).toLowerCase(),isCol:(k,...names)=>names.some(n=>n.toLowerCase()===k.toLowerCase()),isHiddenCol:k=>k==='id',isTrue:v=>v===true,canonicalType:String,setTimeout:f=>timers.push(f),setStatus(){},validateParams:s=>{JSON.parse(s);return s},callWebhook:async(p,b)=>requests.push({p,b}),loadTable:async()=>{},loadTemplates:async()=>{requests.push({templateFetch:true})},enrichRowsWithTemplateAPI:async()=>{}};
+  const c={document:{activeElement:null},state:{currentTableId:table,templates:[],modalRow:null},TABLES:{shorts:'jobs',comfy:'home'},$:s=>s==='#modal-type'?null:node(s),log(){},escapeHtml:String,escapeAttr:String,colKey:k=>String(k).toLowerCase(),isCol:(k,...names)=>names.some(n=>n.toLowerCase()===k.toLowerCase()),isHiddenCol:k=>k==='id',isTrue:v=>v===true,canonicalType:String,setTimeout:f=>timers.push(f),setStatus(){},validateParams:s=>{JSON.parse(s);return s},callWebhook:async(p,b)=>requests.push({p,b}),loadTable:async()=>{},loadTemplates:async()=>{requests.push({templateFetch:true})},enrichRowsWithTemplateAPI:async()=>{}};
   vm.createContext(c); vm.runInContext(html.slice(html.indexOf('  function openModalByRow('),html.indexOf('  async function sendPatch(')),c);
   const start=html.indexOf('  async function sendPatch('); vm.runInContext(html.slice(start,html.indexOf('\n  function ',start)),c);
   c.openModalByRow(row,table,'edit'); return {c,row,node,requests,timers};
