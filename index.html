@@ -586,6 +586,154 @@
     border-color: var(--accent);
   }
   #updater-overlay { z-index: 90; }
+
+  /* Forest / lime dashboard theme. Presentation only; contracts stay unchanged. */
+  :root {
+    color-scheme: dark;
+    --bg: #080e0b;
+    --panel: #101c15;
+    --border: #2c4030;
+    --text: #e0e8df;
+    --muted: #a5b5a2;
+    --accent: #b4f354;
+    --success: #a9e786;
+    --warn: #efca79;
+    --danger: #ffaaa3;
+    --row-hover: #192c1d;
+    --input: #202f20;
+    --radius-panel: 22px;
+    --radius-control: 999px;
+  }
+  body {
+    padding: 24px 28px 64px;
+    background: radial-gradient(ellipse at 85% 0%, #213c1c66, transparent 48%),
+      radial-gradient(ellipse at 0% 65%, #1a332044, transparent 55%), var(--bg);
+    background-attachment: fixed;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  h1 { font-size: 20px; letter-spacing: -.5px; }
+  h2 { font-size: 19px; letter-spacing: -.3px; margin-bottom: 14px; }
+  h3 { font-size: 15px; margin-bottom: 8px; }
+  p { margin-bottom: 12px; }
+  .topbar {
+    top: 12px;
+    padding: 12px 16px;
+    margin-bottom: 22px;
+    gap: 22px;
+    background: #101c15ed;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-panel);
+    box-shadow: 0 8px 32px #0005;
+    backdrop-filter: blur(16px);
+  }
+  .tabs { gap: 6px; flex-wrap: wrap; }
+  button { font: inherit; transition: background-color .15s, border-color .15s, color .15s; }
+  .tab-btn, .refresh-btn, .edit-btn, .push-btn, .config-btn,
+  .btn-row button, .btn-save, .btn-cancel, .bottombar-update-btn {
+    border-radius: var(--radius-control) !important;
+    min-height: 36px;
+    padding: 7px 15px;
+    font-size: 13px;
+  }
+  .tab-btn { background: transparent; border-color: transparent; color: var(--muted); }
+  .tab-btn:hover { background: var(--input); }
+  .tab-btn.active, #btn-refresh, .btn-save, #btn-save-config {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #15200e;
+    font-weight: 650;
+    box-shadow: 0 0 18px #b4f35416;
+  }
+  .tab-btn.active:hover, #btn-refresh:hover, .btn-save:hover, #btn-save-config:hover {
+    background: #c5ff70; color: #15200e;
+  }
+  .panel, .modal {
+    border-radius: var(--radius-panel);
+    padding: 22px;
+    background: linear-gradient(135deg, #17251aee, #0e1812f5);
+    border-color: var(--border);
+    box-shadow: 0 14px 40px #0004, inset 0 1px 0 #c1f8a512;
+  }
+  .panel { margin-bottom: 20px; min-width: 0; }
+  #panel-completed { border-top-color: #6b8c40; box-shadow: 0 -5px 28px #b4f3540c, 0 14px 40px #0004; }
+  .panel-header { gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  .panel-title { font-size: 16px; gap: 9px; }
+  .panel-title svg { fill: var(--accent); }
+  .panel-title svg[fill="none"] { fill: none; stroke: var(--accent); }
+  .count-badge { background: #263b27; color: #c3dfb2; padding: 3px 10px; border: 1px solid #3c5535; }
+  .table-scroll { overflow-x: auto; overscroll-behavior-x: contain; border-radius: 12px; }
+  table { font-size: 13px; line-height: 1.5; }
+  th, td { padding: 11px 12px; border-bottom-color: #2c403099; vertical-align: middle; }
+  th { font-size: 11px; letter-spacing: .8px; color: #b0c39e; padding-top: 8px; padding-bottom: 12px; }
+  tbody tr:last-child td { border-bottom: 0; }
+  thead tr:hover { background: transparent; }
+  td { overflow-wrap: anywhere; }
+  td:first-child { min-width: 130px; }
+  .edit-btn { background: #233324; color: #c6d5be; border-color: #3c5036; min-height: 32px; padding: 5px 12px; }
+  .push-btn { background: #3d301c; color: var(--warn); border: 1px solid #705c32; }
+  .jic-badge { border-radius: 999px; font-size: 11px; padding: 3px 9px; }
+  .jobid-job-card { background: #101b13; border-radius: 16px; }
+  .jic-head, .jic-prompt { padding: 12px 16px; }
+  .jic-id, .jmh-label, .jmh-count { font-size: 12px; }
+  #review-list { margin-top: 20px; }
+  #review-list .jobid-job-card { padding: 16px; margin-top: 10px; }
+  #review-list pre { overflow-wrap: anywhere; font-size: 13px; color: var(--muted); }
+  #panel-review > .panel > p, #panel-review ol { max-width: 100ch; line-height: 1.7; }
+  #panel-review button { margin: 4px 6px 4px 0; }
+  button:disabled { background: #1e2820; color: #9ca99a; border: 1px solid var(--border); padding: 7px 14px; border-radius: 999px; cursor: not-allowed; opacity: 1; }
+  input:not([type="checkbox"]), select, textarea,
+  .field-group input[type="text"], .field-group select, .field-group textarea,
+  .new-table-form input, .new-table-form textarea, .cfg-input {
+    background: var(--input); color: var(--text); border: 1px solid #425438;
+    border-radius: 18px; padding: 10px 14px; font-size: 14px;
+    max-width: 100%; min-width: 0;
+  }
+  input:not([type="checkbox"]), select { border-radius: 999px !important; min-height: 40px; }
+  input::placeholder, textarea::placeholder { color: #abb8a5; opacity: 1; }
+  input[type="checkbox"] { accent-color: var(--accent); width: 18px; height: 18px; }
+  :is(button, a, input, textarea, select, .table-scroll):focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 3px;
+  }
+  .cfg-input:focus { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .config-row { gap: 14px; margin-bottom: 14px; }
+  .config-row small { font-size: 12px; }
+  .config-form > p { color: var(--muted); margin-bottom: 24px; }
+  .config-form fieldset, .template-preview { border-radius: 16px; padding: 16px; }
+  .status-bar { border-radius: 14px; padding: 10px 14px; background: #111e15; font-size: 13px; }
+  .status-bar.success { background: #1c3320; border-color: #42633a; }
+  .status-bar.warn { background: #302819; border-color: #65522d; }
+  .status-bar.danger { background: #321e1d; border-color: #6f3e39; }
+  .url-cell { border-radius: 12px; }
+  .url-link { font-size: 13px; }
+  .bottombar { height: 38px; background: #101a13f5; gap: 12px; }
+  .bottombar-update-btn { min-height: 28px; padding: 3px 12px; }
+  .debug-panel { bottom: 38px; background: #101a13f5; border-top-right-radius: 14px; font-size: 12px; }
+  .debug-header { padding: 6px 12px; }
+  .debug-header button { font-size: 11px; }
+  .modal-overlay { background: #020704cc; backdrop-filter: blur(6px); }
+  .modal { max-height: 88dvh; }
+  code { color: #c5dfad; }
+  @media (max-width: 760px) {
+    body { padding: 12px 12px 70px; }
+    .topbar { top: 6px; gap: 12px; padding: 12px; }
+    .topbar h1 { flex: 1; }
+    .tabs { order: 3; flex-basis: 100%; margin-right: 0; gap: 4px; }
+    .tab-btn { flex: 1; padding: 8px 10px; min-height: 40px; }
+    .panel, .modal { padding: 16px; border-radius: 18px; }
+    .table-scroll table { min-width: 640px; }
+    .config-row { align-items: flex-start; gap: 6px; }
+    .config-row label { flex-basis: 100%; }
+    .cfg-input { flex-basis: 100%; width: 100%; }
+    .config-row small { margin-left: 0 !important; }
+    .bottombar { justify-content: space-between; padding: 0 10px; gap: 8px; font-size: 10px; }
+    .bottombar-version { max-width: 58%; overflow: hidden; text-overflow: ellipsis; }
+    .bottombar-update-btn { font-size: 11px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+
 </style>
 </head>
 <body>
@@ -609,10 +757,12 @@
       <span class="panel-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="#3fb950"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Completed</span>
       <span class="count-badge" id="count-completed">0</span>
     </div>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Completed table, scroll horizontally">
     <table>
       <thead id="thead-completed"></thead>
       <tbody id="tbody-completed"></tbody>
     </table>
+    </div>
     <div class="empty-line" id="empty-completed" style="display:none">No completed rows.</div>
   </div>
 
@@ -621,10 +771,12 @@
       <span class="panel-title">Next Up</span>
       <span class="count-badge" id="count-next">0</span>
     </div>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Next table, scroll horizontally">
     <table>
       <thead id="thead-next"></thead>
       <tbody id="tbody-next"></tbody>
     </table>
+    </div>
     <div class="empty-line" id="empty-next" style="display:none">No pending rows.</div>
   </div>
 
@@ -633,10 +785,12 @@
       <span class="panel-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2.4"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg> Working</span>
       <span class="count-badge" id="count-working">0</span>
     </div>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Working table, scroll horizontally">
     <table>
       <thead id="thead-working"></thead>
       <tbody id="tbody-working"></tbody>
     </table>
+    </div>
     <div class="empty-line" id="empty-working" style="display:none">No rows in progress.</div>
   </div>
 
