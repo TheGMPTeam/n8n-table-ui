@@ -30,7 +30,7 @@ test('proxy blocks REST/fallback/review routes and cross-origin writes',async()=
   for(const stage of ['research','scene','dispatcher','runner']) {
    const dispatch=await fetch(base+'/dispatch/'+stage,{method:'POST',headers:{'Content-Type':'application/json',Origin:base},body:JSON.stringify({rowId:'12'})});assert.equal(dispatch.status,200);
   }
-  assert.deepEqual(dispatchRequests,[{method:'GET',url:'/webhook/Research?Row=12&ByPass=true',body:''},{method:'GET',url:'/webhook/Production?RowID=12&ByPass=true',body:''},{method:'GET',url:'/webhook/Dispatcher?RowID=12&ByPass=true',body:''},{method:'POST',url:'/webhook/yt-Test',body:'{"Id":"12"}'}]);
+  assert.deepEqual(dispatchRequests,['Research','Production','Dispatcher','yt-Test'].map(p=>({method:'POST',url:'/webhook/'+p,body:'{"Id":"12","ByPass":true}'})));
   assert.ok(keys.every(k=>k===undefined));
   for(const payload of [{rowId:'0'},{rowId:'12',url:'http://evil'},{rowId:'12',ALL:true},{}]) assert.equal((await fetch(base+'/dispatch/runner',{method:'POST',body:JSON.stringify(payload)})).status,400);
   assert.equal((await fetch(base+'/dispatch/runner',{method:'POST',headers:{Origin:'https://evil.example'},body:'{"rowId":"12"}'})).status,403);

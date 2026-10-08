@@ -1962,6 +1962,10 @@ function renderSetupPanel(direction) {
         const stage=btn.dataset.stage;const row=jobsData(stage).find(r=>String(r.id)===btn.dataset.id);if(!row)return;
         if(btn.matches('.stage-edit')){state.jobsEditor=true;openModalByRow(row,stage==='runner'?TABLES.comfy:TABLES.shorts);return;}
         if(isTrue(colVal(row,'Working'))||isTrue(colVal(row,'Completed')))return;
+        if (!stageRoute(stage) || !/^[1-9]\d{0,14}$/.test(String(row.id))) {setStatus('Push unavailable: no explicit bypass or valid row ID','danger');return;}
+        const pendingKey=TABLES.shorts+':'+String(row.id);
+        if(pendingPushIds.has(pendingKey)){setStatus('Push already pending; check execution before reloading/retrying','warn');return;}
+        pendingPushIds.add(pendingKey);
         try {const res=await fetch('/dispatch/'+stageRoute(stage),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rowId:String(row.id)})});const body=await res.json();if(!res.ok||body.error)throw Error(body.message||body.error||res.status);setStatus('Execution request accepted; completion is not yet verified','success');}catch(e){setStatus('Push error: '+e.message,'danger');}
       });
       host.addEventListener('keydown',e=>{if(e.target.getAttribute('role')!=='tab')return;const ids=JOB_STAGES.map(s=>s[0]);let i=ids.indexOf(activeJobStage);if(e.key==='ArrowRight')i=(i+1)%ids.length;else if(e.key==='ArrowLeft')i=(i+ids.length-1)%ids.length;else if(e.key==='Home')i=0;else if(e.key==='End')i=ids.length-1;else return;e.preventDefault();activeJobStage=ids[i];localStorage.setItem('jobs-workflow-tab',activeJobStage);renderJobsWorkflows();document.getElementById('stage-tab-'+activeJobStage).focus();});
@@ -2111,10 +2115,12 @@ function renderSetupPanel(direction) {
   // ─── Push ────────────────────────────────────────────────────────────
   // Push invokes the allowlisted exact-row workflow; it never pre-locks via CRUD.
   function canPushRow(row) {
-    if (Object.entries(row).some(([k,v]) => k.toLowerCase() === 'working' && (v === true || v === 'true'))) return false;
-    if (state.currentTableId === TABLES.comfy) return true;
-    return state.currentTableId === TABLES.shorts && ['ideas','research','script','scene'].includes(String(colVal(row, 'Type') || '').toLowerCase());
+    if (!row || state.rowsTableId !== state.currentTableId || !/^[1-9]\d{0,14}$/.test(String(row.id))) return false;
+    if (Object.entries(row).some(([k,v]) => ['working','completed'].includes(k.toLowerCase()) && (v === true || v === 'true'))) return false;
+    if (state.currentTableId === TABLES.comfy) return ['text to image','image to video','flf to video','text_to_image','image_to_video','flf_to_video'].includes(String(colVal(row,'type') || '').toLowerCase());
+    return state.currentTableId === TABLES.shorts && ['ideas','research','script','scene','scenes'].includes(String(colVal(row, 'Type') || '').toLowerCase());
   }
+  var pendingPushIds = new Set();
 
   async function doPush(rowId, rowType) {
     setStatus('Pushing ' + rowId + '...', 'warn');
@@ -2122,15 +2128,19 @@ function renderSetupPanel(direction) {
     try {
       const row = state.rows.find(r => String(r.id) === String(rowId));
       if (!row) throw new Error('Row no longer loaded; refresh first');
+      if (!canPushRow(row)) throw new Error('Push unavailable: invalid source, ID, type, completed or working row');
+      const pendingKey=state.currentTableId+':'+String(rowId);
+      if (pendingPushIds.has(pendingKey)) throw new Error('Push already pending; do not retry an uncertain acknowledgement');
       if (!/^[1-9]\d{0,14}$/.test(String(rowId))) throw new Error('Invalid row ID');
       const type = String(colVal(row, 'Type') || rowType || '').toLowerCase();
       let route;
       if (state.currentTableId === TABLES.comfy) route = 'runner';
       else if (state.currentTableId === TABLES.shorts) {
-        route = {ideas:'research',research:'research',script:'scene',scene:'dispatcher'}[type];
+        route = {ideas:'research',research:'research',script:'scene',scene:'dispatcher',scenes:'dispatcher'}[type];
       }
       if (!route) throw new Error('No exact-row execution route for this table/type');
       if (Object.entries(row).some(([k,v]) => k.toLowerCase() === 'working' && (v === true || v === 'true'))) throw new Error('Row is already working');
+      pendingPushIds.add(pendingKey); // Retain until document reload: an ACK/timeout is not completion.
       const response = await fetch('/dispatch/' + route, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rowId:String(rowId)})});
       const text = await response.text();
       let body; try { body = JSON.parse(text); } catch {}

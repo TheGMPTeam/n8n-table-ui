@@ -409,9 +409,9 @@ const server = http.createServer(async (req, res) => {
     if (!input || Array.isArray(input) || Object.keys(input).length !== 1 || typeof input.rowId !== 'string' || !/^[1-9]\d{0,14}$/.test(input.rowId) || u.search) {
       res.writeHead(400, {'Content-Type':'application/json'});res.end(JSON.stringify({error:'invalid_request',message:'Exactly one positive decimal string rowId is required'}));return;
     }
-    const payload=dispatch.post ? Buffer.from(JSON.stringify({Id:input.rowId})) : Buffer.alloc(0);
-    const query=dispatch.post ? '' : '?' + new URLSearchParams({[dispatch.key]:input.rowId,ByPass:'true'});
-    proxyReq(res,N8N_HOST,N8N_PORT,dispatch.path,query,dispatch.post?'POST':'GET',payload,req);
+    // Fresh published workflows expose POST-only explicit bypass entries.
+    const payload=Buffer.from(JSON.stringify({Id:input.rowId,ByPass:true}));
+    proxyReq(res,N8N_HOST,N8N_PORT,dispatch.path,'','POST',payload,req);
     return;
   }
 
