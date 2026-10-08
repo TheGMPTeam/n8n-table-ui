@@ -1,0 +1,17 @@
+[Unit]
+Description=n8n table UI narrow trusted-LAN git updater
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dad/Config/n8n-table-ui
+Environment=UPDATE_ALLOW_UNAUTHENTICATED_LAN=1
+ExecStart=/usr/bin/node /home/dad/Config/n8n-table-ui-update-state/updater-host.cjs serve
+ExecStopPost=/usr/bin/rm -f /home/dad/Config/n8n-table-ui-update-state/run/control.sock
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

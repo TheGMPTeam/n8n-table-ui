@@ -2500,47 +2500,44 @@ let cols = [];
   }
 
   function openUpdaterModal() {
-    const body = [];
-    body.push('<p class="updater-intro">This page is served by the n8n-table-ui proxy. '
-      + 'The version, commit, and branch shown in the bottom bar come from the running container — '
-      + 'they are not fetched from GitHub.</p>');
-    body.push('<div class="updater-section">');
-    body.push('<h4>How updates reach the UI</h4>');
-    body.push('<p><b>Fast path (no rebuild):</b> the proxy serves <code>/app/.data/index.html</code> when it exists, '
-      + 'so you can drop a new <code>index.html</code> into <code>./data/n8n-table-ui/.data/</code> on the server and '
-      + 'restart the container to apply it. The same goes for <code>webhook-workflow-template.json</code>.</p>');
-    body.push('<p><b>Full path (rebuild required):</b> changes to <code>proxy-server.cjs</code>, the Dockerfile, '
-      + 'or the image dependencies need a new image build + deploy + restart.</p>');
-    body.push('</div>');
-    body.push('<div class="updater-section">');
-    body.push('<h4>Beta vs main</h4>');
-    body.push('<p><b>Main</b> is production. <b>Beta</b> is for testing new UI/build changes before they go to main. '
-      + 'Pull the <code>beta</code> branch, build + deploy, and point the container at it when you want to test. '
-      + 'Do not run beta in place of the production container unless you intend a beta rollout.</p>');
-    body.push('</div>');
-    body.push('<div class="updater-section">');
-    body.push('<h4>Quick verify (after you deploy a new image or drop a new .data file)</h4>');
-    body.push('<pre class="updater-pre"># Confirm the version bar updated (refresh the page first if you dropped a new .data/index.html):');
-    body.push('curl -s http://localhost:3458/version | python3 -m json.tool');
-    body.push('');
-    body.push('# Confirm the UI file in .data is the new one (no-rebuild path):');
-    body.push('ls -la /home/dad/Config/data/n8n-table-ui/.data/');
-    body.push('</pre>');
-    body.push('</div>');
-    body.push('<div class="updater-actions">');
-    body.push('<button class="btn-apply" id="updater-apply">Refresh table data</button>');
-    body.push('</div>');
-    body.push('<p class="updater-footer">No automatic GitHub check is wired in. If you want a "new version available" '
-      + 'poll, add a <code>/git/refs?keys=refs/heads/main</code> call against the GitHub API here and compare '
-      + 'the returned sha against the bottom-bar commit.</p>');
-    showUpdaterModal(body.join(''), { title: 'Check for updates', hideClose: false,
-      onClose: null });
-    const applyBtn = $('#updater-apply');
-    if (applyBtn) applyBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      hideUpdaterModal();
-      fullReload().catch(e => log('updater reload error: ' + e.message));
-    });
+    showUpdaterModal('<p>Check the selected GitHub branch, then apply the exact checked commit. Persistent operator data is preserved.</p>'
+      + '<label for="updater-branch">Branch</label> <select id="updater-branch"><option value="beta">beta</option><option value="main">main</option></select> '
+      + '<button id="updater-check">Check selected branch</button>'
+      + '<p id="updater-result" role="status">Not checked yet.</p>'
+      + '<label for="updater-mode">Update mode</label> <select id="updater-mode"><option value="databind">Databind — UI HTML only, no restart</option><option value="full">Full — application + server/build, restart UI service</option></select>'
+      + '<p>Databind is blocked if server compatibility changes. Full updates execute the selected repository build on the host.</p>'
+      + '<label><input id="updater-confirm" type="checkbox"> I authorize this checked commit, including a branch switch/downgrade if shown.</label>'
+      + '<p>Public GitHub updates need no GitHub login. Web apply must be explicitly enabled by the host operator for this trusted LAN. Anyone on that LAN may then update this app; do not expose it publicly.</p>'
+      + '<div class="updater-actions"><button id="updater-apply" disabled>Apply checked update</button> <button id="updater-document" hidden>Reload updated application</button></div>',
+      {title:'Check for updates', hideClose:false, onClose:null});
+    let checked = null;
+    const result = $('#updater-result'), apply = $('#updater-apply'), selector = $('#updater-branch');
+    const request = async (url, options) => { const r = await fetch(url, options); const data = await r.json(); if (!r.ok) throw new Error(data.error || 'Update request failed'); return data; };
+    selector.onchange = () => { checked = null; apply.disabled = true; result.textContent = 'Branch changed. Check again.'; };
+    $('#updater-check').onclick = async () => {
+      const selected = selector.value;
+      checked = null; apply.disabled = true; result.textContent = 'Checking ' + selected + '…';
+      try { const c = await request('/updates/check?branch=' + encodeURIComponent(selected));
+        if (selector.value !== selected) return;
+        checked = c; result.textContent = 'Deployed UI: ' + c.deployedSha + ' | server: ' + c.serverSha + ' | ' + c.branch + ': ' + c.remoteSha
+          + (c.updateAvailable ? ' — update available.' : ' — already current.')
+          + (c.requiresConfirmation ? ' Branch switch or downgrade: review before applying.' : '')
+          + (!c.databindCompatible ? ' Full mode required for server/build changes.' : ' Databind compatible.');
+        apply.disabled = !c.updateAvailable;
+      } catch (e) { result.textContent = e.message; }
+    };
+    apply.onclick = async () => {
+      if (!checked || checked.branch !== selector.value) return;
+      if (!$('#updater-confirm').checked) { result.textContent = 'Explicit authorization checkbox required.'; return; }
+      apply.disabled = true; selector.disabled = true; $('#updater-check').disabled = true;
+      result.textContent = 'Applying verified commit. Full updates may temporarily restart the UI proxy…';
+      try { const outcome = await request('/updates/apply', {method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({branch:checked.branch,sha:checked.remoteSha,mode:$('#updater-mode').value,confirm:true})});
+        result.textContent = outcome.status + ': ' + (outcome.sha || checked.remoteSha) + '. Reload the application to use the new code.';
+        $('#updater-document').hidden = false; $('#updater-document').onclick = () => location.reload();
+      } catch (e) { result.textContent = e.message + '. If the proxy restarted, check again before retrying; do not assume failure means rollback.'; }
+      finally { selector.disabled = false; $('#updater-check').disabled = false; checked = null; }
+    };
   }
     (async () => {
       await fetchServerConfig();

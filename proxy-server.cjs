@@ -2,6 +2,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
+const crypto = require('node:crypto');
+const RUNNING_SERVER_HASH = crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex');
 
 // .data bind mount — the single writable path the container needs.
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '.data');
@@ -119,6 +121,37 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   const buf = Buffer.concat(body, bodyBytes);
+
+  if (pathname === '/updates/identity' && method === 'GET') {
+    const file = fs.existsSync(HTML_OVERRIDE) ? HTML_OVERRIDE : path.join(__dirname, 'index.html');
+    res.writeHead(200, {'Content-Type':'application/json','Cache-Control':'no-store'});
+    res.end(JSON.stringify({serverHash:RUNNING_SERVER_HASH,uiHash:crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}));
+    return;
+  }
+
+  // Narrow host-worker transport: no Docker socket, shell, remote URL or host
+  // path is accepted from the browser. Web apply requires explicit host opt-in.
+  if (pathname === '/updates/check' || pathname === '/updates/apply') {
+    const expected = pathname === '/updates/check' ? 'GET' : 'POST';
+    const reject = (status, error) => { res.writeHead(status, {'Content-Type':'application/json','Cache-Control':'no-store'}); res.end(JSON.stringify({error})); };
+    if (method !== expected) return reject(405, 'Method not allowed');
+    if (method === 'POST') {
+      const origin = req.headers.origin;
+      const protocol = req.socket.encrypted ? 'https:' : 'http:';
+      if (origin !== protocol + '//' + req.headers.host) return reject(403, 'Same-origin browser request required');
+    }
+    const socketPath = process.env.UPDATE_CONTROL_SOCKET;
+    if (!socketPath) return reject(503, 'Host updater is not configured');
+    const headers = {'Content-Type':'application/json'};
+    const target = pathname === '/updates/check' ? '/check?branch=' + encodeURIComponent(u.searchParams.get('branch') || '') : '/apply';
+    const worker = http.request({socketPath, path:target, method, headers}, upstream => {
+      res.writeHead(upstream.statusCode, {'Content-Type':'application/json','Cache-Control':'no-store'}); upstream.pipe(res);
+    });
+    worker.setTimeout(600000, () => worker.destroy());
+    worker.on('error', () => { if (!res.headersSent) reject(503, 'Host updater unavailable; check host worker status'); else res.end(); });
+    worker.end(method === 'POST' ? buf : undefined);
+    return;
+  }
 
   // CORS preflight (UI may call same-origin /webhook/* which we forward)
   if (method === 'OPTIONS') {
