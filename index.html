@@ -1815,6 +1815,39 @@ function renderSetupPanel(direction) {
     if (!['Text to image','Image to video','FLF to video'].includes(canonical)) return false;
     return state.templates.some(t => { if (canonicalType(t.type) !== canonical) return false; try { const graph=JSON.parse(t.API); return graph && typeof graph==='object' && !Array.isArray(graph) && Object.keys(graph).length>0; } catch { return false; } });
   }
+  // Jobs Type dropdown — production stages, never ComfyUI template types.
+  const productionTypes = ['Research','Script','Scenes','Review','Video Review','Uploaded'];
+  const pendingProductionTypes = new Set();
+  function renderProductionType(row) {
+    const raw = String(row.Type ?? '');
+    return '<select class="production-type" data-source="Shorts_Production" data-id="'+escapeAttr(row.id)+'" aria-label="Type for Shorts_Production row '+escapeAttr(row.id)+'" '+(pendingProductionTypes.has(String(row.id))?'disabled':'')+'>'+
+      (!productionTypes.includes(raw)?'<option disabled selected value="'+escapeAttr(raw)+'">'+escapeHtml(raw || '(Unassigned)')+'</option>':'')+
+      productionTypes.map(t=>'<option value="'+escapeAttr(t)+'" '+(t===raw?'selected':'')+'>'+t+'</option>').join('')+'</select><span class="type-error" role="alert"></span>';
+  }
+  async function changeProductionType(id, type, source) {
+    if(source !== 'Shorts_Production' || !/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id)) || !productionTypes.includes(type)) throw Error('invalid_type_target: Expected a positive Shorts_Production row ID and canonical Type');
+    if(pendingProductionTypes.has(id)) throw Error('pending: This row already has a Type update pending');
+    const tableId = TABLES.shorts;
+    const rows = state.rowsTableId === tableId ? state.rows : state.otherTableId === tableId ? state.otherRows : [];
+    const row = rows.find(r=>String(r.id)===id);
+    if(!row) throw Error('source_conflict: Production row is no longer loaded');
+    const previous = row.Type;
+    if(previous===type) return;
+    pendingProductionTypes.add(id);
+    try {
+      const before = (await readAllRows(tableId)).find(r=>String(r.id)===id);
+      if(!before || before.Type!==previous) throw Error('readback_conflict: Type changed concurrently; reload before retrying');
+      await callWebhook('/yt-update',{operation:'update',id:tableId,match:{id},row:{Type:type}});
+      const verified = (await readAllRows(tableId)).find(r=>String(r.id)===id);
+      if(!verified || verified.Type!==type) throw Error('readback_conflict: Requested Type was not verified');
+      for(const [key,value] of Object.entries(before)) if(!['Type','updatedAt'].includes(key) && JSON.stringify(verified[key])!==JSON.stringify(value)) throw Error('readback_conflict: Another field changed concurrently: '+key);
+      for(const list of [state.rowsTableId===tableId?state.rows:[],state.otherTableId===tableId?state.otherRows:[]]) for(const item of list) if(String(item.id)===id) item.Type=type;
+      const destination=jobStage(verified);
+      let selected=false;for(const view of jobsViews.values()){selected=view.selected.delete(id)||selected;view.hash=null;}
+      if(selected && jobsViews.has(destination)) jobsViews.get(destination).selected.add(id);
+      activeJobStage=destination;localStorage.setItem('jobs-workflow-tab',destination);
+    } finally { pendingProductionTypes.delete(id); }
+  }
   // Jobs workflow view
   const JOB_STAGES = [
     ['research','Research',['Type','Ideas','Reffrence','Status','Completed','Working','File']],
@@ -1857,12 +1890,23 @@ function renderSetupPanel(direction) {
       const hash=JSON.stringify(rows); if(view.hash===hash)continue;view.hash=hash;
       const cols=['id',...names];
       view.el.querySelector('thead').innerHTML='<tr><th>Select</th>'+cols.map(n=>'<th>'+escapeHtml(n)+'</th>').join('')+'<th>Actions</th></tr>';
-      view.el.querySelector('tbody').innerHTML=rows.map(r=>'<tr data-row-id="'+escapeAttr(r.id)+'"><td><input type="checkbox" aria-label="Select row '+escapeAttr(r.id)+'" data-select="'+escapeAttr(r.id)+'" '+(view.selected.has(String(r.id))?'checked':'')+'></td>'+cols.map(n=>'<td>'+renderCell({name:n},colVal(r,n),r,isTrue(colVal(r,'Working'))?'panel-working':'stage')+'</td>').join('')+'<td>'+ (id!=='review'?'<button class="stage-edit" data-id="'+escapeAttr(r.id)+'" data-stage="'+id+'">Edit</button>':'')+(stageRoute(id)&&!isTrue(colVal(r,'Working'))&&!isTrue(colVal(r,'Completed'))&&(id!=='runner'||state.templates.some(t=>canonicalType(t.type)===canonicalType(colVal(r,'type')))&&usableTemplate(colVal(r,'type')))?'<button class="stage-push" data-id="'+escapeAttr(r.id)+'" data-stage="'+id+'">Push</button>':'')+'</td></tr>').join('')||'<tr><td colspan="'+(cols.length+2)+'">No rows in this workflow stage.</td></tr>';
+      view.el.querySelector('tbody').innerHTML=rows.map(r=>'<tr data-row-id="'+escapeAttr(r.id)+'"><td><input type="checkbox" aria-label="Select row '+escapeAttr(r.id)+'" data-select="'+escapeAttr(r.id)+'" '+(view.selected.has(String(r.id))?'checked':'')+'></td>'+cols.map(n=>'<td>'+(n==='Type'?renderProductionType(r):renderCell({name:n},colVal(r,n),r,isTrue(colVal(r,'Working'))?'panel-working':'stage'))+'</td>').join('')+'<td>'+ (id!=='review'?'<button class="stage-edit" data-id="'+escapeAttr(r.id)+'" data-stage="'+id+'">Edit</button>':'')+(stageRoute(id)&&!isTrue(colVal(r,'Working'))&&!isTrue(colVal(r,'Completed'))&&(id!=='runner'||state.templates.some(t=>canonicalType(t.type)===canonicalType(colVal(r,'type')))&&usableTemplate(colVal(r,'type')))?'<button class="stage-push" data-id="'+escapeAttr(r.id)+'" data-stage="'+id+'">Push</button>':'')+'</td></tr>').join('')||'<tr><td colspan="'+(cols.length+2)+'">No rows in this workflow stage.</td></tr>';
     }
     if (!host._wired) {
       host._wired=true;
-      host.addEventListener('change',e=>{if(e.target.matches('[data-select]')){const v=jobsViews.get(activeJobStage); const id=e.target.dataset.select;e.target.checked?v.selected.add(id):v.selected.delete(id);}});
+      host.addEventListener('change',async e=>{
+        if(e.target.matches('.production-type')){
+          e.stopPropagation();const select=e.target;const id=select.dataset.id;const target=select.value;
+          const row=jobsData(activeJobStage).find(r=>String(r.id)===id);const previous=String(row?.Type ?? '');
+          select.value=previous;select.disabled=true;const error=select.parentElement.querySelector('.type-error');error.textContent='';
+          try {await changeProductionType(id,target,select.dataset.source);renderJobsWorkflows();}
+          catch(err){select.value=previous;error.textContent=JSON.stringify({error:err.code||'type_update_failed',status:err.status||null,message:err.message});}
+          finally{select.disabled=pendingProductionTypes.has(id);}return;
+        }
+        if(e.target.matches('[data-select]')){e.stopPropagation();const v=jobsViews.get(activeJobStage);const id=e.target.dataset.select;e.target.checked?v.selected.add(id):v.selected.delete(id);}
+      });
       host.addEventListener('click',async e=>{
+        if(e.target.closest('.production-type,[data-select]')){e.stopPropagation();return;}
         const tab=e.target.closest('[data-stage][role="tab"]');if(tab){activeJobStage=tab.dataset.stage;localStorage.setItem('jobs-workflow-tab',activeJobStage);renderJobsWorkflows();document.getElementById('stage-tab-'+activeJobStage).focus();return;}
         const btn=e.target.closest('.stage-edit,.stage-push');if(!btn)return;
         const stage=btn.dataset.stage;const row=jobsData(stage).find(r=>String(r.id)===btn.dataset.id);if(!row)return;
