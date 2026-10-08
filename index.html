@@ -1102,7 +1102,8 @@
   document.querySelector('[data-tab="panel-review"]').addEventListener('click', refreshReview);
 
   function canonicalType(type) {
-    return ({text_to_image:'Text to image',image_to_video:'Image to video',flf_to_video:'FLF to video'})[type] || type;
+    const key = String(type ?? '').trim().toLowerCase().replace(/_/g, ' ');
+    return ({'text to image':'Text to image','image to video':'Image to video','flf to video':'FLF to video'})[key] || type;
   }
   function validateParams(raw) {
     let params;
@@ -1805,25 +1806,29 @@ function renderSetupPanel(direction) {
   function uniqueStageRows(rows) { return [...new Map(rows.map(r => [String(r.id), r])).values()]; }
   function jobStage(row) {
     const type = String(row.Type ?? row.type ?? '').trim().toLowerCase();
-    if (String(row.Status ?? '').toLowerCase() === 'qued') return 'review';
-    return ({ideas:'research',research:'research',script:'scene',scene:'dispatcher'})[type] || 'unknown';
+    return ({ideas:'research',research:'research',script:'scene',scene:'dispatcher',scenes:'dispatcher','video review':'video-review',videoreviwe:'video-review',uploaded:'uploaded',review:'review'})[type] || 'unknown';
   }
   function stageRoute(stage) { return ({research:'research',scene:'scene',dispatcher:'dispatcher',runner:'runner'})[stage] || null; }
+  function usableTemplate(type) {
+    const canonical = canonicalType(type);
+    if (!['Text to image','Image to video','FLF to video'].includes(canonical)) return false;
+    return state.templates.some(t => { if (canonicalType(t.type) !== canonical) return false; try { const graph=JSON.parse(t.API); return graph && typeof graph==='object' && !Array.isArray(graph) && Object.keys(graph).length>0; } catch { return false; } });
+  }
   // Jobs workflow view
   const JOB_STAGES = [
     ['research','Research',['Type','Ideas','Reffrence','Status','Completed','Working','File']],
-    ['scene','Scene Production',['Type','Ideas','Script','Reffrence','Status','Completed','Working','File']],
-    ['dispatcher','Shorts Dispatcher',['Type','Script','Scenes','Reffrence','Status','Completed','Working','File']],
-    ['runner','ComfyUI Runner',['type','prompt','Params','ref','JobID','Completed','Working','URL']],
+    ['scene','Script',['Type','Ideas','Script','Reffrence','Status','Completed','Working','File']],
+    ['dispatcher','Scenes',['Type','Script','Scenes','Reffrence','Status','Completed','Working','File']],
     ['review','Review',['Type','Status','Script','Scenes','Completed','Working','File']],
+    ['video-review','Video Review',['Type','Status','File']],
+    ['uploaded','Uploaded',['Type','Status','File']],
     ['unknown','Unknown / Unassigned',['Type','Ideas','Script','Scenes','Reffrence','Status','Completed','Working','File']]
   ];
   const jobsViews = new Map();
   let activeJobStage = localStorage.getItem('jobs-workflow-tab') || 'research';
   function jobsData(stage) {
     const production = state.currentTableId === TABLES.shorts ? state.rows : state.otherRows;
-    const queue = state.currentTableId === TABLES.comfy ? state.rows : state.otherRows;
-    return uniqueStageRows(stage === 'runner' ? queue : production.filter(r => jobStage(r) === stage));
+    return uniqueStageRows(production.filter(r => jobStage(r) === stage));
   }
   function renderJobsWorkflows() {
     const host = document.getElementById('jobs-workflows');
@@ -1843,12 +1848,15 @@ function renderSetupPanel(direction) {
       view.el.hidden=id!==activeJobStage;
       const all=jobsData(id); const rows=all.filter(r=>JSON.stringify(r).toLowerCase().includes(view.filter.toLowerCase()));
       const pending=all.filter(r=>!isTrue(colVal(r,'Completed'))&&!isTrue(colVal(r,'Working'))).length;
-      const ready = id === 'review' ? all.filter(parent => { const linked=jobsData('runner').filter(j=>String(j.JobID)===String(parent.id)); return linked.length>0 && linked.every(j=>isTrue(j.Completed)&&!isTrue(j.Working)&& /^https?:\/\//.test(String(j.URL || ''))); }).length : 0;
-      view.el.querySelector('.stage-summary').textContent=rows.length+' shown / '+all.length+' total · '+(id==='review'?ready+' outputs ready / '+(all.length-ready)+' awaiting outputs · Decisions only in authenticated n8n Review editor.':pending+' not completed or working');
+      const ready = 0; // Jobs is Type-only Shorts_Production; linked outputs are inspected in Home/Review.
+      view.el.querySelector('.stage-summary').textContent=rows.length+' shown / '+all.length+' total · '+(id==='review'?'Type=Review · Decisions only in authenticated n8n Review editor.':pending+' not completed or working');
+      if (['video-review','uploaded'].includes(id)) view.el.querySelector('.stage-summary').textContent = 'Not configured — missing final assembly, final-video approval and upload contracts. Push disabled.';
+      if (id === 'unknown') view.el.querySelector('.stage-summary').textContent += ' · Quarantined: unsupported or unassigned type; original values retained.';
+      if (id === 'runner') view.el.querySelector('.stage-summary').textContent += ' · Empty/unsupported types remain visible; no replacement graph is invented.';
       const hash=JSON.stringify(rows); if(view.hash===hash)continue;view.hash=hash;
       const cols=['id',...names];
       view.el.querySelector('thead').innerHTML='<tr><th>Select</th>'+cols.map(n=>'<th>'+escapeHtml(n)+'</th>').join('')+'<th>Actions</th></tr>';
-      view.el.querySelector('tbody').innerHTML=rows.map(r=>'<tr data-row-id="'+escapeAttr(r.id)+'"><td><input type="checkbox" aria-label="Select row '+escapeAttr(r.id)+'" data-select="'+escapeAttr(r.id)+'" '+(view.selected.has(String(r.id))?'checked':'')+'></td>'+cols.map(n=>'<td>'+renderCell({name:n},colVal(r,n),r,isTrue(colVal(r,'Working'))?'panel-working':'stage')+'</td>').join('')+'<td>'+ (id!=='review'?'<button class="stage-edit" data-id="'+escapeAttr(r.id)+'" data-stage="'+id+'">Edit</button>':'')+(stageRoute(id)&&!isTrue(colVal(r,'Working'))&&!isTrue(colVal(r,'Completed'))&&(id!=='runner'||state.templates.some(t=>canonicalType(t.type)===canonicalType(colVal(r,'type'))))?'<button class="stage-push" data-id="'+escapeAttr(r.id)+'" data-stage="'+id+'">Push</button>':'')+'</td></tr>').join('')||'<tr><td colspan="'+(cols.length+2)+'">No rows in this workflow stage.</td></tr>';
+      view.el.querySelector('tbody').innerHTML=rows.map(r=>'<tr data-row-id="'+escapeAttr(r.id)+'"><td><input type="checkbox" aria-label="Select row '+escapeAttr(r.id)+'" data-select="'+escapeAttr(r.id)+'" '+(view.selected.has(String(r.id))?'checked':'')+'></td>'+cols.map(n=>'<td>'+renderCell({name:n},colVal(r,n),r,isTrue(colVal(r,'Working'))?'panel-working':'stage')+'</td>').join('')+'<td>'+ (id!=='review'?'<button class="stage-edit" data-id="'+escapeAttr(r.id)+'" data-stage="'+id+'">Edit</button>':'')+(stageRoute(id)&&!isTrue(colVal(r,'Working'))&&!isTrue(colVal(r,'Completed'))&&(id!=='runner'||state.templates.some(t=>canonicalType(t.type)===canonicalType(colVal(r,'type')))&&usableTemplate(colVal(r,'type')))?'<button class="stage-push" data-id="'+escapeAttr(r.id)+'" data-stage="'+id+'">Push</button>':'')+'</td></tr>').join('')||'<tr><td colspan="'+(cols.length+2)+'">No rows in this workflow stage.</td></tr>';
     }
     if (!host._wired) {
       host._wired=true;

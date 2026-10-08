@@ -1,0 +1,2271 @@
+{
+  "observedAtUTC": "2026-10-08T06:10:46.950721+00:00",
+  "readOnly": true,
+  "productionMutationPerformed": false,
+  "requestedSourceLabels": [
+    "ReSearch",
+    "Script",
+    "Scenes",
+    "Review",
+    "VideoReviwe",
+    "Uploaded"
+  ],
+  "stageTypes": [
+    {
+      "sourceLabel": "ReSearch",
+      "canonicalDisplay": "Research",
+      "configured": true,
+      "assignment": {
+        "TypeIn": [
+          "Ideas",
+          "ReSearch",
+          "Research"
+        ]
+      },
+      "aliases": [
+        "Ideas"
+      ],
+      "aliasScope": "UI matching only; scheduled readers use exact source wire values",
+      "wireType": "Ideas",
+      "dispatch": {
+        "method": "GET",
+        "path": "/webhook/Research",
+        "query": {
+          "Row": "<positive safe decimal production id>",
+          "ByPass": "true"
+        },
+        "response": "onReceived acknowledgement, not completion",
+        "guard": "Working !== true; never pre-lock"
+      },
+      "completion": {
+        "Type": "script",
+        "Status": "Idea",
+        "Working": false,
+        "artifact": "Script"
+      },
+      "evidence": {
+        "workflowId": "x4AirppgK2nvJGuf",
+        "workflowName": "Research",
+        "active": true,
+        "activeVersionId": "c597abf7-f7a1-429c-ad7d-6039dc04c769",
+        "nodes": [
+          {
+            "id": "7dbf2048-8c38-4311-8509-a919f3b33574",
+            "name": "Get row(s)"
+          },
+          {
+            "id": "0a8a72f4-1e65-4cb9-aa3e-5f86786f01de",
+            "name": "Update row(s)1"
+          },
+          {
+            "id": "7df51901-997a-4257-8ced-da3253aa243e",
+            "name": "Webhook"
+          },
+          {
+            "id": "4b35d1c4-64ae-43ee-b957-84063d0ccba4",
+            "name": "Get row(s)1"
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "Script",
+      "canonicalDisplay": "Script",
+      "configured": true,
+      "assignment": {
+        "TypeIn": [
+          "script",
+          "Script"
+        ]
+      },
+      "aliases": [
+        "script",
+        "Script"
+      ],
+      "aliasScope": "UI matching only; scheduled readers use exact source wire values",
+      "wireType": "script",
+      "dispatch": {
+        "method": "GET",
+        "path": "/webhook/Production",
+        "query": {
+          "RowID": "<positive safe decimal production id>",
+          "ByPass": "true"
+        },
+        "response": "onReceived acknowledgement, not completion",
+        "guard": "Working !== true; never pre-lock"
+      },
+      "completion": {
+        "Type": "scene",
+        "Status": "Scripted",
+        "Completed": false,
+        "Working": false,
+        "artifact": "Scenes"
+      },
+      "evidence": {
+        "workflowId": "TWMnQqnEwD7qTfbp",
+        "workflowName": "Scene Production",
+        "active": true,
+        "activeVersionId": "ecd61d2d-192b-4349-aa5b-f1711bb02b5e",
+        "nodes": [
+          {
+            "id": "6d20d979-1fa1-43c5-a607-0dd75dbc2f73",
+            "name": "Get Script Row"
+          },
+          {
+            "id": "55d499fd-26ef-4beb-b877-d8b6166fba98",
+            "name": "Normalize Script Row"
+          },
+          {
+            "id": "e28342bf-33a5-42f9-bc75-dd1004fb93fa",
+            "name": "Call 'Data Table CRUD'"
+          },
+          {
+            "id": "c970959f-4973-4357-a6e6-7d0d3ba8990a",
+            "name": "Pass"
+          },
+          {
+            "id": "2c970754-7b5a-438c-a799-01134b92cf65",
+            "name": "Webhook"
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "Scenes",
+      "canonicalDisplay": "Scenes",
+      "configured": true,
+      "assignment": {
+        "TypeIn": [
+          "scene",
+          "Scenes"
+        ]
+      },
+      "aliases": [
+        "scene"
+      ],
+      "aliasScope": "UI matching only; scheduled readers use exact source wire values",
+      "wireType": "scene",
+      "dispatch": {
+        "method": "GET",
+        "path": "/webhook/Dispatcher",
+        "query": {
+          "RowID": "<positive safe decimal production id>",
+          "ByPass": "true"
+        },
+        "response": "onReceived acknowledgement, not completion",
+        "guard": "Working !== true; never pre-lock"
+      },
+      "completion": {
+        "Type": "Script",
+        "Status": "Qued",
+        "Working": false,
+        "artifact": "ComfyUI queue jobs"
+      },
+      "evidence": {
+        "workflowId": "M9SnVr1xBYNDwJDF",
+        "workflowName": "Shorts Dispatcher",
+        "active": true,
+        "activeVersionId": "acb94a0a-0686-4955-b438-bc80a064778a",
+        "nodes": [
+          {
+            "id": "44cf44c2-3699-4a66-b68c-ff0e677682e5",
+            "name": "Get row(s)"
+          },
+          {
+            "id": "34d78355-86c1-40c9-b7c1-6e1c69ff496e",
+            "name": "Merge Scenes + Build Jobs"
+          },
+          {
+            "id": "74d9f7d0-ba35-4086-ad52-37a16023ac91",
+            "name": "Finish Row"
+          },
+          {
+            "id": "c399c2ac-e38f-4072-afe8-61d74bc9dd0d",
+            "name": "Write Jobs Loop"
+          },
+          {
+            "id": "2c445b30-8848-484f-8ff9-34f617722b9f",
+            "name": "Webhook"
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "Review",
+      "canonicalDisplay": "Review",
+      "configured": true,
+      "assignment": {
+        "TypeIn": [
+          "Review"
+        ]
+      },
+      "dispatch": null,
+      "approvalTransport": "authenticated n8n editor manual workflow only; no public approve/reject",
+      "inputs": {
+        "JobID": "positive decimal production id",
+        "action": [
+          "list",
+          "approve",
+          "reject"
+        ],
+        "reason": "string",
+        "expectedSnapshot": "exact previously listed snapshot for decisions"
+      },
+      "readiness": "nonempty linked queue; every job Completed===true, Working!==true, URL valid http(s); production Status===Qued",
+      "completion": "Gate State pending/approved/rejected; no assembly transition",
+      "artifacts": [
+        "ComfyUI.URL",
+        "Pipeline_Review_Gate.Outputs",
+        "Pipeline_Review_Gate.Snapshot"
+      ],
+      "evidence": {
+        "workflowId": "KMtoCzHcKMiTKNvZ",
+        "workflowName": "Review \u2014 Manual Approval Gate",
+        "active": false,
+        "activeVersionId": null,
+        "nodes": [
+          {
+            "id": "6367a256-6101-485f-946b-9d5ccfc6a423",
+            "name": "Validate Production"
+          },
+          {
+            "id": "f15d5ede-540f-4b2e-bc1c-e1bbbf22d16e",
+            "name": "Capture Output Snapshot"
+          },
+          {
+            "id": "c631079f-4ba4-41db-a2fc-dbb2bb38e087",
+            "name": "Evaluate Manual Decision"
+          },
+          {
+            "id": "1c0649a3-9fc3-42bd-b5ad-4637b3022a7c",
+            "name": "Persist Review State"
+          },
+          {
+            "id": "4be573c1-165b-40d0-b366-86e5f3babf60",
+            "name": "Manual Review Input"
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "VideoReviwe",
+      "canonicalDisplay": "Video Review",
+      "configured": false,
+      "disabled": true,
+      "assignment": {
+        "TypeIn": [
+          "VideoReviwe",
+          "Video Review"
+        ]
+      },
+      "dispatch": null,
+      "evidence": {
+        "allWorkflowDefinitionsInspected": 28
+      },
+      "reason": "No configured production final assembly/final-video approval/upload handoff, state contract or transport found. Resources.MP4 exists but null; not an approval or upload state."
+    },
+    {
+      "sourceLabel": "Uploaded",
+      "canonicalDisplay": "Uploaded",
+      "configured": false,
+      "disabled": true,
+      "assignment": {
+        "TypeIn": [
+          "Uploaded"
+        ]
+      },
+      "dispatch": null,
+      "evidence": {
+        "allWorkflowDefinitionsInspected": 28
+      },
+      "reason": "No configured production final assembly/final-video approval/upload handoff, state contract or transport found. Resources.MP4 exists but null; not an approval or upload state."
+    }
+  ],
+  "stageAssignments": [
+    {
+      "id": 11,
+      "sourceType": "Script",
+      "sourceStatus": "Qued",
+      "stage": "Script"
+    },
+    {
+      "id": 12,
+      "sourceType": "Script",
+      "sourceStatus": "Qued",
+      "stage": "Script"
+    }
+  ],
+  "stageCounts": {
+    "Research": 0,
+    "Script": 2,
+    "Scenes": 0,
+    "Review": 0,
+    "Video Review": 0,
+    "Uploaded": 0,
+    "Unknown/Unassigned": 0
+  },
+  "unknownVisible": true,
+  "apiTemplateTypes": [
+    {
+      "rowId": 4,
+      "sourceValue": "FLF to video",
+      "canonicalDisplay": "FLF to video",
+      "wireValue": "FLF to video",
+      "aliasesConfirmedRunner": [
+        "FLF to video",
+        "flf_to_video"
+      ],
+      "proposedCaseInsensitiveAliases": "Case-insensitive exact equivalents only, not arbitrary typo matching",
+      "enabled": true,
+      "quarantine": false,
+      "reason": null,
+      "graph": {
+        "31": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": null
+          }
+        },
+        "39": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": null
+          }
+        },
+        "68": {
+          "class_type": "SaveVideo",
+          "inputs": {
+            "filename_prefix": null,
+            "format": null,
+            "format.codec": null,
+            "codec": null,
+            "video": [
+              "251:218",
+              0
+            ]
+          }
+        },
+        "251:210": {
+          "class_type": "LTXVConcatAVLatent",
+          "inputs": {
+            "video_latent": [
+              "251:204",
+              2
+            ],
+            "audio_latent": [
+              "251:197",
+              0
+            ]
+          }
+        },
+        "251:219": {
+          "class_type": "VAEDecodeTiled",
+          "inputs": {
+            "tile_size": null,
+            "overlap": null,
+            "temporal_size": null,
+            "temporal_overlap": null,
+            "samples": [
+              "251:200",
+              2
+            ],
+            "vae": [
+              "251:229",
+              0
+            ]
+          }
+        },
+        "251:220": {
+          "class_type": "LTXVAudioVAEDecode",
+          "inputs": {
+            "samples": [
+              "251:221",
+              1
+            ],
+            "audio_vae": [
+              "251:227",
+              0
+            ]
+          }
+        },
+        "251:221": {
+          "class_type": "LTXVSeparateAVLatent",
+          "inputs": {
+            "av_latent": [
+              "251:211",
+              1
+            ]
+          }
+        },
+        "251:206": {
+          "class_type": "LTXVAddGuide",
+          "inputs": {
+            "frame_idx": null,
+            "strength": null,
+            "positive": [
+              "251:202",
+              0
+            ],
+            "negative": [
+              "251:202",
+              1
+            ],
+            "vae": [
+              "251:229",
+              0
+            ],
+            "latent": [
+              "251:201",
+              0
+            ],
+            "image": [
+              "251:199",
+              0
+            ]
+          }
+        },
+        "251:239": {
+          "class_type": "ManualSigmas",
+          "inputs": {
+            "sigmas": null
+          }
+        },
+        "251:204": {
+          "class_type": "LTXVAddGuide",
+          "inputs": {
+            "frame_idx": null,
+            "strength": null,
+            "positive": [
+              "251:206",
+              0
+            ],
+            "negative": [
+              "251:206",
+              1
+            ],
+            "vae": [
+              "251:229",
+              0
+            ],
+            "latent": [
+              "251:206",
+              2
+            ],
+            "image": [
+              "251:195",
+              0
+            ]
+          }
+        },
+        "251:197": {
+          "class_type": "LTXVEmptyLatentAudio",
+          "inputs": {
+            "frames_number": [
+              "251:226",
+              1
+            ],
+            "frame_rate": [
+              "251:205",
+              0
+            ],
+            "batch_size": null,
+            "audio_vae": [
+              "251:227",
+              0
+            ]
+          }
+        },
+        "251:200": {
+          "class_type": "LTXVCropGuides",
+          "inputs": {
+            "positive": [
+              "251:204",
+              0
+            ],
+            "negative": [
+              "251:204",
+              1
+            ],
+            "latent": [
+              "251:221",
+              0
+            ]
+          }
+        },
+        "251:201": {
+          "class_type": "EmptyLTXVLatentVideo",
+          "inputs": {
+            "width": [
+              "251:203",
+              0
+            ],
+            "height": [
+              "251:203",
+              1
+            ],
+            "length": [
+              "251:226",
+              1
+            ],
+            "batch_size": null
+          }
+        },
+        "251:211": {
+          "class_type": "SamplerCustomAdvanced",
+          "inputs": {
+            "noise": [
+              "251:196",
+              0
+            ],
+            "guider": [
+              "251:235",
+              0
+            ],
+            "sampler": [
+              "251:208",
+              0
+            ],
+            "sigmas": [
+              "251:239",
+              0
+            ],
+            "latent_image": [
+              "251:210",
+              0
+            ]
+          }
+        },
+        "251:202": {
+          "class_type": "LTXVConditioning",
+          "inputs": {
+            "frame_rate": [
+              "251:212",
+              0
+            ],
+            "positive": [
+              "251:222",
+              0
+            ],
+            "negative": [
+              "251:217",
+              0
+            ]
+          }
+        },
+        "251:208": {
+          "class_type": "SamplerEulerAncestral",
+          "inputs": {
+            "eta": null,
+            "s_noise": null
+          }
+        },
+        "251:218": {
+          "class_type": "CreateVideo",
+          "inputs": {
+            "fps": [
+              "251:212",
+              0
+            ],
+            "bit_depth": null,
+            "color_space": null,
+            "images": [
+              "251:219",
+              0
+            ],
+            "audio": [
+              "251:220",
+              0
+            ]
+          }
+        },
+        "251:235": {
+          "class_type": "LTXVDualCFGGuider",
+          "inputs": {
+            "video_cfg": null,
+            "audio_cfg": null,
+            "model": [
+              "251:230",
+              0
+            ],
+            "positive": [
+              "251:204",
+              0
+            ],
+            "negative": [
+              "251:204",
+              1
+            ]
+          }
+        },
+        "251:217": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "text": null,
+            "clip": [
+              "251:228",
+              0
+            ]
+          }
+        },
+        "251:222": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "text": [
+              "251:249",
+              0
+            ],
+            "clip": [
+              "251:228",
+              0
+            ]
+          }
+        },
+        "251:248": {
+          "class_type": "ComfySwitchNode",
+          "inputs": {
+            "switch": [
+              "251:250",
+              0
+            ],
+            "on_false": [
+              "251:252",
+              0
+            ],
+            "on_true": [
+              "251:247",
+              0
+            ]
+          }
+        },
+        "251:203": {
+          "class_type": "GetImageSize",
+          "inputs": {
+            "image": [
+              "251:213",
+              0
+            ]
+          }
+        },
+        "251:195": {
+          "class_type": "LTXVPreprocess",
+          "inputs": {
+            "img_compression": null,
+            "image": [
+              "251:214",
+              0
+            ]
+          }
+        },
+        "251:199": {
+          "class_type": "LTXVPreprocess",
+          "inputs": {
+            "img_compression": null,
+            "image": [
+              "251:213",
+              0
+            ]
+          }
+        },
+        "251:247": {
+          "class_type": "TextGenerateLTX2Prompt",
+          "inputs": {
+            "prompt": [
+              "251:252",
+              0
+            ],
+            "max_length": null,
+            "sampling_mode": null,
+            "sampling_mode.temperature": null,
+            "sampling_mode.top_k": null,
+            "sampling_mode.top_p": null,
+            "sampling_mode.min_p": null,
+            "sampling_mode.repetition_penalty": null,
+            "sampling_mode.seed": null,
+            "sampling_mode.presence_penalty": null,
+            "thinking": null,
+            "use_default_template": null,
+            "clip": [
+              "251:246",
+              0
+            ],
+            "image": [
+              "251:199",
+              0
+            ]
+          }
+        },
+        "251:213": {
+          "class_type": "ResizeImageMaskNode",
+          "inputs": {
+            "resize_type": null,
+            "resize_type.width": [
+              "251:215",
+              0
+            ],
+            "resize_type.height": [
+              "251:216",
+              0
+            ],
+            "resize_type.crop": null,
+            "scale_method": null,
+            "input": [
+              "31",
+              0
+            ]
+          }
+        },
+        "251:214": {
+          "class_type": "ResizeImageMaskNode",
+          "inputs": {
+            "resize_type": null,
+            "resize_type.width": [
+              "251:215",
+              0
+            ],
+            "resize_type.height": [
+              "251:216",
+              0
+            ],
+            "resize_type.crop": null,
+            "scale_method": null,
+            "input": [
+              "39",
+              0
+            ]
+          }
+        },
+        "251:230": {
+          "class_type": "UNETLoader",
+          "inputs": {
+            "unet_name": null,
+            "weight_dtype": null
+          }
+        },
+        "251:229": {
+          "class_type": "VAELoader",
+          "inputs": {
+            "vae_name": null
+          }
+        },
+        "251:227": {
+          "class_type": "VAELoader",
+          "inputs": {
+            "vae_name": null
+          }
+        },
+        "251:228": {
+          "class_type": "CLIPLoader",
+          "inputs": {
+            "clip_name": null,
+            "type": null,
+            "device": null
+          }
+        },
+        "251:246": {
+          "class_type": "CLIPLoader",
+          "inputs": {
+            "clip_name": null,
+            "type": null,
+            "device": null
+          }
+        },
+        "251:250": {
+          "class_type": "PrimitiveBoolean",
+          "inputs": {
+            "value": null
+          }
+        },
+        "251:215": {
+          "class_type": "PrimitiveInt",
+          "inputs": {
+            "value": null
+          }
+        },
+        "251:216": {
+          "class_type": "PrimitiveInt",
+          "inputs": {
+            "value": null
+          }
+        },
+        "251:212": {
+          "class_type": "ComfyMathExpression",
+          "inputs": {
+            "expression": null,
+            "values.a": [
+              "251:205",
+              0
+            ]
+          }
+        },
+        "251:198": {
+          "class_type": "PrimitiveInt",
+          "inputs": {
+            "value": null
+          }
+        },
+        "251:226": {
+          "class_type": "ComfyMathExpression",
+          "inputs": {
+            "expression": null,
+            "values.a": [
+              "251:198",
+              0
+            ],
+            "values.b": [
+              "251:205",
+              0
+            ]
+          }
+        },
+        "251:205": {
+          "class_type": "PrimitiveInt",
+          "inputs": {
+            "value": null
+          }
+        },
+        "251:252": {
+          "class_type": "PrimitiveStringMultiline",
+          "inputs": {
+            "value": null
+          }
+        },
+        "251:196": {
+          "class_type": "RandomNoise",
+          "inputs": {
+            "noise_seed": null
+          }
+        },
+        "251:249": {
+          "class_type": "PreviewAny",
+          "inputs": {
+            "source": [
+              "251:248",
+              0
+            ]
+          }
+        }
+      },
+      "fieldMap": {
+        "prompt": {
+          "node": "251:222",
+          "input": "text",
+          "class_type": "CLIPTextEncode",
+          "verifiedExists": true,
+          "source": "prompt column",
+          "reachableFromSave": true
+        },
+        "negativePrompt": {
+          "node": "251:217",
+          "input": "text",
+          "class_type": "CLIPTextEncode",
+          "verifiedExists": true,
+          "source": "Params.negativePrompt",
+          "reachableFromSave": true
+        },
+        "image1": {
+          "node": "31",
+          "input": "image",
+          "class_type": "LoadImage",
+          "verifiedExists": true,
+          "source": "resolved scene-linked frames",
+          "reachableFromSave": true
+        },
+        "image2": {
+          "node": "39",
+          "input": "image",
+          "class_type": "LoadImage",
+          "verifiedExists": true,
+          "source": "resolved scene-linked frames",
+          "reachableFromSave": true
+        },
+        "seed": {
+          "node": "251:196",
+          "input": "noise_seed",
+          "class_type": "RandomNoise",
+          "verifiedExists": true,
+          "source": "Params.seed",
+          "reachableFromSave": true
+        },
+        "duration": {
+          "node": "251:198",
+          "input": "value",
+          "class_type": "PrimitiveInt",
+          "verifiedExists": true,
+          "source": "Params.duration",
+          "reachableFromSave": true
+        },
+        "fps": {
+          "node": "251:205",
+          "input": "value",
+          "class_type": "PrimitiveInt",
+          "verifiedExists": true,
+          "source": "Params.fps",
+          "reachableFromSave": true
+        },
+        "promptEnhance": {
+          "node": "251:250",
+          "input": "value",
+          "class_type": "PrimitiveBoolean",
+          "verifiedExists": true,
+          "source": "Params.promptEnhance",
+          "reachableFromSave": true
+        },
+        "width": {
+          "node": "251:215",
+          "input": "value",
+          "class_type": "PrimitiveInt",
+          "verifiedExists": true,
+          "source": "Params.width",
+          "reachableFromSave": true
+        },
+        "height": {
+          "node": "251:216",
+          "input": "value",
+          "class_type": "PrimitiveInt",
+          "verifiedExists": true,
+          "source": "Params.height",
+          "reachableFromSave": true
+        }
+      },
+      "saveNodes": [
+        "68"
+      ],
+      "graphNodeCount": 42,
+      "promptEnhanceEffective": false,
+      "notes": "Direct CLIPTextEncode.text injection disconnects prompt-enhancement chain. Text to image negative is ConditioningZeroOut, no negativePrompt control."
+    },
+    {
+      "rowId": 5,
+      "sourceValue": "Image to video",
+      "canonicalDisplay": "Image to video",
+      "wireValue": "Image to video",
+      "aliasesConfirmedRunner": [
+        "Image to video",
+        "image_to_video"
+      ],
+      "proposedCaseInsensitiveAliases": "Case-insensitive exact equivalents only, not arbitrary typo matching",
+      "enabled": true,
+      "quarantine": false,
+      "reason": null,
+      "graph": {
+        "75": {
+          "class_type": "SaveVideo",
+          "inputs": {
+            "filename_prefix": null,
+            "format": null,
+            "format.codec": null,
+            "codec": null,
+            "video": [
+              "398:370",
+              0
+            ]
+          }
+        },
+        "395": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": null
+          }
+        },
+        "403": {
+          "class_type": "ResolutionSelector",
+          "inputs": {
+            "aspect_ratio": null,
+            "megapixels": null,
+            "multiple": null
+          }
+        },
+        "398:393": {
+          "class_type": "CLIPLoader",
+          "inputs": {
+            "clip_name": null,
+            "type": null,
+            "device": null
+          }
+        },
+        "398:383": {
+          "class_type": "PrimitiveBoolean",
+          "inputs": {
+            "value": null
+          }
+        },
+        "398:364": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "text": [
+              "398:381",
+              0
+            ],
+            "clip": [
+              "398:387",
+              0
+            ]
+          }
+        },
+        "398:376": {
+          "class_type": "PrimitiveStringMultiline",
+          "inputs": {
+            "value": null
+          }
+        },
+        "398:382": {
+          "class_type": "ComfySwitchNode",
+          "inputs": {
+            "switch": [
+              "398:383",
+              0
+            ],
+            "on_false": [
+              "398:376",
+              0
+            ],
+            "on_true": [
+              "398:380",
+              0
+            ]
+          }
+        },
+        "398:384": {
+          "class_type": "UNETLoader",
+          "inputs": {
+            "unet_name": null,
+            "weight_dtype": null
+          }
+        },
+        "398:362": {
+          "class_type": "PrimitiveInt",
+          "inputs": {
+            "value": null
+          }
+        },
+        "398:363": {
+          "class_type": "PrimitiveBoolean",
+          "inputs": {
+            "value": null
+          }
+        },
+        "398:365": {
+          "class_type": "LTXVConditioning",
+          "inputs": {
+            "frame_rate": [
+              "398:359",
+              0
+            ],
+            "positive": [
+              "398:364",
+              0
+            ],
+            "negative": [
+              "398:373",
+              0
+            ]
+          }
+        },
+        "398:385": {
+          "class_type": "VAELoader",
+          "inputs": {
+            "vae_name": null
+          }
+        },
+        "398:386": {
+          "class_type": "VAELoader",
+          "inputs": {
+            "vae_name": null
+          }
+        },
+        "398:372": {
+          "class_type": "PrimitiveInt",
+          "inputs": {
+            "value": [
+              "403",
+              0
+            ]
+          }
+        },
+        "398:373": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "text": null,
+            "clip": [
+              "398:387",
+              0
+            ]
+          }
+        },
+        "398:387": {
+          "class_type": "CLIPLoader",
+          "inputs": {
+            "clip_name": null,
+            "type": null,
+            "device": null
+          }
+        },
+        "398:360": {
+          "class_type": "PrimitiveInt",
+          "inputs": {
+            "value": [
+              "403",
+              1
+            ]
+          }
+        },
+        "398:352": {
+          "class_type": "KSamplerSelect",
+          "inputs": {
+            "sampler_name": null
+          }
+        },
+        "398:397": {
+          "class_type": "ManualSigmas",
+          "inputs": {
+            "sigmas": null
+          }
+        },
+        "398:361": {
+          "class_type": "PrimitiveInt",
+          "inputs": {
+            "value": null
+          }
+        },
+        "398:371": {
+          "class_type": "LatentUpscaleModelLoader",
+          "inputs": {
+            "model_name": null
+          }
+        },
+        "398:388": {
+          "class_type": "LTXVDualCFGGuider",
+          "inputs": {
+            "video_cfg": null,
+            "audio_cfg": null,
+            "model": [
+              "398:384",
+              0
+            ],
+            "positive": [
+              "398:365",
+              0
+            ],
+            "negative": [
+              "398:365",
+              1
+            ]
+          }
+        },
+        "398:344": {
+          "class_type": "SamplerCustomAdvanced",
+          "inputs": {
+            "noise": [
+              "398:339",
+              0
+            ],
+            "guider": [
+              "398:388",
+              0
+            ],
+            "sampler": [
+              "398:352",
+              0
+            ],
+            "sigmas": [
+              "398:397",
+              0
+            ],
+            "latent_image": [
+              "398:377",
+              0
+            ]
+          }
+        },
+        "398:357": {
+          "class_type": "LTXVImgToVideoInplace",
+          "inputs": {
+            "strength": null,
+            "bypass": [
+              "398:363",
+              0
+            ],
+            "vae": [
+              "398:385",
+              0
+            ],
+            "image": [
+              "398:350",
+              0
+            ],
+            "latent": [
+              "398:356",
+              0
+            ]
+          }
+        },
+        "398:366": {
+          "class_type": "LTXVEmptyLatentAudio",
+          "inputs": {
+            "frames_number": [
+              "398:378",
+              1
+            ],
+            "frame_rate": [
+              "398:359",
+              1
+            ],
+            "batch_size": null,
+            "audio_vae": [
+              "398:386",
+              0
+            ]
+          }
+        },
+        "398:367": {
+          "class_type": "LTXVSeparateAVLatent",
+          "inputs": {
+            "av_latent": [
+              "398:344",
+              0
+            ]
+          }
+        },
+        "398:377": {
+          "class_type": "LTXVConcatAVLatent",
+          "inputs": {
+            "video_latent": [
+              "398:357",
+              0
+            ],
+            "audio_latent": [
+              "398:366",
+              0
+            ]
+          }
+        },
+        "398:351": {
+          "class_type": "ResizeImageMaskNode",
+          "inputs": {
+            "resize_type": null,
+            "resize_type.longer_size": null,
+            "scale_method": null,
+            "input": [
+              "395",
+              0
+            ]
+          }
+        },
+        "398:353": {
+          "class_type": "ComfyMathExpression",
+          "inputs": {
+            "expression": null,
+            "values.a": [
+              "398:372",
+              0
+            ]
+          }
+        },
+        "398:355": {
+          "class_type": "ComfyMathExpression",
+          "inputs": {
+            "expression": null,
+            "values.a": [
+              "398:360",
+              0
+            ]
+          }
+        },
+        "398:350": {
+          "class_type": "LTXVPreprocess",
+          "inputs": {
+            "img_compression": null,
+            "image": [
+              "398:351",
+              0
+            ]
+          }
+        },
+        "398:356": {
+          "class_type": "EmptyLTXVLatentVideo",
+          "inputs": {
+            "width": [
+              "398:353",
+              1
+            ],
+            "height": [
+              "398:355",
+              1
+            ],
+            "length": [
+              "398:378",
+              1
+            ],
+            "batch_size": null
+          }
+        },
+        "398:348": {
+          "class_type": "LTXVLatentUpsampler",
+          "inputs": {
+            "samples": [
+              "398:367",
+              0
+            ],
+            "upscale_model": [
+              "398:371",
+              0
+            ],
+            "vae": [
+              "398:385",
+              0
+            ]
+          }
+        },
+        "398:349": {
+          "class_type": "LTXVImgToVideoInplace",
+          "inputs": {
+            "strength": null,
+            "bypass": [
+              "398:363",
+              0
+            ],
+            "vae": [
+              "398:385",
+              0
+            ],
+            "image": [
+              "398:350",
+              0
+            ],
+            "latent": [
+              "398:348",
+              0
+            ]
+          }
+        },
+        "398:359": {
+          "class_type": "ComfyMathExpression",
+          "inputs": {
+            "expression": null,
+            "values.a": [
+              "398:361",
+              0
+            ]
+          }
+        },
+        "398:378": {
+          "class_type": "ComfyMathExpression",
+          "inputs": {
+            "expression": null,
+            "values.a": [
+              "398:362",
+              0
+            ],
+            "values.b": [
+              "398:361",
+              0
+            ]
+          }
+        },
+        "398:338": {
+          "class_type": "RandomNoise",
+          "inputs": {
+            "noise_seed": null
+          }
+        },
+        "398:340": {
+          "class_type": "LTXVConcatAVLatent",
+          "inputs": {
+            "video_latent": [
+              "398:349",
+              0
+            ],
+            "audio_latent": [
+              "398:367",
+              1
+            ]
+          }
+        },
+        "398:396": {
+          "class_type": "ManualSigmas",
+          "inputs": {
+            "sigmas": null
+          }
+        },
+        "398:391": {
+          "class_type": "LTXVDualCFGGuider",
+          "inputs": {
+            "video_cfg": null,
+            "audio_cfg": null,
+            "model": [
+              "398:384",
+              0
+            ],
+            "positive": [
+              "398:365",
+              0
+            ],
+            "negative": [
+              "398:365",
+              1
+            ]
+          }
+        },
+        "398:341": {
+          "class_type": "KSamplerSelect",
+          "inputs": {
+            "sampler_name": null
+          }
+        },
+        "398:368": {
+          "class_type": "SamplerCustomAdvanced",
+          "inputs": {
+            "noise": [
+              "398:338",
+              0
+            ],
+            "guider": [
+              "398:391",
+              0
+            ],
+            "sampler": [
+              "398:341",
+              0
+            ],
+            "sigmas": [
+              "398:396",
+              0
+            ],
+            "latent_image": [
+              "398:340",
+              0
+            ]
+          }
+        },
+        "398:369": {
+          "class_type": "LTXVSeparateAVLatent",
+          "inputs": {
+            "av_latent": [
+              "398:368",
+              0
+            ]
+          }
+        },
+        "398:374": {
+          "class_type": "VAEDecodeTiled",
+          "inputs": {
+            "tile_size": null,
+            "overlap": null,
+            "temporal_size": null,
+            "temporal_overlap": null,
+            "samples": [
+              "398:369",
+              0
+            ],
+            "vae": [
+              "398:385",
+              0
+            ]
+          }
+        },
+        "398:358": {
+          "class_type": "LTXVAudioVAEDecode",
+          "inputs": {
+            "samples": [
+              "398:369",
+              1
+            ],
+            "audio_vae": [
+              "398:386",
+              0
+            ]
+          }
+        },
+        "398:370": {
+          "class_type": "CreateVideo",
+          "inputs": {
+            "fps": [
+              "398:359",
+              0
+            ],
+            "bit_depth": null,
+            "color_space": null,
+            "images": [
+              "398:374",
+              0
+            ],
+            "audio": [
+              "398:358",
+              0
+            ]
+          }
+        },
+        "398:381": {
+          "class_type": "PreviewAny",
+          "inputs": {
+            "source": [
+              "398:382",
+              0
+            ]
+          }
+        },
+        "398:380": {
+          "class_type": "TextGenerateLTX2Prompt",
+          "inputs": {
+            "prompt": [
+              "398:376",
+              0
+            ],
+            "max_length": null,
+            "sampling_mode": null,
+            "sampling_mode.temperature": null,
+            "sampling_mode.top_k": null,
+            "sampling_mode.top_p": null,
+            "sampling_mode.min_p": null,
+            "sampling_mode.repetition_penalty": null,
+            "sampling_mode.seed": null,
+            "sampling_mode.presence_penalty": null,
+            "thinking": null,
+            "use_default_template": null,
+            "clip": [
+              "398:393",
+              0
+            ],
+            "image": [
+              "398:350",
+              0
+            ]
+          }
+        },
+        "398:339": {
+          "class_type": "RandomNoise",
+          "inputs": {
+            "noise_seed": null
+          }
+        }
+      },
+      "fieldMap": {
+        "prompt": {
+          "node": "398:364",
+          "input": "text",
+          "class_type": "CLIPTextEncode",
+          "verifiedExists": true,
+          "source": "prompt column",
+          "reachableFromSave": true
+        },
+        "negativePrompt": {
+          "node": "398:373",
+          "input": "text",
+          "class_type": "CLIPTextEncode",
+          "verifiedExists": true,
+          "source": "Params.negativePrompt",
+          "reachableFromSave": true
+        },
+        "image1": {
+          "node": "395",
+          "input": "image",
+          "class_type": "LoadImage",
+          "verifiedExists": true,
+          "source": "resolved scene-linked frames",
+          "reachableFromSave": true
+        },
+        "seed": {
+          "node": "398:339",
+          "input": "noise_seed",
+          "class_type": "RandomNoise",
+          "verifiedExists": true,
+          "source": "Params.seed",
+          "reachableFromSave": true
+        },
+        "seed2": {
+          "node": "398:338",
+          "input": "noise_seed",
+          "class_type": "RandomNoise",
+          "verifiedExists": true,
+          "source": "Params.seed2",
+          "reachableFromSave": true
+        },
+        "duration": {
+          "node": "398:362",
+          "input": "value",
+          "class_type": "PrimitiveInt",
+          "verifiedExists": true,
+          "source": "Params.duration",
+          "reachableFromSave": true
+        },
+        "fps": {
+          "node": "398:361",
+          "input": "value",
+          "class_type": "PrimitiveInt",
+          "verifiedExists": true,
+          "source": "Params.fps",
+          "reachableFromSave": true
+        },
+        "promptEnhance": {
+          "node": "398:383",
+          "input": "value",
+          "class_type": "PrimitiveBoolean",
+          "verifiedExists": true,
+          "source": "Params.promptEnhance",
+          "reachableFromSave": true
+        },
+        "width": {
+          "node": "398:372",
+          "input": "value",
+          "class_type": "PrimitiveInt",
+          "verifiedExists": true,
+          "source": "Params.width",
+          "reachableFromSave": true
+        },
+        "height": {
+          "node": "398:360",
+          "input": "value",
+          "class_type": "PrimitiveInt",
+          "verifiedExists": true,
+          "source": "Params.height",
+          "reachableFromSave": true
+        }
+      },
+      "saveNodes": [
+        "75"
+      ],
+      "graphNodeCount": 50,
+      "promptEnhanceEffective": false,
+      "notes": "Direct CLIPTextEncode.text injection disconnects prompt-enhancement chain. Text to image negative is ConditioningZeroOut, no negativePrompt control."
+    },
+    {
+      "rowId": 6,
+      "sourceValue": "Text to image",
+      "canonicalDisplay": "Text to image",
+      "wireValue": "Text to image",
+      "aliasesConfirmedRunner": [
+        "Text to image",
+        "text_to_image"
+      ],
+      "proposedCaseInsensitiveAliases": "Case-insensitive exact equivalents only, not arbitrary typo matching",
+      "enabled": true,
+      "quarantine": false,
+      "reason": null,
+      "graph": {
+        "9": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "filename_prefix": null,
+            "images": [
+              "57:8",
+              0
+            ]
+          }
+        },
+        "57:13": {
+          "class_type": "EmptySD3LatentImage",
+          "inputs": {
+            "width": null,
+            "height": null,
+            "batch_size": null
+          }
+        },
+        "57:29": {
+          "class_type": "VAELoader",
+          "inputs": {
+            "vae_name": null
+          }
+        },
+        "57:28": {
+          "class_type": "UNETLoader",
+          "inputs": {
+            "unet_name": null,
+            "weight_dtype": null
+          }
+        },
+        "57:30": {
+          "class_type": "CLIPLoader",
+          "inputs": {
+            "clip_name": null,
+            "type": null,
+            "device": null
+          }
+        },
+        "57:11": {
+          "class_type": "ModelSamplingAuraFlow",
+          "inputs": {
+            "shift": null,
+            "model": [
+              "57:28",
+              0
+            ]
+          }
+        },
+        "57:27": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "text": null,
+            "clip": [
+              "57:30",
+              0
+            ]
+          }
+        },
+        "57:33": {
+          "class_type": "ConditioningZeroOut",
+          "inputs": {
+            "conditioning": [
+              "57:27",
+              0
+            ]
+          }
+        },
+        "57:3": {
+          "class_type": "KSampler",
+          "inputs": {
+            "seed": null,
+            "steps": null,
+            "cfg": null,
+            "sampler_name": null,
+            "scheduler": null,
+            "denoise": null,
+            "model": [
+              "57:11",
+              0
+            ],
+            "positive": [
+              "57:27",
+              0
+            ],
+            "negative": [
+              "57:33",
+              0
+            ],
+            "latent_image": [
+              "57:13",
+              0
+            ]
+          }
+        },
+        "57:8": {
+          "class_type": "VAEDecode",
+          "inputs": {
+            "samples": [
+              "57:3",
+              0
+            ],
+            "vae": [
+              "57:29",
+              0
+            ]
+          }
+        }
+      },
+      "fieldMap": {
+        "prompt": {
+          "node": "57:27",
+          "input": "text",
+          "class_type": "CLIPTextEncode",
+          "verifiedExists": true,
+          "source": "prompt column",
+          "reachableFromSave": true
+        },
+        "seed": {
+          "node": "57:3",
+          "input": "seed",
+          "class_type": "KSampler",
+          "verifiedExists": true,
+          "source": "Params.seed",
+          "reachableFromSave": true
+        },
+        "width": {
+          "node": "57:13",
+          "input": "width",
+          "class_type": "EmptySD3LatentImage",
+          "verifiedExists": true,
+          "source": "Params.width",
+          "reachableFromSave": true
+        },
+        "height": {
+          "node": "57:13",
+          "input": "height",
+          "class_type": "EmptySD3LatentImage",
+          "verifiedExists": true,
+          "source": "Params.height",
+          "reachableFromSave": true
+        }
+      },
+      "saveNodes": [
+        "9"
+      ],
+      "graphNodeCount": 10,
+      "promptEnhanceEffective": null,
+      "notes": "Direct CLIPTextEncode.text injection disconnects prompt-enhancement chain. Text to image negative is ConditioningZeroOut, no negativePrompt control."
+    },
+    {
+      "rowId": 7,
+      "sourceValue": "Text to image 20",
+      "canonicalDisplay": "Text to image 20",
+      "wireValue": null,
+      "aliasesConfirmedRunner": [],
+      "proposedCaseInsensitiveAliases": null,
+      "enabled": false,
+      "quarantine": true,
+      "reason": "Empty API; unsupported Runner FIELD_MAPS key. Do not alias Text to image 20 to Text to image.",
+      "graph": {},
+      "fieldMap": {},
+      "saveNodes": [],
+      "graphNodeCount": 0,
+      "promptEnhanceEffective": null,
+      "notes": "Direct CLIPTextEncode.text injection disconnects prompt-enhancement chain. Text to image negative is ConditioningZeroOut, no negativePrompt control."
+    }
+  ],
+  "queueTypeCounts": {
+    "Text to image": 11,
+    "Image to video": 16,
+    "FLF to video": 9,
+    "": 2,
+    "image_to_video": 1,
+    "text_to_image": 2,
+    "flf_to_video": 1
+  },
+  "jobReadiness": [
+    {
+      "JobID": "11",
+      "jobs": 21,
+      "outputsReady": 21,
+      "readyForManualReview": true,
+      "persistedGateRows": []
+    },
+    {
+      "JobID": "12",
+      "jobs": 21,
+      "outputsReady": 15,
+      "readyForManualReview": false,
+      "persistedGateRows": []
+    }
+  ],
+  "schema": {
+    "running_job": {
+      "id": "vxItbJ4B8uYBtqJ3",
+      "name": "running_job",
+      "columns": [
+        {
+          "id": "kKZLidesIneeotVV",
+          "name": "rowId",
+          "type": "number",
+          "index": 1,
+          "createdAt": "2026-08-31T02:55:08.293Z",
+          "updatedAt": "2026-09-13T20:42:08.000Z"
+        },
+        {
+          "id": "naIUDG9cVD2KAwEe",
+          "name": "status",
+          "type": "string",
+          "index": 2,
+          "createdAt": "2026-08-31T02:55:08.293Z",
+          "updatedAt": "2026-09-13T20:42:08.000Z"
+        },
+        {
+          "id": "Rp1nekURMuDPn61d",
+          "name": "workflow",
+          "type": "string",
+          "index": 0,
+          "createdAt": "2026-09-13T20:41:51.786Z",
+          "updatedAt": "2026-09-13T20:42:08.000Z"
+        }
+      ],
+      "projectId": "5mWwFhx8vRh8RSu0",
+      "createdAt": "2026-08-31T02:55:08.291Z",
+      "updatedAt": "2026-10-08T06:05:24.553Z",
+      "sizeBytes": 4096
+    },
+    "ComfyUI": {
+      "id": "xKckTZI3ZU5HqIpZ",
+      "name": "ComfyUI",
+      "columns": [
+        {
+          "id": "SsHKt9G3hqi8WGrj",
+          "name": "Completed",
+          "type": "boolean",
+          "index": 0,
+          "createdAt": "2026-08-29T15:16:53.152Z",
+          "updatedAt": "2026-08-29T15:46:00.000Z"
+        },
+        {
+          "id": "tKhiq7M9IAX4pAxC",
+          "name": "JobID",
+          "type": "string",
+          "index": 6,
+          "createdAt": "2026-09-12T17:22:52.035Z",
+          "updatedAt": "2026-09-12T17:22:52.035Z"
+        },
+        {
+          "id": "WL2hFcZPmFpMA2Pj",
+          "name": "Params",
+          "type": "string",
+          "index": 7,
+          "createdAt": "2026-09-13T19:12:12.352Z",
+          "updatedAt": "2026-09-13T19:12:12.352Z"
+        },
+        {
+          "id": "a15mEdq4FvXsKkbe",
+          "name": "URL",
+          "type": "string",
+          "index": 4,
+          "createdAt": "2026-08-29T15:46:39.243Z",
+          "updatedAt": "2026-08-30T21:24:36.000Z"
+        },
+        {
+          "id": "ugyUVx7OJ7rqT0hm",
+          "name": "Working",
+          "type": "boolean",
+          "index": 1,
+          "createdAt": "2026-08-30T06:30:58.765Z",
+          "updatedAt": "2026-08-30T07:02:20.000Z"
+        },
+        {
+          "id": "upkvC5EuGktThflL",
+          "name": "prompt",
+          "type": "string",
+          "index": 3,
+          "createdAt": "2026-08-29T14:38:29.188Z",
+          "updatedAt": "2026-08-30T07:02:20.000Z"
+        },
+        {
+          "id": "vuNUMbJU2sv6MMe3",
+          "name": "ref",
+          "type": "string",
+          "index": 5,
+          "createdAt": "2026-09-12T08:32:48.124Z",
+          "updatedAt": "2026-09-12T08:32:48.124Z"
+        },
+        {
+          "id": "EeAFSycJV0ANPWzu",
+          "name": "type",
+          "type": "string",
+          "index": 2,
+          "createdAt": "2026-08-29T14:38:29.188Z",
+          "updatedAt": "2026-08-30T07:02:20.000Z"
+        }
+      ],
+      "projectId": "5mWwFhx8vRh8RSu0",
+      "createdAt": "2026-08-29T14:38:29.187Z",
+      "updatedAt": "2026-10-08T06:05:24.544Z",
+      "sizeBytes": 81920
+    },
+    "Shorts_Production": {
+      "id": "vN5vMR56WpEsdLMn",
+      "name": "Shorts_Production",
+      "columns": [
+        {
+          "id": "osEd3uvLGKf3V0rp",
+          "name": "Completed",
+          "type": "boolean",
+          "index": 2,
+          "createdAt": "2026-08-31T18:08:56.771Z",
+          "updatedAt": "2026-08-31T18:08:56.771Z"
+        },
+        {
+          "id": "9OWFq1CubedPuew0",
+          "name": "File",
+          "type": "string",
+          "index": 3,
+          "createdAt": "2026-08-31T18:08:56.771Z",
+          "updatedAt": "2026-09-12T17:23:37.000Z"
+        },
+        {
+          "id": "Mbtxx0YpDlAgGlub",
+          "name": "Ideas",
+          "type": "string",
+          "index": 4,
+          "createdAt": "2026-09-15T08:55:55.471Z",
+          "updatedAt": "2026-09-15T08:56:12.000Z"
+        },
+        {
+          "id": "rmF0rLrJvFQZoiiZ",
+          "name": "Reffrence",
+          "type": "string",
+          "index": 1,
+          "createdAt": "2026-08-31T18:08:56.771Z",
+          "updatedAt": "2026-08-31T18:08:56.771Z"
+        },
+        {
+          "id": "tA64Sjlp1EVYykhN",
+          "name": "Scenes",
+          "type": "string",
+          "index": 6,
+          "createdAt": "2026-08-31T18:08:56.771Z",
+          "updatedAt": "2026-09-15T08:56:12.000Z"
+        },
+        {
+          "id": "Ioa8aYFSXlbeIxU6",
+          "name": "Script",
+          "type": "string",
+          "index": 5,
+          "createdAt": "2026-08-31T18:08:56.771Z",
+          "updatedAt": "2026-09-15T08:56:12.000Z"
+        },
+        {
+          "id": "MXJdzD5RZFS48oej",
+          "name": "Status",
+          "type": "string",
+          "index": 7,
+          "createdAt": "2026-08-31T18:08:56.771Z",
+          "updatedAt": "2026-09-15T08:56:12.000Z"
+        },
+        {
+          "id": "qsmJrjCsXS2ORDen",
+          "name": "Type",
+          "type": "string",
+          "index": 0,
+          "createdAt": "2026-08-31T18:08:56.771Z",
+          "updatedAt": "2026-08-31T18:08:56.771Z"
+        },
+        {
+          "id": "7K090Jd2Zn64HyTV",
+          "name": "Working",
+          "type": "boolean",
+          "index": 8,
+          "createdAt": "2026-08-31T18:08:56.771Z",
+          "updatedAt": "2026-09-15T08:56:12.000Z"
+        }
+      ],
+      "projectId": "5mWwFhx8vRh8RSu0",
+      "createdAt": "2026-08-31T18:08:56.769Z",
+      "updatedAt": "2026-10-08T05:55:54.539Z",
+      "sizeBytes": 36864
+    },
+    "Pipeline_Review_Gate": {
+      "id": "5xZbQOeVq0mh9cJu",
+      "name": "Pipeline_Review_Gate",
+      "columns": [
+        {
+          "id": "udnBIfbrOF5WmQKb",
+          "name": "JobID",
+          "type": "string",
+          "index": 0,
+          "createdAt": "2026-10-07T07:43:06.123Z",
+          "updatedAt": "2026-10-07T07:43:06.123Z"
+        },
+        {
+          "id": "7YPOYfKoUi3dKVcP",
+          "name": "Outputs",
+          "type": "string",
+          "index": 3,
+          "createdAt": "2026-10-07T07:43:06.123Z",
+          "updatedAt": "2026-10-07T07:43:06.123Z"
+        },
+        {
+          "id": "MhJb0XH2VHtwIA6V",
+          "name": "Reason",
+          "type": "string",
+          "index": 5,
+          "createdAt": "2026-10-07T07:43:06.123Z",
+          "updatedAt": "2026-10-07T07:43:06.123Z"
+        },
+        {
+          "id": "ytVDszxs2NDoiWJl",
+          "name": "ReviewedAt",
+          "type": "string",
+          "index": 4,
+          "createdAt": "2026-10-07T07:43:06.123Z",
+          "updatedAt": "2026-10-07T07:43:06.123Z"
+        },
+        {
+          "id": "a49LTrXaLeyQ82TN",
+          "name": "Snapshot",
+          "type": "string",
+          "index": 2,
+          "createdAt": "2026-10-07T07:43:06.123Z",
+          "updatedAt": "2026-10-07T07:43:06.123Z"
+        },
+        {
+          "id": "O7B2TylD79K289sz",
+          "name": "State",
+          "type": "string",
+          "index": 1,
+          "createdAt": "2026-10-07T07:43:06.123Z",
+          "updatedAt": "2026-10-07T07:43:06.123Z"
+        }
+      ],
+      "projectId": "5mWwFhx8vRh8RSu0",
+      "createdAt": "2026-10-07T07:43:06.122Z",
+      "updatedAt": "2026-10-07T07:59:46.469Z",
+      "sizeBytes": 4096
+    },
+    "ComfyUI_Templates": {
+      "id": "haulC2FnGWqHb0no",
+      "name": "ComfyUI_Templates",
+      "columns": [
+        {
+          "id": "SqUopZUFqG6Ubjn9",
+          "name": "API",
+          "type": "string",
+          "index": 1,
+          "createdAt": "2026-08-30T00:48:34.287Z",
+          "updatedAt": "2026-08-30T00:48:34.287Z"
+        },
+        {
+          "id": "qBiKzXF0SfTYjJrW",
+          "name": "type",
+          "type": "string",
+          "index": 0,
+          "createdAt": "2026-08-30T00:48:34.287Z",
+          "updatedAt": "2026-08-30T00:48:34.287Z"
+        }
+      ],
+      "projectId": "5mWwFhx8vRh8RSu0",
+      "createdAt": "2026-08-30T00:48:34.286Z",
+      "updatedAt": "2026-10-07T07:24:40.602Z",
+      "sizeBytes": 32768
+    },
+    "Resources": {
+      "id": "Uwo0BjoQTJkHnU5Y",
+      "name": "Resources",
+      "columns": [
+        {
+          "id": "8FPHZXTsoEy1sFJs",
+          "name": "Files",
+          "type": "string",
+          "index": 7,
+          "createdAt": "2026-09-20T20:34:23.345Z",
+          "updatedAt": "2026-09-20T20:34:23.345Z"
+        },
+        {
+          "id": "XxQCHAWya4wW0UgX",
+          "name": "JobID",
+          "type": "string",
+          "index": 0,
+          "createdAt": "2026-09-19T05:53:54.667Z",
+          "updatedAt": "2026-09-19T05:53:54.667Z"
+        },
+        {
+          "id": "2nv3qs3NmcGI03cv",
+          "name": "Jobs",
+          "type": "boolean",
+          "index": 4,
+          "createdAt": "2026-09-19T05:53:54.667Z",
+          "updatedAt": "2026-09-19T05:53:54.667Z"
+        },
+        {
+          "id": "KeGUvODnvw0xP1jh",
+          "name": "MP4",
+          "type": "string",
+          "index": 6,
+          "createdAt": "2026-09-19T05:53:54.667Z",
+          "updatedAt": "2026-09-19T05:53:54.667Z"
+        },
+        {
+          "id": "fOUKYt1n0gwYLoTJ",
+          "name": "Research",
+          "type": "boolean",
+          "index": 2,
+          "createdAt": "2026-09-19T05:53:54.667Z",
+          "updatedAt": "2026-09-19T05:53:54.667Z"
+        },
+        {
+          "id": "KCOZZXTz04tweCR7",
+          "name": "Review",
+          "type": "boolean",
+          "index": 5,
+          "createdAt": "2026-09-19T05:53:54.667Z",
+          "updatedAt": "2026-09-19T05:53:54.667Z"
+        },
+        {
+          "id": "eSZDsTvLuKL4C2Ik",
+          "name": "Scenes",
+          "type": "boolean",
+          "index": 3,
+          "createdAt": "2026-09-19T05:53:54.667Z",
+          "updatedAt": "2026-09-19T05:53:54.667Z"
+        },
+        {
+          "id": "O42WRnvNexWAabLg",
+          "name": "Test",
+          "type": "boolean",
+          "index": 1,
+          "createdAt": "2026-09-19T05:53:54.667Z",
+          "updatedAt": "2026-09-19T05:53:54.667Z"
+        }
+      ],
+      "projectId": "5mWwFhx8vRh8RSu0",
+      "createdAt": "2026-09-19T05:53:54.666Z",
+      "updatedAt": "2026-09-20T20:34:23.353Z",
+      "sizeBytes": 4096
+    }
+  },
+  "rowCounts": {
+    "running_job": 2,
+    "ComfyUI": 42,
+    "Shorts_Production": 2,
+    "Pipeline_Review_Gate": 1,
+    "ComfyUI_Templates": 4,
+    "Resources": 1
+  },
+  "pagination": {
+    "workflowPages": [
+      28
+    ],
+    "tablePages": [
+      15
+    ],
+    "rowPages": {
+      "running_job": [
+        2
+      ],
+      "ComfyUI": [
+        42
+      ],
+      "Shorts_Production": [
+        2
+      ],
+      "Pipeline_Review_Gate": [
+        1
+      ],
+      "ComfyUI_Templates": [
+        4
+      ],
+      "Resources": [
+        1
+      ]
+    },
+    "verificationShortsLimit1": [
+      1,
+      1
+    ]
+  },
+  "runnerDispatch": {
+    "method": "POST",
+    "path": "/webhook/yt-Test",
+    "body": {
+      "Id": "<positive safe decimal ComfyUI row id>"
+    },
+    "doNotSet": [
+      "ALL",
+      "Working"
+    ],
+    "workflowId": "MZK3Pv01FHqZbooz"
+  },
+  "workflowInventoryFile": "inventory.json",
+  "sourceDefinitionsFile": "workflows.json",
+  "tableSnapshotFile": "table-snapshot.json",
+  "normalizationMigrationRequiredTogether": [
+    "Research exact Ideas reader and script writer",
+    "Scene Production exact script reader, case-insensitive Normalize Script Row validator and scene Pass writer",
+    "Dispatcher exact scene reader/IF, Finish Row Type Script Status Qued writer",
+    "Review exact Qued validator",
+    "Runner exact type template lookup, Capture Current Job aliases, Needs frames? and FIELD_MAPS",
+    "ComfyUI_Templates.type and ComfyUI.type; no API column exists in queue; never write virtual API into queue"
+  ],
+  "unconfirmedLegacyAliases": [
+    {
+      "token": "ScriptQued",
+      "status": "Not present in current rows or workflow definitions; not enabled as alias without explicit historic evidence"
+    }
+  ],
+  "missingRequirements": [
+    "Final assembler linked to freshly revalidated approved output snapshot",
+    "durable final video URL and final-video approval snapshot/state",
+    "upload destination/platform/channel plus credentials and explicit authorization",
+    "persisted upload result video ID/URL/time/platform/status and failure retry contract"
+  ],
+  "warnings": [
+    "Research draft/published definition contains Respond to Webhook while Webhook responseMode=onReceived; structurally inconsistent per n8n response strategy, generation not invoked to verify",
+    "Resources flags are not linked review authorization; current MP4 null",
+    "Gate row JobID IDK is orphan/non-numeric, not a production approval",
+    "All snapshots are separate read calls, not a transactional snapshot; concurrent jobs can change counts"
+  ],
+  "implementationScope": "Display and browser lookup only; stored production rows and graphs unchanged.",
+  "jobsClassification": "Shorts_Production only, Type only; Status never determines Jobs stage; ComfyUI queue stays Home."
+}
