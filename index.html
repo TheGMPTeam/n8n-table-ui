@@ -815,6 +815,11 @@
 
 <div class="tab-panel active" id="panel-tables">
 <section id="jobs-workflows" hidden><div role="tablist" aria-label="Production workflows"></div></section>
+  <style>#jobs-workflows:not([hidden]) ~ #home-delete-controls { display:none; }</style>
+  <div class="panel" id="home-delete-controls">
+    <button class="edit-btn" id="home-delete-selected" disabled aria-describedby="home-delete-unavailable">Delete selected rows</button>
+    <span id="home-delete-unavailable">Output deletion backend is not activated. Deletion is unavailable until a scoped helper and exact-row API are enabled.</span>
+  </div>
   <div class="panel" id="panel-completed">
     <div class="panel-header">
       <span class="panel-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="#3fb950"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Completed</span>

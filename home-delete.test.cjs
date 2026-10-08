@@ -1,0 +1,2 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
+test('Home deletion remains unavailable until safe backend activation',()=>{const html=fs.readFileSync('index.html','utf8');assert.match(html,/id="home-delete-selected"[^>]*disabled/);assert.match(html,/Output deletion backend is not activated/);assert.match(html,/#jobs-workflows:not\(\[hidden\]\) ~ #home-delete-controls/);});
