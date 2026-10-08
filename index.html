@@ -734,64 +734,6 @@
     *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   }
 
-
-  /* Operational HUD — original CSS geometry, no reference artwork. */
-  :root { --radius-panel: 14px; --radius-control: 8px; --hud-line: #688b4166; }
-  body { padding: 24px 28px 80px; background: radial-gradient(ellipse at 90% 0%, #263d1c55, transparent 50%), #080e0b; }
-  .topbar { border-radius: 12px; gap: 20px; padding: 14px 18px; border-top: 2px solid #789f46; background: #101c15f5; }
-  .topbar h1 { letter-spacing: -.6px; padding-right: 22px; border-right: 1px solid var(--border); }
-  .tabs { padding: 4px; background: #080f0b; border: 1px solid #30432c; border-radius: 10px; }
-  .tab-btn { border-radius: 7px !important; }
-  .tab-btn.active { box-shadow: inset 0 -3px 0 #61882b; }
-  #btn-refresh { background: #23351c; color: var(--accent); border-color: #5b783b; }
-  .panel { position: relative; background: linear-gradient(150deg,#17251af5,#0e1812); padding: 20px; box-shadow: 0 10px 30px #0003; }
-  .panel::before { content: ''; position: absolute; top: -1px; right: 22px; width: 72px; height: 3px; background: repeating-linear-gradient(120deg,#a2cc5c 0 3px,transparent 3px 6px); opacity: .55; pointer-events: none; }
-  .panel-header { margin: -2px 0 16px; padding-bottom: 14px; border-bottom: 1px solid var(--hud-line); }
-  .panel-title { font-size: 15px; letter-spacing: .2px; }
-  .count-badge { border-radius: 6px; min-width: 36px; font: 600 13px ui-monospace,monospace; padding: 5px 10px; color: var(--accent); }
-  #panel-tables.active { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 18px; }
-  #panel-tables > .panel { margin: 0; }
-  #panel-completed, #status-bar { grid-column: 1 / -1; }
-  #panel-completed .table-scroll { max-height: 48vh; }
-  #panel-next .table-scroll, #panel-working .table-scroll { max-height: 38vh; }
-  .table-scroll { border: 1px solid #2d402e; border-radius: 8px; scrollbar-color: #658645 #111d14; scrollbar-width: thin; }
-  .table-scroll thead th { position: sticky; top: 0; z-index: 1; background: #1b2b1b; padding: 12px; font-size: 10px; letter-spacing: 1px; white-space: nowrap; }
-  .table-scroll tbody tr:nth-child(even) { background: #16221980; }
-  .table-scroll tbody tr:hover { background: #263822; }
-  .table-scroll td { padding: 10px 12px; }
-  .table-scroll td:first-child { font-weight: 550; }
-  .empty-line { text-align: left; padding: 24px 12px; font-style: normal; }
-  .edit-btn { border-radius: 6px !important; }
-  .push-btn { border-radius: 6px !important; white-space: nowrap; }
-  .status-bar { margin-top: 0; border-radius: 8px; font-family: ui-monospace,monospace; font-size: 12px; }
-  .config-form { max-width: 1100px; }
-  .config-form > h2 { border-bottom: 1px solid var(--hud-line); padding-bottom: 16px; }
-  .config-row { display: grid; grid-template-columns: 190px minmax(0,1fr); padding: 8px 0; border-bottom: 1px solid #2c403055; margin-bottom: 4px; }
-  .config-row label { color: #c4d4b9; }
-  .config-row input:not([type="checkbox"]) { width: 100%; border-radius: 7px !important; background: #122016; }
-  .config-row input[readonly] { background: #0c160f; color: #a5b5a2; border-style: dashed; }
-  .config-form > button { margin-top: 22px; margin-right: 8px; }
-  #cfg-status { display: inline-block; margin-top: 16px; }
-  .modal { border-radius: 14px; border-top: 2px solid #88ae50; }
-  .jobid-job-card { border-radius: 10px; }
-  .bottombar { background: #0c160ff5; font-family: ui-monospace,monospace; }
-  @media (max-width: 900px) {
-    #panel-tables.active { grid-template-columns: minmax(0,1fr); }
-    #panel-completed .table-scroll { max-height: 55vh; }
-  }
-  @media (max-width: 760px) {
-    body { padding: 12px 12px 90px; }
-    .topbar { top: 6px; padding: 12px; gap: 10px; }
-    .topbar h1 { border-right: 0; padding-right: 0; }
-    .tabs { gap: 2px; }
-    .tab-btn, .refresh-btn, .edit-btn, .push-btn, .config-btn, .btn-row button { min-height: 44px; }
-    .panel { padding: 16px; }
-    .config-row { grid-template-columns: minmax(0,1fr); gap: 8px; padding: 12px 0; }
-    .debug-header { min-height: 38px; }
-    .bottombar { height: 44px; }
-    .debug-panel { bottom: 44px; }
-  }
-
 </style>
 </head>
 <body>
@@ -858,20 +800,20 @@
 <div class="tab-panel" id="panel-config">
   <div class="panel config-form"><h2>Configuration</h2>
     <p>Webhook traffic stays on this proxy. No n8n API key is stored in this browser.</p>
-    <div class="config-row"><label for="cfg-table-home">Home table</label><input id="cfg-table-home" class="cfg-input"></div>
-    <div class="config-row"><label for="cfg-table-jobs">Production table</label><input id="cfg-table-jobs" class="cfg-input"></div>
-    <div class="config-row"><label for="cfg-table-templates">Templates table</label><input id="cfg-table-templates" class="cfg-input"></div>
-    <div class="config-row"><label for="cfg-table-link">Link rule</label><input id="cfg-table-link" class="cfg-input"></div>
-    <div class="config-row"><label for="cfg-webhook-base">Webhook base</label><input id="cfg-webhook-base" class="cfg-input" readonly></div>
-    <div class="config-row"><label for="cfg-n8n-host">n8n host</label><input id="cfg-n8n-host" class="cfg-input" readonly></div>
-    <div class="config-row"><label for="cfg-n8n-port">n8n port</label><input id="cfg-n8n-port" class="cfg-input" readonly></div>
-    <div class="config-row"><label for="cfg-api-base">API base (legacy)</label><input id="cfg-api-base" class="cfg-input" readonly></div>
-    <div class="config-row"><label for="cfg-api-port">API port (legacy)</label><input id="cfg-api-port" class="cfg-input" readonly></div>
-    <div class="config-row"><label for="cfg-proxy-base">Proxy origin</label><input id="cfg-proxy-base" class="cfg-input" readonly></div>
-    <div class="config-row"><label for="cfg-refresh-interval">Refresh milliseconds</label><input id="cfg-refresh-interval" class="cfg-input" type="number" min="1000"></div>
-    <div class="config-row"><label for="cfg-max-debug-lines">Max debug lines</label><input id="cfg-max-debug-lines" class="cfg-input" type="number" min="10"></div>
-    <div class="config-row"><label for="cfg-debug-default">Debug by default</label><input id="cfg-debug-default" type="checkbox"></div>
-    <div class="config-row"><label for="cfg-auto-refresh-default">Auto refresh</label><input id="cfg-auto-refresh-default" type="checkbox"></div>
+    <div class="config-row"><label>Home table</label><input id="cfg-table-home" class="cfg-input"></div>
+    <div class="config-row"><label>Production table</label><input id="cfg-table-jobs" class="cfg-input"></div>
+    <div class="config-row"><label>Templates table</label><input id="cfg-table-templates" class="cfg-input"></div>
+    <div class="config-row"><label>Link rule</label><input id="cfg-table-link" class="cfg-input"></div>
+    <div class="config-row"><label>Webhook base</label><input id="cfg-webhook-base" class="cfg-input" readonly></div>
+    <div class="config-row"><label>n8n host</label><input id="cfg-n8n-host" class="cfg-input" readonly></div>
+    <div class="config-row"><label>n8n port</label><input id="cfg-n8n-port" class="cfg-input" readonly></div>
+    <div class="config-row"><label>API base (legacy)</label><input id="cfg-api-base" class="cfg-input" readonly></div>
+    <div class="config-row"><label>API port (legacy)</label><input id="cfg-api-port" class="cfg-input" readonly></div>
+    <div class="config-row"><label>Proxy origin</label><input id="cfg-proxy-base" class="cfg-input" readonly></div>
+    <div class="config-row"><label>Refresh milliseconds</label><input id="cfg-refresh-interval" class="cfg-input" type="number" min="1000"></div>
+    <div class="config-row"><label>Max debug lines</label><input id="cfg-max-debug-lines" class="cfg-input" type="number" min="10"></div>
+    <div class="config-row"><label>Debug by default</label><input id="cfg-debug-default" type="checkbox"></div>
+    <div class="config-row"><label>Auto refresh</label><input id="cfg-auto-refresh-default" type="checkbox"></div>
     <button id="btn-save-config" class="refresh-btn">Save</button><button id="btn-reset-config" class="refresh-btn">Reconfigure</button><span id="cfg-status"></span>
   </div>
 </div>
