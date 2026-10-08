@@ -1,0 +1,167 @@
+{
+  "transportProbes": [
+    {
+      "name": "Shorts Dispatcher",
+      "probe": "CoXsgHGvy2SdtIHL",
+      "method": "GET",
+      "executionId": "57329",
+      "ack": [
+        200,
+        "{\"message\":\"Workflow was started\"}"
+      ],
+      "context": {
+        "workflowId": "CoXsgHGvy2SdtIHL",
+        "currentId": 11,
+        "lockId": 987654321,
+        "source": "webhook",
+        "executionId": "57329"
+      }
+    },
+    {
+      "name": "Shorts Dispatcher",
+      "probe": "CoXsgHGvy2SdtIHL",
+      "method": "POST",
+      "executionId": "57330",
+      "ack": [
+        200,
+        "{\"message\":\"Workflow was started\"}"
+      ],
+      "context": {
+        "workflowId": "CoXsgHGvy2SdtIHL",
+        "currentId": 11,
+        "lockId": 987654321,
+        "source": "webhook",
+        "executionId": "57330"
+      }
+    },
+    {
+      "name": "ComfyUI Runner",
+      "probe": "nBaK4rjoKvuZwnMy",
+      "method": "POST",
+      "executionId": "57331",
+      "ack": [
+        200,
+        "{\"message\":\"Workflow was started\"}"
+      ],
+      "context": {
+        "workflowId": "nBaK4rjoKvuZwnMy",
+        "currentId": 1,
+        "lockId": 987654321,
+        "source": "webhook",
+        "executionId": "57331"
+      }
+    },
+    {
+      "name": "Scene Production",
+      "probe": "xf3WUJxomhg3gNp2",
+      "method": "GET",
+      "executionId": "57332",
+      "ack": [
+        200,
+        "{\"message\":\"Workflow was started\"}"
+      ],
+      "context": {
+        "workflowId": "xf3WUJxomhg3gNp2",
+        "currentId": 11,
+        "lockId": 987654321,
+        "source": "webhook",
+        "executionId": "57332"
+      }
+    },
+    {
+      "name": "Scene Production",
+      "probe": "xf3WUJxomhg3gNp2",
+      "method": "POST",
+      "executionId": "57333",
+      "ack": [
+        200,
+        "{\"message\":\"Workflow was started\"}"
+      ],
+      "context": {
+        "workflowId": "xf3WUJxomhg3gNp2",
+        "currentId": 11,
+        "lockId": 987654321,
+        "source": "webhook",
+        "executionId": "57333"
+      }
+    },
+    {
+      "name": "Research",
+      "probe": "gmiredzJamh2aClw",
+      "method": "GET",
+      "executionId": "57334",
+      "ack": [
+        200,
+        "{\"message\":\"Workflow was started\"}"
+      ],
+      "context": {
+        "workflowId": "gmiredzJamh2aClw",
+        "currentId": 11,
+        "lockId": 987654321,
+        "source": "webhook",
+        "executionId": "57334"
+      }
+    },
+    {
+      "name": "Research",
+      "probe": "gmiredzJamh2aClw",
+      "method": "POST",
+      "executionId": "57335",
+      "ack": [
+        200,
+        "{\"message\":\"Workflow was started\"}"
+      ],
+      "context": {
+        "workflowId": "gmiredzJamh2aClw",
+        "currentId": 11,
+        "lockId": 987654321,
+        "source": "webhook",
+        "executionId": "57335"
+      }
+    }
+  ],
+  "errorTrigger": {
+    "callerWorkflow": "UHwXUU91XSDSPvKv",
+    "handlerWorkflow": "IZF44eIuSj2VKbdE",
+    "callerExecution": "57362",
+    "handlerExecution": "57363",
+    "callerStatus": "error",
+    "ack": [
+      200,
+      "{\"message\":\"Workflow was started\"}"
+    ],
+    "capturedContext": {
+      "workflowId": "UHwXUU91XSDSPvKv",
+      "currentId": 7,
+      "lockId": 987654321,
+      "source": "webhook",
+      "executionId": "57362",
+      "rowId": 7,
+      "eventworkflowId": "UHwXUU91XSDSPvKv",
+      "tableId": "mock-only",
+      "hasActiveOwnerWorkflow": false
+    }
+  },
+  "pairingLoop": {
+    "workflowId": "mYLDopn673dONAHJ",
+    "executionId": "57395",
+    "ack": 200,
+    "loopContexts": [
+      {
+        "workflowId": "mYLDopn673dONAHJ",
+        "currentId": 7,
+        "lockId": 1007,
+        "source": "schedule",
+        "executionId": "57395"
+      },
+      {
+        "workflowId": "mYLDopn673dONAHJ",
+        "currentId": 8,
+        "lockId": 1008,
+        "source": "schedule",
+        "executionId": "57395"
+      }
+    ]
+  },
+  "allDisposableWorkflowsDeleted": true
+}

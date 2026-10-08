@@ -1,0 +1,32 @@
+{
+  "workingTrue": {
+    "vN5vMR56WpEsdLMn": 0,
+    "xKckTZI3ZU5HqIpZ": 0
+  },
+  "workingWithLock": {
+    "vN5vMR56WpEsdLMn": [],
+    "xKckTZI3ZU5HqIpZ": []
+  },
+  "workingWithoutLock": {
+    "vN5vMR56WpEsdLMn": [],
+    "xKckTZI3ZU5HqIpZ": []
+  },
+  "ambiguousLocks": [
+    {
+      "lockId": 1,
+      "workflowId": "TWMnQqnEwD7qTfbp",
+      "currentId": 12,
+      "executionId": null,
+      "policy": "report_only_missing_execution_ownership"
+    },
+    {
+      "lockId": 2,
+      "workflowId": "TWMnQqnEwD7qTfbp",
+      "currentId": 11,
+      "executionId": null,
+      "policy": "report_only_missing_execution_ownership"
+    }
+  ],
+  "activeOwnerExecutions": [],
+  "repairActionsInitiatedByThisWorker": []
+}
