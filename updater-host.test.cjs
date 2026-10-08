@@ -1,12 +1,260 @@
-const {test}=require('node:test');const assert=require('node:assert/strict');
-const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),http=require('node:http');const {execFileSync}=require('node:child_process');const {createUpdater,serve}=require('./updater-host.cjs');
-function fixture(t,options={}){const root=fs.mkdtempSync(path.join(process.env.TMPDIR||os.tmpdir(),'updater-fixture-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));const remote=path.join(root,'remote'),repo=path.join(root,'repo'),data=path.join(root,'data'),stateDir=path.join(root,'state');fs.mkdirSync(remote);fs.mkdirSync(data);const g=(cwd,...a)=>execFileSync('git',a,{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();g(remote,'init','-b','beta');g(remote,'config','user.email','fixture@example.invalid');g(remote,'config','user.name','Fixture');fs.writeFileSync(path.join(remote,'index.html'),'<script>const a=1;</script>');fs.writeFileSync(path.join(remote,'proxy-server.cjs'),'// server 1');fs.writeFileSync(path.join(remote,'package.json'),'{"scripts":{"test":"node --check proxy-server.cjs","build":"node --check proxy-server.cjs"}}');g(remote,'add','.');g(remote,'commit','-m','base');const base=g(remote,'rev-parse','HEAD');g(remote,'branch','main');g(root,'clone',remote,repo);fs.copyFileSync(path.join(repo,'index.html'),path.join(data,'index.html'));fs.writeFileSync(path.join(data,'version.json'),'operator metadata');fs.writeFileSync(path.join(data,'token'),'operator token');fs.writeFileSync(path.join(data,'env'),'operator env');const docker=[];let failing=false;const config={repo,data,stateDir,compose:path.join(root,'compose.yml')};fs.writeFileSync(config.compose,'operator compose');const run=(cmd,args,cwd=repo)=>{if(cmd==='docker'){docker.push(args);if(failing)throw Error('Docker failure');return '';}if(cmd==='git'&&args[0]==='fetch')args=args.map(v=>v==='https://github.com/TheGMPTeam/n8n-table-ui.git'?remote:v);return execFileSync(cmd,args,{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe']});};const u=createUpdater(config,{run,identity:()=>({uiHash:require('./updater-host.cjs').digest(fs.readFileSync(path.join(data,'index.html'))),serverHash:require('./updater-host.cjs').digest(fs.readFileSync(path.join(repo,'proxy-server.cjs')))}),...options});u.register(base);function commit(backend=false){fs.writeFileSync(path.join(remote,'index.html'),'<script>const a=2;</script>');if(backend)fs.writeFileSync(path.join(remote,'proxy-server.cjs'),'// server 2');g(remote,'add','.');g(remote,'commit','-m','update');return g(remote,'rev-parse','HEAD');}return {u,config,g,remote,repo,data,stateDir,base,commit,docker,failDocker:()=>failing=true};}
-test('databind updates only HTML and preserves server, operator files and container',async t=>{const f=fixture(t);const sha=f.commit();const c=f.u.check('beta');assert.equal(c.remoteSha,sha);assert.equal(c.deployedSha,f.base);assert.equal(c.updateAvailable,true);assert.equal(c.databindCompatible,true);const result=await f.u.apply({branch:'beta',mode:'databind',sha});assert.equal(result.status,'applied');assert.equal(f.u.current().uiSha,sha);assert.equal(f.u.current().serverSha,f.base);assert.equal(f.g(f.repo,'rev-parse','HEAD'),f.base);assert.equal(f.docker.length,0);for(const [file,bytes]of [['version.json','operator metadata'],['token','operator token'],['env','operator env']])assert.equal(fs.readFileSync(path.join(f.data,file),'utf8'),bytes);assert.equal(fs.readFileSync(f.config.compose,'utf8'),'operator compose');assert.equal(f.u.check('beta').updateAvailable,false);});
-test('full mode deploys exact commit and rebuilds UI service only',async t=>{const f=fixture(t);const sha=f.commit(true);assert.equal(f.u.check('beta').databindCompatible,false);await assert.rejects(f.u.apply({branch:'beta',mode:'databind',sha}),/require full/);await f.u.apply({branch:'beta',mode:'full',sha});assert.equal(f.g(f.repo,'rev-parse','HEAD'),sha);assert.equal(f.u.current().serverSha,sha);assert.equal(f.docker.length,1);assert.deepEqual(f.docker[0].slice(-5),['up','-d','--build','--no-deps','n8n-table-ui']);});
-test('operator overrides and dirty checkout block updates without overwriting edits',async t=>{const f=fixture(t);const sha=f.commit();fs.writeFileSync(path.join(f.data,'index.html'),'custom');assert.throws(()=>f.u.check('beta'),/Operator changes/);await assert.rejects(f.u.apply({branch:'beta',mode:'databind',sha}),/Operator changes/);fs.copyFileSync(path.join(f.repo,'index.html'),path.join(f.data,'index.html'));fs.writeFileSync(path.join(f.repo,'local-edit'),'keep');await assert.rejects(f.u.apply({branch:'beta',mode:'full',sha}),/Local repository changes/);assert.equal(fs.readFileSync(path.join(f.repo,'local-edit'),'utf8'),'keep');});
-test('stale SHA and branch downgrade need a new check and explicit confirmation',async t=>{const f=fixture(t);const sha=f.commit();await assert.rejects(f.u.apply({branch:'beta',mode:'databind',sha:f.base}),/Branch changed/);await f.u.apply({branch:'beta',mode:'full',sha});assert.equal(f.u.check('main').requiresConfirmation,true);await assert.rejects(f.u.apply({branch:'main',mode:'full',sha:f.base}),/requires confirmation/);await f.u.apply({branch:'main',mode:'full',sha:f.base,confirm:true});assert.equal(f.u.current().uiSha,f.base);});
-test('failed health verification restores previous HTML and deployed SHA',async t=>{const f=fixture(t,{health:async()=>{throw Error('health failed');}});const sha=f.commit();await assert.rejects(f.u.apply({branch:'beta',mode:'databind',sha}),/health failed/);assert.equal(f.u.current().uiSha,f.base);assert.equal(fs.readFileSync(path.join(f.data,'index.html'),'utf8'),'<script>const a=1;</script>');assert.equal(fs.existsSync(path.join(f.stateDir,'apply.lock')),false);});
-test('rollback failure retains exclusive recovery lock',async t=>{const f=fixture(t);const sha=f.commit(true);f.failDocker();await assert.rejects(f.u.apply({branch:'beta',mode:'full',sha}),/rollback failed/);assert.equal(fs.existsSync(path.join(f.stateDir,'apply.lock')),true);});
-test('exclusive apply lock blocks repeated updates',async t=>{const f=fixture(t);const sha=f.commit();fs.writeFileSync(path.join(f.stateDir,'apply.lock'),'');await assert.rejects(f.u.apply({branch:'beta',mode:'databind',sha}),/already running/);assert.equal(f.u.current().uiSha,f.base);});
-test('web worker defaults to disabled mutation without introducing login',async t=>{const f=fixture(t);const server=serve(f.u,f.config);await new Promise(r=>server.once('listening',r));t.after(()=>server.close());const result=await new Promise((resolve,reject)=>{const req=http.request({socketPath:path.join(f.stateDir,'run','control.sock'),path:'/apply',method:'POST'},res=>{let b='';res.on('data',c=>b+=c);res.on('end',()=>resolve({status:res.statusCode,body:b}));});req.on('error',reject);req.end('{}');});assert.equal(result.status,403);assert.match(result.body,/explicitly enable/);});
-test('host updater restricts branch and mode inputs',()=>{const u=require('./updater-host.cjs');assert.equal(u.branch('beta'),'beta');for(const v of ['main;id','../main','--help','develop'])assert.throws(()=>u.branch(v));assert.throws(()=>u.mode('shell'));});
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs"),
+  path = require("node:path"),
+  os = require("node:os"),
+  http = require("node:http");
+const { execFileSync } = require("node:child_process");
+const { createUpdater, serve } = require("./updater-host.cjs");
+function fixture(t, options = {}) {
+  const root = fs.mkdtempSync(
+    path.join(process.env.TMPDIR || os.tmpdir(), "updater-fixture-"),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const remote = path.join(root, "remote"),
+    repo = path.join(root, "repo"),
+    data = path.join(root, "data"),
+    stateDir = path.join(root, "state");
+  fs.mkdirSync(remote);
+  fs.mkdirSync(data);
+  const g = (cwd, ...a) =>
+    execFileSync("git", a, {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim();
+  g(remote, "init", "-b", "beta");
+  g(remote, "config", "user.email", "fixture@example.invalid");
+  g(remote, "config", "user.name", "Fixture");
+  fs.writeFileSync(
+    path.join(remote, "index.html"),
+    "<script>const a=1;</script>",
+  );
+  fs.writeFileSync(path.join(remote, "proxy-server.cjs"), "// server 1");
+  fs.writeFileSync(
+    path.join(remote, "package.json"),
+    '{"scripts":{"test":"node --check proxy-server.cjs","build":"node --check proxy-server.cjs"}}',
+  );
+  g(remote, "add", ".");
+  g(remote, "commit", "-m", "base");
+  const base = g(remote, "rev-parse", "HEAD");
+  g(remote, "branch", "main");
+  g(root, "clone", remote, repo);
+  fs.copyFileSync(path.join(repo, "index.html"), path.join(data, "index.html"));
+  fs.writeFileSync(path.join(data, "version.json"), "operator metadata");
+  fs.writeFileSync(path.join(data, "token"), "operator token");
+  fs.writeFileSync(path.join(data, "env"), "operator env");
+  const docker = [];
+  let failing = false;
+  const config = {
+    repo,
+    data,
+    stateDir,
+    compose: path.join(root, "compose.yml"),
+  };
+  fs.writeFileSync(config.compose, "operator compose");
+  const run = (cmd, args, cwd = repo) => {
+    if (cmd === "docker") {
+      docker.push(args);
+      if (failing) throw Error("Docker failure");
+      return "";
+    }
+    if (cmd === "git" && args[0] === "fetch")
+      args = args.map((v) =>
+        v === "https://github.com/TheGMPTeam/n8n-table-ui.git" ? remote : v,
+      );
+    return execFileSync(cmd, args, {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  };
+  const u = createUpdater(config, {
+    run,
+    identity: () => ({
+      uiHash: require("./updater-host.cjs").digest(
+        fs.readFileSync(path.join(data, "index.html")),
+      ),
+      serverHash: require("./updater-host.cjs").digest(
+        fs.readFileSync(path.join(repo, "proxy-server.cjs")),
+      ),
+    }),
+    ...options,
+  });
+  u.register(base);
+  function commit(backend = false) {
+    fs.writeFileSync(
+      path.join(remote, "index.html"),
+      "<script>const a=2;</script>",
+    );
+    if (backend)
+      fs.writeFileSync(path.join(remote, "proxy-server.cjs"), "// server 2");
+    g(remote, "add", ".");
+    g(remote, "commit", "-m", "update");
+    return g(remote, "rev-parse", "HEAD");
+  }
+  return {
+    u,
+    config,
+    g,
+    remote,
+    repo,
+    data,
+    stateDir,
+    base,
+    commit,
+    docker,
+    failDocker: () => (failing = true),
+  };
+}
+test("databind updates only HTML and preserves server, operator files and container", async (t) => {
+  const f = fixture(t);
+  const sha = f.commit();
+  const c = f.u.check("beta");
+  assert.equal(c.remoteSha, sha);
+  assert.equal(c.deployedSha, f.base);
+  assert.equal(c.updateAvailable, true);
+  assert.equal(c.databindCompatible, true);
+  const result = await f.u.apply({ branch: "beta", mode: "databind", sha });
+  assert.equal(result.status, "applied");
+  assert.equal(f.u.current().uiSha, sha);
+  assert.equal(f.u.current().serverSha, f.base);
+  assert.equal(f.g(f.repo, "rev-parse", "HEAD"), f.base);
+  assert.equal(f.docker.length, 0);
+  for (const [file, bytes] of [
+    ["version.json", "operator metadata"],
+    ["token", "operator token"],
+    ["env", "operator env"],
+  ])
+    assert.equal(fs.readFileSync(path.join(f.data, file), "utf8"), bytes);
+  assert.equal(fs.readFileSync(f.config.compose, "utf8"), "operator compose");
+  assert.equal(f.u.check("beta").updateAvailable, false);
+});
+test("full mode deploys exact commit and rebuilds UI service only", async (t) => {
+  const f = fixture(t);
+  const sha = f.commit(true);
+  assert.equal(f.u.check("beta").databindCompatible, false);
+  await assert.rejects(
+    f.u.apply({ branch: "beta", mode: "databind", sha }),
+    /require full/,
+  );
+  await f.u.apply({ branch: "beta", mode: "full", sha });
+  assert.equal(f.g(f.repo, "rev-parse", "HEAD"), sha);
+  assert.equal(f.u.current().serverSha, sha);
+  assert.equal(f.docker.length, 1);
+  assert.deepEqual(f.docker[0].slice(-5), [
+    "up",
+    "-d",
+    "--build",
+    "--no-deps",
+    "n8n-table-ui",
+  ]);
+});
+test("operator overrides and dirty checkout block updates without overwriting edits", async (t) => {
+  const f = fixture(t);
+  const sha = f.commit();
+  fs.writeFileSync(path.join(f.data, "index.html"), "custom");
+  assert.throws(() => f.u.check("beta"), /Operator changes/);
+  await assert.rejects(
+    f.u.apply({ branch: "beta", mode: "databind", sha }),
+    /Operator changes/,
+  );
+  fs.copyFileSync(
+    path.join(f.repo, "index.html"),
+    path.join(f.data, "index.html"),
+  );
+  fs.writeFileSync(path.join(f.repo, "local-edit"), "keep");
+  await assert.rejects(
+    f.u.apply({ branch: "beta", mode: "full", sha }),
+    /Local repository changes/,
+  );
+  assert.equal(
+    fs.readFileSync(path.join(f.repo, "local-edit"), "utf8"),
+    "keep",
+  );
+});
+test("stale SHA and branch downgrade need a new check and explicit confirmation", async (t) => {
+  const f = fixture(t);
+  const sha = f.commit();
+  await assert.rejects(
+    f.u.apply({ branch: "beta", mode: "databind", sha: f.base }),
+    /Branch changed/,
+  );
+  await f.u.apply({ branch: "beta", mode: "full", sha });
+  assert.equal(f.u.check("main").requiresConfirmation, true);
+  await assert.rejects(
+    f.u.apply({ branch: "main", mode: "full", sha: f.base }),
+    /requires confirmation/,
+  );
+  await f.u.apply({ branch: "main", mode: "full", sha: f.base, confirm: true });
+  assert.equal(f.u.current().uiSha, f.base);
+});
+test("failed health verification restores previous HTML and deployed SHA", async (t) => {
+  const f = fixture(t, {
+    health: async () => {
+      throw Error("health failed");
+    },
+  });
+  const sha = f.commit();
+  await assert.rejects(
+    f.u.apply({ branch: "beta", mode: "databind", sha }),
+    /health failed/,
+  );
+  assert.equal(f.u.current().uiSha, f.base);
+  assert.equal(
+    fs.readFileSync(path.join(f.data, "index.html"), "utf8"),
+    "<script>const a=1;</script>",
+  );
+  assert.equal(fs.existsSync(path.join(f.stateDir, "apply.lock")), false);
+});
+test("rollback failure retains exclusive recovery lock", async (t) => {
+  const f = fixture(t);
+  const sha = f.commit(true);
+  f.failDocker();
+  await assert.rejects(
+    f.u.apply({ branch: "beta", mode: "full", sha }),
+    /rollback failed/,
+  );
+  assert.equal(fs.existsSync(path.join(f.stateDir, "apply.lock")), true);
+});
+test("exclusive apply lock blocks repeated updates", async (t) => {
+  const f = fixture(t);
+  const sha = f.commit();
+  fs.writeFileSync(path.join(f.stateDir, "apply.lock"), "");
+  await assert.rejects(
+    f.u.apply({ branch: "beta", mode: "databind", sha }),
+    /already running/,
+  );
+  assert.equal(f.u.current().uiSha, f.base);
+});
+test("web worker defaults to disabled mutation without introducing login", async (t) => {
+  const f = fixture(t);
+  const server = serve(f.u, f.config);
+  await new Promise((r) => server.once("listening", r));
+  t.after(() => server.close());
+  const result = await new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        socketPath: path.join(f.stateDir, "run", "control.sock"),
+        path: "/apply",
+        method: "POST",
+      },
+      (res) => {
+        let b = "";
+        res.on("data", (c) => (b += c));
+        res.on("end", () => resolve({ status: res.statusCode, body: b }));
+      },
+    );
+    req.on("error", reject);
+    req.end("{}");
+  });
+  assert.equal(result.status, 403);
+  assert.match(result.body, /explicitly enable/);
+});
+test("host updater restricts branch and mode inputs", () => {
+  const u = require("./updater-host.cjs");
+  assert.equal(u.branch("beta"), "beta");
+  for (const v of ["main;id", "../main", "--help", "develop"])
+    assert.throws(() => u.branch(v));
+  assert.throws(() => u.mode("shell"));
+});

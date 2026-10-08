@@ -6,7 +6,8 @@ After=network-online.target
 Type=simple
 WorkingDirectory=/home/dad/Config/n8n-table-ui
 Environment=UPDATE_ALLOW_UNAUTHENTICATED_LAN=1
-ExecStart=/usr/bin/node /home/dad/Config/n8n-table-ui-update-state/updater-host.cjs serve
+Environment=PATH=/home/dad/.local/bin:/home/dad/.hermes/node/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/dad/.local/bin/node /home/dad/Config/n8n-table-ui-update-state/updater-host.cjs serve
 ExecStopPost=/usr/bin/rm -f /home/dad/Config/n8n-table-ui-update-state/run/control.sock
 Restart=on-failure
 RestartSec=5

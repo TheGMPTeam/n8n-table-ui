@@ -1,2 +1,95 @@
-const {test}=require('node:test');const assert=require('node:assert/strict');const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');const {spawn}=require('node:child_process');const {digest}=require('./updater-host.cjs');
-test('proxy updater forwards narrow socket requests, verifies startup identity and denies cross-site apply',async t=>{const dir=fs.mkdtempSync(path.join(process.env.TMPDIR||os.tmpdir(),'updater-proxy-'));const socket=path.join(dir,'control.sock');const requests=[];const worker=http.createServer(async(req,res)=>{let b='';for await(const c of req)b+=c;requests.push({url:req.url,method:req.method,body:b});res.setHeader('Content-Type','application/json');res.end('{"status":"fixture"}');});await new Promise(r=>worker.listen(socket,r));const reserve=http.createServer();await new Promise(r=>reserve.listen(0,'127.0.0.1',r));const port=reserve.address().port;await new Promise(r=>reserve.close(r));const child=spawn(process.execPath,['proxy-server.cjs'],{env:{...process.env,PORT:String(port),DATA_DIR:dir,UPDATE_CONTROL_SOCKET:socket},stdio:['ignore','pipe','pipe']});try{await new Promise((resolve,reject)=>{child.stdout.on('data',d=>{if(d.toString().includes('listening'))resolve();});child.once('exit',()=>reject(Error('proxy exited')));setTimeout(()=>reject(Error('startup timeout')),5000).unref();});const base='http://127.0.0.1:'+port;const identity=await(await fetch(base+'/updates/identity')).json();assert.equal(identity.serverHash,digest(fs.readFileSync('proxy-server.cjs')));assert.equal(identity.uiHash,digest(fs.readFileSync('index.html')));assert.equal((await fetch(base+'/updates/check?branch=beta')).status,200);for(const origin of [undefined,'https://evil.example']){const headers={'Content-Type':'application/json'};if(origin)headers.Origin=origin;assert.equal((await fetch(base+'/updates/apply',{method:'POST',headers,body:'{}'})).status,403);}assert.equal(requests.length,1);assert.equal((await fetch(base+'/updates/apply',{method:'GET'})).status,405);assert.equal((await fetch(base+'/updates/apply',{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:'{"branch":"beta","mode":"databind"}'})).status,200);assert.deepEqual(requests.map(r=>r.url),['/check?branch=beta','/apply']);assert.equal(requests[1].body,'{"branch":"beta","mode":"databind"}');}finally{child.kill();await new Promise(r=>child.once('exit',r));await new Promise(r=>worker.close(r));fs.rmSync(dir,{recursive:true,force:true});}});
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const http = require("node:http"),
+  fs = require("node:fs"),
+  path = require("node:path"),
+  os = require("node:os");
+const { spawn } = require("node:child_process");
+const { digest } = require("./updater-host.cjs");
+test("proxy updater forwards narrow socket requests, verifies startup identity and denies cross-site apply", async (t) => {
+  const dir = fs.mkdtempSync(
+    path.join(process.env.TMPDIR || os.tmpdir(), "updater-proxy-"),
+  );
+  const socket = path.join(dir, "control.sock");
+  const requests = [];
+  const worker = http.createServer(async (req, res) => {
+    let b = "";
+    for await (const c of req) b += c;
+    requests.push({ url: req.url, method: req.method, body: b });
+    res.setHeader("Content-Type", "application/json");
+    res.end('{"status":"fixture"}');
+  });
+  await new Promise((r) => worker.listen(socket, r));
+  const reserve = http.createServer();
+  await new Promise((r) => reserve.listen(0, "127.0.0.1", r));
+  const port = reserve.address().port;
+  await new Promise((r) => reserve.close(r));
+  const child = spawn(process.execPath, ["proxy-server.cjs"], {
+    env: {
+      ...process.env,
+      PORT: String(port),
+      DATA_DIR: dir,
+      UPDATE_CONTROL_SOCKET: socket,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  try {
+    await new Promise((resolve, reject) => {
+      child.stdout.on("data", (d) => {
+        if (d.toString().includes("listening")) resolve();
+      });
+      child.once("exit", () => reject(Error("proxy exited")));
+      setTimeout(() => reject(Error("startup timeout")), 5000).unref();
+    });
+    const base = "http://127.0.0.1:" + port;
+    const identity = await (await fetch(base + "/updates/identity")).json();
+    assert.equal(
+      identity.serverHash,
+      digest(fs.readFileSync("proxy-server.cjs")),
+    );
+    assert.equal(identity.uiHash, digest(fs.readFileSync("index.html")));
+    assert.equal(
+      (await fetch(base + "/updates/check?branch=beta")).status,
+      200,
+    );
+    for (const origin of [undefined, "https://evil.example"]) {
+      const headers = { "Content-Type": "application/json" };
+      if (origin) headers.Origin = origin;
+      assert.equal(
+        (
+          await fetch(base + "/updates/apply", {
+            method: "POST",
+            headers,
+            body: "{}",
+          })
+        ).status,
+        403,
+      );
+    }
+    assert.equal(requests.length, 1);
+    assert.equal(
+      (await fetch(base + "/updates/apply", { method: "GET" })).status,
+      405,
+    );
+    assert.equal(
+      (
+        await fetch(base + "/updates/apply", {
+          method: "POST",
+          headers: { Origin: base, "Content-Type": "application/json" },
+          body: '{"branch":"beta","mode":"databind"}',
+        })
+      ).status,
+      200,
+    );
+    assert.deepEqual(
+      requests.map((r) => r.url),
+      ["/check?branch=beta", "/apply"],
+    );
+    assert.equal(requests[1].body, '{"branch":"beta","mode":"databind"}');
+  } finally {
+    child.kill();
+    await new Promise((r) => child.once("exit", r));
+    await new Promise((r) => worker.close(r));
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
