@@ -1,0 +1,65 @@
+{
+  "row": {
+    "id": 11,
+    "Reffrence": "test",
+    "Scenes": "[{\"scene_id\": \"SCENE_01\", \"duration\": \"0-5\"}, {\"scene_id\": \"SCENE_02\", \"duration\": \"5-15\"}, {\"scene_id\": \"SCENE_03\", \"duration\": \"15-30\"}, {\"scene_id\": \"SCENE_04\", \"duration\": \"30-45\"}]"
+  },
+  "input": [
+    {
+      "json": {
+        "output": {
+          "scenes": [
+            {
+              "scene_id": "SCENE_01",
+              "type": "text_to_image",
+              "image_prompt": "source",
+              "video_prompt": "",
+              "flf_prompt": "",
+              "dialogue": ""
+            },
+            {
+              "scene_id": "SCENE_02",
+              "type": "image_to_video",
+              "image_prompt": "source",
+              "video_prompt": "motion",
+              "flf_prompt": "",
+              "dialogue": ""
+            },
+            {
+              "scene_id": "SCENE_03A",
+              "type": "text_to_image",
+              "image_prompt": "source",
+              "video_prompt": "",
+              "flf_prompt": "",
+              "dialogue": ""
+            },
+            {
+              "scene_id": "SCENE_03B",
+              "type": "text_to_image",
+              "image_prompt": "source",
+              "video_prompt": "",
+              "flf_prompt": "",
+              "dialogue": ""
+            },
+            {
+              "scene_id": "SCENE_04A",
+              "type": "image_to_video",
+              "image_prompt": "source",
+              "video_prompt": "motion",
+              "flf_prompt": "",
+              "dialogue": ""
+            },
+            {
+              "scene_id": "SCENE_04B",
+              "type": "image_to_video",
+              "image_prompt": "source",
+              "video_prompt": "motion",
+              "flf_prompt": "",
+              "dialogue": ""
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
