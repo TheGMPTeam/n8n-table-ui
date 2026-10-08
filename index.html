@@ -814,7 +814,7 @@
     <div class="config-row"><label>Max debug lines</label><input id="cfg-max-debug-lines" class="cfg-input" type="number" min="10"></div>
     <div class="config-row"><label>Debug by default</label><input id="cfg-debug-default" type="checkbox"></div>
     <div class="config-row"><label>Auto refresh</label><input id="cfg-auto-refresh-default" type="checkbox"></div>
-    <button id="btn-save-config" class="refresh-btn">Save</button><button id="btn-reset-config" class="refresh-btn">Reset</button><span id="cfg-status"></span>
+    <button id="btn-save-config" class="refresh-btn">Save</button><button id="btn-reset-config" class="refresh-btn">Reconfigure</button><span id="cfg-status"></span>
   </div>
 </div>
 
@@ -1199,6 +1199,7 @@ const SETUP_STEPS = [
     action: {
       label: 'Verify tables exist',
       run: async () => {
+        const configSnapshot = JSON.stringify(config);
         const homeId = $('#step-table-home').value.trim() || config.tableHome;
         const jobsId = $('#step-table-jobs').value.trim() || config.tableJobs;
         const tmplId = $('#step-table-templates').value.trim() || config.tableTemplates;
@@ -1221,6 +1222,7 @@ const SETUP_STEPS = [
             allGood = false;
           }
         }
+        if (JSON.stringify(config) !== configSnapshot) return { ok: false, message: 'Settings changed during validation; newer settings preserved. Verify again.', results };
         // Save the IDs into config whether or not verification passed — the user
         // entered them intentionally, so record them. Verification results tell the
         // user whether the table IDs are actually live yet.
@@ -1379,6 +1381,7 @@ function renderSetupPanel(direction) {
   if (!content) return;
 
   if (setupDone) {
+    checkSetupHealthy().then(healthy => { if (healthy) setSettingsMode(true); });
     titleEl.textContent = 'Setup complete';
     statusEl.textContent = 'Done';
     content.innerHTML =
@@ -1506,37 +1509,30 @@ function renderSetupPanel(direction) {
   };
 }
 
-// Returns true if n8n is reachable and the configured tables exist.
+  function setSettingsMode(configured) {
+    const configTab = document.querySelector('.tab-btn[data-tab="panel-config"]');
+    const setupTab = document.querySelector('.tab-btn[data-tab="panel-setup"]');
+    configTab.hidden = !configured;
+    setupTab.hidden = configured;
+    // Inline display also overrides the theme's explicit button display rule.
+    if (configTab.style) configTab.style.display = configured ? '' : 'none';
+    if (setupTab.style) setupTab.style.display = configured ? 'none' : '';
+    if (configured && $('#panel-setup').classList.contains('active')) configTab.click();
+    if (!configured && $('#panel-config').classList.contains('active')) setupTab.click();
+  }
+
   async function checkSetupHealthy() {
+    const snapshot = { ...config };
     try {
-      // 1. Webhook base reachable?
-      await callWebhook('/yt-get', { operation: 'get', id: config.tableHome });
+      for (const key of ['tableHome', 'tableJobs', 'tableTemplates']) {
+        if (typeof snapshot[key] !== 'string' || !snapshot[key].trim()) return false;
+        await callWebhook('/yt-get', { operation: 'get', id: snapshot[key], limit: 1 });
+      }
+      return ['tableHome', 'tableJobs', 'tableTemplates'].every(key => config[key] === snapshot[key]);
     } catch (e) {
-      log('checkSetupHealthy: webhook unreachable — ' + e.message);
+      log('checkSetupHealthy: ' + e.message);
       return false;
     }
-    // 2. Home table has rows?
-    // Use a real read call so the check exercises the actual webhook path, not a
-    // cached load. If the table is empty the UI will show empty panels but the
-    // setup pass is still valid — an empty table is not a broken setup.
-    try {
-      const body = await callWebhook('/yt-get', { operation: 'get', id: config.tableHome });
-      const rows = unwrapRows(body);
-      log('checkSetupHealthy: home table id=' + config.tableHome + ' rows=' + rows.length);
-      // Empty table is a valid setup state — still healthy. We only fail if the
-      // webhook itself errored.
-    } catch (e) {
-      log('checkSetupHealthy: home table error — ' + e.message);
-      return false;
-    }
-    // 3. Jobs table reachable?
-    try {
-      await loadTable(config.tableJobs);
-    } catch (e) {
-      log('checkSetupHealthy: jobs table error — ' + e.message);
-      return false;
-    }
-    return true;
   }
 
   function enrichRowsWithTemplateAPI() {
@@ -1715,7 +1711,7 @@ function renderSetupPanel(direction) {
       cols.forEach(col => {
         html += '<td>' + renderCell(col, row[col.name], row, panelId) + '</td>';
       });
-      if (actionBtn) {
+      if (actionBtn && canPushRow(row)) {
         html += '<td><button class="push-btn" data-id="' + row.id + '" data-type="' + escapeAttr(colVal(row, 'type') || '') + '">Push</button></td>';
       } else {
         html += '<td><button class="edit-btn" data-row-id="' + row.id + '">Edit</button></td>';
@@ -1813,6 +1809,12 @@ function renderSetupPanel(direction) {
 
   // ─── Push ────────────────────────────────────────────────────────────
   // Push invokes the allowlisted exact-row workflow; it never pre-locks via CRUD.
+  function canPushRow(row) {
+    if (Object.entries(row).some(([k,v]) => k.toLowerCase() === 'working' && (v === true || v === 'true'))) return false;
+    if (state.currentTableId === TABLES.comfy) return true;
+    return state.currentTableId === TABLES.shorts && ['ideas','research','script','scene'].includes(String(colVal(row, 'Type') || '').toLowerCase());
+  }
+
   async function doPush(rowId, rowType) {
     setStatus('Pushing ' + rowId + '...', 'warn');
     log('doPush ' + rowId + ' type=' + rowType);
@@ -1824,7 +1826,7 @@ function renderSetupPanel(direction) {
       let route;
       if (state.currentTableId === TABLES.comfy) route = 'runner';
       else if (state.currentTableId === TABLES.shorts) {
-        route = {research:'research',script:'scene',scene:'dispatcher'}[type];
+        route = {ideas:'research',research:'research',script:'scene',scene:'dispatcher'}[type];
       }
       if (!route) throw new Error('No exact-row execution route for this table/type');
       if (Object.entries(row).some(([k,v]) => k.toLowerCase() === 'working' && (v === true || v === 'true'))) throw new Error('Row is already working');
@@ -2284,6 +2286,7 @@ let cols = [];
     }
     applyLiveConfig();
     populateConfigForm();
+    checkSetupHealthy().then(healthy => setSettingsMode(healthy));
     log('config saved');
     showConfigStatus('Saved.', 'var(--success)');
 
@@ -2293,17 +2296,13 @@ let cols = [];
   }
 
   function resetConfig() {
-    try {
-      localStorage.removeItem(CONFIG_KEY);
-    } catch (e) {
-      log('config reset error: ' + e.message);
-    }
-    config = { ...CONFIG_DEFAULTS };
-    applyLiveConfig();
-    populateConfigForm();
-    showConfigStatus('Reset to defaults.', 'var(--muted)');
-    log('config reset to defaults');
-    fullReload().catch(e => log('post-reset reload error: ' + e.message));
+    // Reconfigure explicitly, without erasing saved table IDs or preferences.
+    setupDone = false;
+    setupStepIndex = 0;
+    renderSetupPanel();
+    setSettingsMode(false);
+    document.querySelector('.tab-btn[data-tab="panel-setup"]').click();
+    showConfigStatus('Reconfiguring; existing settings are preserved.', 'var(--muted)');
   }
 
   // Ask the proxy what its endpoint env actually is, so the read-only fields
@@ -2412,7 +2411,7 @@ let cols = [];
     log('init complete, loading table ' + state.currentTableId);
     populateConfigForm();
     renderSetupPanel();
-    fetchServerConfig();
+    setSettingsMode(false);
     updateBottomBar();
     attachBottomBarHandlers();
   }
@@ -2519,7 +2518,9 @@ let cols = [];
     });
   }
     (async () => {
+      await fetchServerConfig();
       const healthy = await checkSetupHealthy();
+      setSettingsMode(healthy);
       if (!healthy) {
         // n8n unreachable or tables not configured — go to Setup
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
