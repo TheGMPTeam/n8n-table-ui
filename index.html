@@ -919,6 +919,16 @@
 </div>
 
 <div class="tab-panel" id="panel-new">
+  <div class="panel"><div class="panel-header"><span class="panel-title">Production Job Idea</span></div>
+    <form id="production-idea-form" class="new-table-form" style="padding:16px;max-width:760px">
+      <label for="production-idea">Idea for Research</label>
+      <textarea id="production-idea" required rows="6" placeholder="Describe the Short you want to research"></textarea>
+      <p>Creates one Research row in Jobs. Creation does not dispatch a workflow. Use Push separately to start Research; scheduled processing may also pick up pending ideas.</p>
+      <button class="btn-save" id="production-idea-create" type="submit">Create Production Job Idea</button>
+      <div id="production-idea-status" role="status" aria-live="polite"></div>
+      <button class="btn-cancel" id="production-idea-jobs" type="button" hidden>Open Jobs · Research</button>
+    </form>
+  </div>
   <div class="panel" id="panel-create">
     <div class="panel-header">
       <span class="panel-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg> New Table</span>
@@ -1108,6 +1118,57 @@
   }
   $('#review-refresh').addEventListener('click', refreshReview);
   document.querySelector('[data-tab="panel-review"]').addEventListener('click', refreshReview);
+
+  function productionIdeaRow(idea) {
+    const text = String(idea || '').trim();
+    if (!text) throw new Error('Idea text is required.');
+    return {Type:'Research', Ideas:text, Status:'Idea', Completed:false, Working:false};
+  }
+  let productionIdeaPending = false;
+  let productionIdeaUncertain = false;
+  async function createProductionIdea(event) {
+    event.preventDefault();
+    if (productionIdeaPending || productionIdeaUncertain) return;
+    const input = $('#production-idea'), button = $('#production-idea-create'), status = $('#production-idea-status');
+    const tableId = TABLES.shorts;
+    let row;
+    try { row = productionIdeaRow(input.value); if (!tableId || tableId === TABLES.comfy) throw new Error('Configure a separate Jobs production table first.'); }
+    catch (error) { status.textContent = error.message; return; }
+    productionIdeaPending = true; button.disabled = true; input.readOnly = true;
+    status.textContent = 'Creating one production idea…';
+    let createdId;
+    try {
+      const before = await readAllRows(tableId);
+      const beforeIds = new Set(before.map(r => String(r.id)));
+      if (TABLES.shorts !== tableId) throw new Error('Jobs configuration changed before creation.');
+      const result = await callWebhook('/yt-wright', {operation:'write', id:tableId, row:{data:[row]}});
+      const acknowledgement = Array.isArray(result) && result.length === 1 ? result[0] : result;
+      if (acknowledgement?.success !== true || acknowledgement.insertedRows !== 1) throw new Error('Create acknowledgement did not confirm exactly one row.');
+      const rows = await readAllRows(tableId);
+      const candidates = rows.filter(r => !beforeIds.has(String(r.id)) && Object.entries(row).every(([key,value]) => r[key] === value));
+      if (candidates.length !== 1 || !Number.isSafeInteger(Number(candidates[0].id)) || Number(candidates[0].id) <= 0) throw new Error('Cannot uniquely identify the created row; check Jobs before retrying.');
+      createdId = candidates[0].id;
+      const matches = rows.filter(r => String(r.id) === String(createdId));
+      if (matches.length !== 1 || Object.entries(row).some(([key,value]) => matches[0][key] !== value)) throw new Error('Created row readback did not match.');
+      if (TABLES.shorts !== tableId) throw new Error('Jobs configuration changed; row was created in the original table.');
+      if (state.currentTableId === tableId) {state.rows = rows; state.rowsTableId = tableId; renderPanels();}
+      else {state.otherRows = rows; state.otherTableId = tableId;}
+      input.value = '';
+      status.textContent = 'Created Research row #' + createdId + '. No workflow dispatched. Open Jobs and Push when ready.';
+      $('#production-idea-jobs').hidden = false;
+    } catch (error) {
+      // A rejected validation request is safe to correct. Any ambiguous write/readback must not be blindly repeated.
+      productionIdeaUncertain = !(error.status >= 400 && error.status < 500 && !createdId);
+      status.textContent = error.message + (productionIdeaUncertain ? ' Creation may have succeeded' + (createdId ? ' (row #' + createdId + ')' : '') + '. Refresh Jobs and check before retrying; this form is locked to prevent duplicates.' : ' Correct the input and retry.');
+    } finally {
+      productionIdeaPending = false; button.disabled = productionIdeaUncertain; input.readOnly = productionIdeaUncertain;
+    }
+  }
+  $('#production-idea-form').addEventListener('submit', createProductionIdea);
+  $('#production-idea-jobs').addEventListener('click', () => {
+    activeJobStage = 'research'; localStorage.setItem('jobs-workflow-tab', activeJobStage);
+    document.querySelector('.tab-btn[data-role="jobs"]').click(); renderJobsWorkflows();
+  });
 
   function canonicalType(type) {
     const key = String(type ?? '').trim().toLowerCase().replace(/_/g, ' ');
