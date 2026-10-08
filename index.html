@@ -1982,6 +1982,17 @@ function renderSetupPanel(direction) {
     const jobsActive = document.querySelector('.tab-btn.active')?.getAttribute('data-role') === 'jobs';
     if (jobsActive) { ['completed','next','working'].forEach(id => document.getElementById('panel-'+id).style.display='none'); setStatus('Loaded '+JOB_STAGES.reduce((n,s)=>n+jobsData(s[0]).length,0)+' pipeline rows across workflow stages',''); return; }
     log('renderPanels rows=' + state.rows.length);
+    // An empty result is valid; row-derived schema is unavailable, not missing.
+    if (!state.rows.length) {
+      ['completed', 'next', 'working'].forEach(key => {
+        $('#count-' + key).textContent = 0;
+        $('#panel-' + key).style.display = '';
+        buildTable('thead-' + key, 'tbody-' + key, 'empty-' + key, [], key === 'next' ? 'push' : null, 'panel-' + key);
+        panelCache[key] = rowsHash([]);
+      });
+      setStatus('No jobs', '');
+      return;
+    }
     const hasCompleted = state.rows.length && Object.keys(state.rows[0]).some(k => colKey(k) === 'completed');
     const hasWorking = state.rows.length && Object.keys(state.rows[0]).some(k => colKey(k) === 'working');
 
