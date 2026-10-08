@@ -818,7 +818,10 @@
   <style>#jobs-workflows:not([hidden]) ~ #home-delete-controls { display:none; }</style>
   <div class="panel" id="home-delete-controls">
     <button class="edit-btn" id="home-delete-selected" disabled aria-describedby="home-delete-unavailable">Delete selected rows</button>
-    <span id="home-delete-unavailable">Output deletion backend is not activated. Deletion is unavailable until a scoped helper and exact-row API are enabled.</span>
+    <button id="home-delete-all" disabled>Select all eligible outputs</button>
+    <a href="/home-delete/login" target="_blank" rel="noopener">Authenticate deletion</a>
+    <div id="home-delete-selection"></div>
+    <span role="status" id="home-delete-unavailable">Output deletion backend is not activated. Deletion is unavailable until a scoped helper and exact-row API are enabled.</span>
   </div>
   <div class="panel" id="panel-completed">
     <div class="panel-header">
@@ -1934,7 +1937,47 @@ function renderSetupPanel(direction) {
     for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
     return rows.length + ':' + (h >>> 0).toString(36);
   }
+  // HOME DELETE START
+  const homeDeleteSelection = new Set();
+  let homeDeleteAvailable = false, homeDeletePending = false, homeDeleteChecked = 0;
+  function eligibleHomeRows() {
+    return state.rowsTableId === TABLES.comfy && state.currentTableId === TABLES.comfy ? state.rows.filter(r => Number.isSafeInteger(r.id) && r.id>0 && r.Completed===true && r.Working===false && typeof r.URL==='string' && r.URL) : [];
+  }
+  function renderHomeDelete() {
+    const rows=eligibleHomeRows();const ids=new Set(rows.map(r=>r.id));
+    for(const id of homeDeleteSelection)if(!ids.has(id))homeDeleteSelection.delete(id);
+    document.getElementById('home-delete-selected').disabled=!homeDeleteAvailable || homeDeletePending || !homeDeleteSelection.size;
+    document.getElementById('home-delete-all').disabled=!homeDeleteAvailable || homeDeletePending || !rows.length;
+    document.getElementById('home-delete-selection').innerHTML=rows.map(r=>'<label><input type="checkbox" data-home-delete-id="'+r.id+'" '+(homeDeleteSelection.has(r.id)?'checked ':'')+(!homeDeleteAvailable || homeDeletePending?'disabled':'')+'> Row '+r.id+' — '+escapeHtml(r.URL)+'</label><br>').join('');
+  }
+  async function refreshHomeDeleteCapabilities() {
+    if(Date.now()-homeDeleteChecked<10000)return;homeDeleteChecked=Date.now();
+    try {const response=await fetch('/home-delete/capabilities',{credentials:'same-origin',cache:'no-store'});const body=await response.json();homeDeleteAvailable=response.ok && body.available===true;
+      document.getElementById('home-delete-unavailable').textContent=homeDeleteAvailable?'File first, exact row second. Select completed outputs only.':(body.reason || 'Output deletion backend is not activated');
+    }catch {homeDeleteAvailable=false;document.getElementById('home-delete-unavailable').textContent='Output deletion backend is not activated';}
+    renderHomeDelete();
+  }
+  async function deleteHomeSelection() {
+    if(!homeDeleteAvailable || homeDeletePending)return;
+    const rows=eligibleHomeRows().filter(r=>homeDeleteSelection.has(r.id)).map(r=>({id:r.id,url:r.URL}));
+    if(!rows.length || !confirm('Permanently delete '+rows.length+' selected output files, then only their exact Home rows?\n'+rows.map(r=>'Row '+r.id+': '+r.url).join('\n')+'\nFailures retain the row and a durable retry intent.'))return;
+    homeDeletePending=true;renderHomeDelete();
+    try {
+      const response=await fetch('/home-delete/delete',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows})});const body=await response.json();
+      if(!response.ok || !Array.isArray(body.results))throw Error(body.message || body.error || 'Deletion response unavailable');
+      for(const result of body.results)if(result.rowDeleted===true)homeDeleteSelection.delete(result.id);
+      document.getElementById('home-delete-unavailable').textContent=body.fileDeleted+' files deleted; '+body.rowDeleted+' rows deleted; '+body.failed+' failed. '+body.results.filter(r=>r.error).map(r=>'Row '+r.id+': '+r.error).join('; ');
+      await loadTable(TABLES.comfy);
+    }catch(error){document.getElementById('home-delete-unavailable').textContent='Delete failed: '+error.message;}
+    finally{homeDeletePending=false;renderHomeDelete();}
+  }
+  // HOME DELETE END
+  document.getElementById('home-delete-selected').addEventListener('click',deleteHomeSelection);
+  document.getElementById('home-delete-all').addEventListener('click',()=>{for(const row of eligibleHomeRows())homeDeleteSelection.add(row.id);renderHomeDelete();});
+  document.getElementById('home-delete-selection').addEventListener('change',event=>{const id=Number(event.target.dataset.homeDeleteId);if(event.target.checked)homeDeleteSelection.add(id);else homeDeleteSelection.delete(id);renderHomeDelete();});
+
   function renderPanels() {
+    renderHomeDelete(); void refreshHomeDeleteCapabilities();
     renderJobsWorkflows();
     const jobsActive = document.querySelector('.tab-btn.active')?.getAttribute('data-role') === 'jobs';
     if (jobsActive) { ['completed','next','working'].forEach(id => document.getElementById('panel-'+id).style.display='none'); setStatus('Loaded '+JOB_STAGES.reduce((n,s)=>n+jobsData(s[0]).length,0)+' pipeline rows across workflow stages',''); return; }

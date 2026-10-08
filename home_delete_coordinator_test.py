@@ -26,6 +26,19 @@ class CoordinatorTests(unittest.TestCase):
                 coordinator.delete('fixture-table',1,row['URL']);self.assertEqual(rows,[])
             else:
                 coordinator.delete('fixture-table',1,row['URL']);self.assertEqual(rows,[])
+    def test_absent_row_retry_from_durable_intent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            url='http://fixture:8188/view?filename=a.png&type=output'
+            ledger={'1':{'table':'fixture-table','root':tmp,'url':url,'file_deleted':True}}
+            coordinator=DeleteCoordinator(OutputRoot(tmp),{'fixture:8188'},'fixture-table',lambda:[],lambda:False,lambda *args:self.fail('must not delete again'),lambda k:ledger.get(k),lambda k,v:ledger.update({k:v}))
+            self.assertTrue(coordinator.delete('fixture-table',1,url)['rowDeleted'])
+    def test_stale_url_never_removes_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p=pathlib.Path(tmp)/'a.png';p.write_bytes(b'fixture')
+            row={'id':1,'URL':'http://fixture:8188/view?filename=a.png&type=output','Working':False,'Completed':True}
+            coordinator=DeleteCoordinator(OutputRoot(tmp),{'fixture:8188'},'fixture-table',lambda:[row],lambda:False,lambda *args:self.fail('no row deletion'),lambda k:None,lambda *args:self.fail('no intent'))
+            with self.assertRaises(ValueError):coordinator.delete('fixture-table',1,row['URL']+'&subfolder=wrong')
+            self.assertTrue(p.exists())
     def test_order(self):self.run_case('ok')
     def test_shared(self):self.run_case('shared')
     def test_active(self):self.run_case('active')

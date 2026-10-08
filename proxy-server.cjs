@@ -122,6 +122,40 @@ const server = http.createServer(async (req, res) => {
   }
   const buf = Buffer.concat(body, bodyBytes);
 
+  // Dedicated deletion transport: fixed loopback or protected Unix socket only.
+  // Browser credentials and helper HMAC keys never enter HTML or JS bundles.
+  if (pathname.startsWith('/home-delete/')) {
+    const reply = (status, data, extra={}) => {res.writeHead(status, {'Content-Type':'application/json','Cache-Control':'no-store',...extra});res.end(JSON.stringify(data));};
+    const capabilities = pathname === '/home-delete/capabilities' && method === 'GET';
+    const mutation = pathname === '/home-delete/delete' && method === 'POST';
+    const login=pathname==='/home-delete/login' && method==='GET';
+    if (!capabilities && !mutation && !login) return reply(404,{error:'unknown_route'});
+    const trustedTLS=process.env.HOME_DELETE_TRUSTED_PROXY_IP && req.socket.remoteAddress===process.env.HOME_DELETE_TRUSTED_PROXY_IP && req.headers['x-forwarded-proto']==='https' && /^https:\/\/[^/]+$/.test(process.env.HOME_DELETE_TLS_ORIGIN||'');
+    const origin=trustedTLS ? process.env.HOME_DELETE_TLS_ORIGIN : (req.socket.encrypted?'https://':'http://')+req.headers.host;
+    if (mutation && req.headers.origin !== origin) return reply(403,{error:'forbidden_origin'});
+    const privateFile = file => {
+      const fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);
+      try {const st=fs.fstatSync(fd);if (!st.isFile() || (st.mode & 0o077) || st.uid!==process.getuid()) throw Error('Private owned credential required');return fs.readFileSync(fd);}finally{fs.closeSync(fd);}
+    };
+    let secret, credential;
+    try {secret=privateFile(process.env.HOME_DELETE_SECRET_FILE);credential=privateFile(process.env.HOME_DELETE_BROWSER_AUTH_FILE).toString().trim();if(secret.length<32 || (!credential.startsWith('home-delete:') || credential.length<44))throw Error('Invalid credentials');}
+    catch {return capabilities ? reply(200,{available:false,reason:'Output deletion backend is not activated'}) : reply(503,{error:'delete_unavailable'});}
+    // Basic authentication must be protected by TLS or an SSH loopback tunnel.
+    const local = ['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+    if (!local && !req.socket.encrypted && !trustedTLS) return capabilities ? reply(200,{available:false,reason:'Authenticated TLS or local tunnel required'}) : reply(403,{error:'secure_transport_required'});
+    const expected=Buffer.from('Basic '+Buffer.from(credential).toString('base64'));const actual=Buffer.from(req.headers.authorization||'');
+    if(actual.length!==expected.length || !crypto.timingSafeEqual(actual,expected)) return capabilities ? reply(200,{available:false,reason:'Authenticated deletion session required'}) : reply(401,{error:'authentication_required'},{'WWW-Authenticate':'Basic realm="Home deletion", charset="UTF-8"'});
+    if(login)return reply(200,{authenticated:true,message:'Return to Home and Refresh to check deletion capabilities.'});
+    if(buf.length>65536)return reply(413,{error:'payload_too_large'});
+    const target=capabilities?'/capabilities':'/delete';const stamp=String(Math.floor(Date.now()/1000));const nonce=crypto.randomBytes(16).toString('hex');
+    const signature=crypto.createHmac('sha256',secret).update([method,target,stamp,nonce,crypto.createHash('sha256').update(buf).digest('hex')].join('\n')).digest('hex');
+    const opts={method,path:target,headers:{'Content-Type':'application/json','Content-Length':buf.length,'X-Delete-Time':stamp,'X-Delete-Nonce':nonce,'X-Delete-Signature':signature}};
+    if(process.env.HOME_DELETE_CONTROL_SOCKET)opts.socketPath=process.env.HOME_DELETE_CONTROL_SOCKET;
+    else {opts.hostname='127.0.0.1';opts.port=3461;}
+    const helper=http.request(opts,upstream=>{res.writeHead(upstream.statusCode,{'Content-Type':'application/json','Cache-Control':'no-store'});upstream.pipe(res);});
+    helper.setTimeout(30000,()=>helper.destroy());helper.on('error',()=>{if(!res.headersSent)reply(capabilities?200:503,capabilities?{available:false,reason:'Deletion helper unavailable'}:{error:'delete_unavailable'});else res.end();});helper.end(buf);return;
+  }
+
   if (pathname === '/updates/identity' && method === 'GET') {
     const file = fs.existsSync(HTML_OVERRIDE) ? HTML_OVERRIDE : path.join(__dirname, 'index.html');
     res.writeHead(200, {'Content-Type':'application/json','Cache-Control':'no-store'});

@@ -1,0 +1,57 @@
+{
+  "table": "G4IS2XP1RpFJWg58",
+  "paginationRows": 3,
+  "auth401": true,
+  "crossOrigin403": true,
+  "transport": "Basic-authenticated proxy -> HMAC Unix socket -> helper -> actual n8n API",
+  "batch": {
+    "results": [
+      {
+        "id": 1,
+        "fileDeleted": true,
+        "rowDeleted": true
+      },
+      {
+        "id": 2,
+        "fileDeleted": true,
+        "rowDeleted": false,
+        "error": "File deleted; row retained or deletion unverified; retry recorded intent"
+      }
+    ],
+    "fileDeleted": 2,
+    "rowDeleted": 1,
+    "failed": 1
+  },
+  "retry": {
+    "results": [
+      {
+        "id": 2,
+        "fileDeleted": true,
+        "rowDeleted": true
+      }
+    ],
+    "fileDeleted": 1,
+    "rowDeleted": 1,
+    "failed": 0
+  },
+  "unrelatedPreserved": true,
+  "events": [
+    {
+      "event": "row-delete",
+      "id": 1
+    },
+    {
+      "event": "row-delete",
+      "id": 2
+    },
+    {
+      "event": "row-delete",
+      "id": 2
+    }
+  ],
+  "mockExecutionAdapter": true,
+  "productionActivated": false,
+  "liveBusy": true,
+  "liveExecutionAdapter": "read succeeded",
+  "cleanup404": true
+}

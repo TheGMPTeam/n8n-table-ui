@@ -1,5 +1,7 @@
 # local node deps
 node_modules/
+__pycache__/
+*.pyc
 
 # runtime state — bind mounted at runtime, never commit host state
 .data/
