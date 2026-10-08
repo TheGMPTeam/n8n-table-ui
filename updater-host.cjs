@@ -111,14 +111,15 @@ function createUpdater(config, deps = {}) {
     } catch {
       forward = false;
     }
-    const files = git("diff", "--name-only", m.serverSha, sha)
-      .trim()
-      .split("\n")
-      .filter(Boolean);
-    const backendChanged = files.some(
-      (f) =>
-        f !== "index.html" && !f.endsWith(".md") && !f.endsWith(".test.cjs"),
-    );
+    // Only index.html is actually mounted and copied by this deployment.
+    // Compare both identities: a prior HTML-only apply leaves serverSha behind.
+    const files = [...new Set([m.serverSha, m.uiSha].flatMap(base =>
+      git("diff", "--name-only", "-z", base, sha).split("\0").filter(Boolean)))].sort();
+    const backendChanged = files.some(f => f !== "index.html");
+    const recommendedMode = backendChanged ? "full" : "databind";
+    const modeReason = backendChanged
+      ? "Full update required: non-mounted UI or server/build/unknown files changed: " + files.filter(f => f !== "index.html").join(", ")
+      : "Only mounted index.html differs; no server/build changes or restart required.";
     return {
       branch: b,
       remoteSha: sha,
@@ -127,6 +128,8 @@ function createUpdater(config, deps = {}) {
       updateAvailable: sha !== m.uiSha,
       requiresConfirmation: !forward,
       databindCompatible: !backendChanged,
+      recommendedMode,
+      modeReason,
       files,
     };
   }
@@ -146,7 +149,7 @@ function createUpdater(config, deps = {}) {
   }
   async function apply(input) {
     branch(input.branch);
-    mode(input.mode);
+    if (input.mode !== undefined) mode(input.mode);
     if (!/^[a-f0-9]{40}$/.test(input.sha)) throw Error("Invalid SHA");
     let fd;
     try {
@@ -171,6 +174,9 @@ function createUpdater(config, deps = {}) {
         throw Error("Branch switch or downgrade requires confirmation");
       if (input.mode === "databind" && !c.databindCompatible)
         throw Error("Server/build changes require full mode");
+      if (input.mode !== undefined && input.mode !== c.recommendedMode)
+        throw Error("Update mode mismatch; check again (" + c.recommendedMode + " required)");
+      input = { ...input, mode: c.recommendedMode };
       if (!c.updateAvailable) return { status: "unchanged", ...c };
       stage = path.join(
         stateDir,

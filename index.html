@@ -2642,9 +2642,7 @@ let cols = [];
       + '<label for="updater-branch">Branch</label> <select id="updater-branch"><option value="beta">beta</option><option value="main">main</option></select> '
       + '<button id="updater-check">Check selected branch</button>'
       + '<p id="updater-result" role="status">Not checked yet.</p>'
-      + '<label for="updater-mode">Update mode</label> <select id="updater-mode"><option value="databind">Databind — UI HTML only, no restart</option><option value="full">Full — application + server/build, restart UI service</option></select>'
-      + '<p>Databind is blocked if server compatibility changes. Full updates execute the selected repository build on the host.</p>'
-      + '<label><input id="updater-confirm" type="checkbox"> I authorize this checked commit, including a branch switch/downgrade if shown.</label>'
+      + '<p id="updater-mode-summary" role="status">Recommended mode: check a branch first.</p>'
       + '<p>Public GitHub updates need no GitHub login. Web apply must be explicitly enabled by the host operator for this trusted LAN. Anyone on that LAN may then update this app; do not expose it publicly.</p>'
       + '<div class="updater-actions"><button id="updater-apply" disabled>Apply checked update</button> <button id="updater-document" hidden>Reload updated application</button></div>',
       {title:'Check for updates', hideClose:false, onClose:null});
@@ -2661,16 +2659,18 @@ let cols = [];
           + (c.updateAvailable ? ' — update available.' : ' — already current.')
           + (c.requiresConfirmation ? ' Branch switch or downgrade: review before applying.' : '')
           + (!c.databindCompatible ? ' Full mode required for server/build changes.' : ' Databind compatible.');
-        apply.disabled = !c.updateAvailable;
+        $('#updater-mode-summary').textContent = c.recommendedMode ? 'Recommended mode: ' + c.recommendedMode + ' — ' + c.modeReason : 'Automatic mode requires the updated host worker; apply unavailable.';
+        apply.disabled = !c.updateAvailable || !c.recommendedMode;
       } catch (e) { result.textContent = e.message; }
     };
     apply.onclick = async () => {
       if (!checked || checked.branch !== selector.value) return;
-      if (!$('#updater-confirm').checked) { result.textContent = 'Explicit authorization checkbox required.'; return; }
+      const confirmed = checked.requiresConfirmation ? window.confirm('Confirm branch switch or downgrade to ' + checked.branch + ' at ' + checked.remoteSha + '?') : false;
+      if (checked.requiresConfirmation && !confirmed) return;
       apply.disabled = true; selector.disabled = true; $('#updater-check').disabled = true;
       result.textContent = 'Applying verified commit. Full updates may temporarily restart the UI proxy…';
       try { const outcome = await request('/updates/apply', {method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({branch:checked.branch,sha:checked.remoteSha,mode:$('#updater-mode').value,confirm:true})});
+        body:JSON.stringify({branch:checked.branch,sha:checked.remoteSha,mode:checked.recommendedMode,confirm:confirmed})});
         result.textContent = outcome.status + ': ' + (outcome.sha || checked.remoteSha) + '. Reload the application to use the new code.';
         $('#updater-document').hidden = false; $('#updater-document').onclick = () => location.reload();
       } catch (e) { result.textContent = e.message + '. If the proxy restarted, check again before retrying; do not assume failure means rollback.'; }

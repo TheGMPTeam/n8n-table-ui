@@ -180,13 +180,13 @@ test("stale SHA and branch downgrade need a new check and explicit confirmation"
     f.u.apply({ branch: "beta", mode: "databind", sha: f.base }),
     /Branch changed/,
   );
-  await f.u.apply({ branch: "beta", mode: "full", sha });
+  await f.u.apply({ branch: "beta", sha });
   assert.equal(f.u.check("main").requiresConfirmation, true);
   await assert.rejects(
-    f.u.apply({ branch: "main", mode: "full", sha: f.base }),
+    f.u.apply({ branch: "main", mode: "databind", sha: f.base }),
     /requires confirmation/,
   );
-  await f.u.apply({ branch: "main", mode: "full", sha: f.base, confirm: true });
+  await f.u.apply({ branch: "main", mode: "databind", sha: f.base, confirm: true });
   assert.equal(f.u.current().uiSha, f.base);
 });
 test("failed health verification restores previous HTML and deployed SHA", async (t) => {
@@ -257,4 +257,22 @@ test("host updater restricts branch and mode inputs", () => {
   for (const v of ["main;id", "../main", "--help", "develop"])
     assert.throws(() => u.branch(v));
   assert.throws(() => u.mode("shell"));
+});
+ test("HTML-only check recommends automatic databind", (t) => {
+ const f=fixture(t); f.commit(); const c=f.u.check('beta');
+ assert.equal(c.recommendedMode,'databind'); assert.match(c.modeReason,/mounted/i);
+ });
+for (const file of ['proxy-server.cjs','package.json','Dockerfile','unknown.css','README.md','schema.sql']) test('non-mounted '+file+' safely recommends full', t=>{
+ const f=fixture(t); fs.writeFileSync(path.join(f.remote,file),file==='package.json'?'{}':'// changed');
+ f.g(f.remote,'add','.'); f.g(f.remote,'commit','-m','non mounted');
+ assert.equal(f.u.check('beta').recommendedMode,'full');
+});
+test('forced full for HTML-only is rejected before any deployment', async t=>{
+ const f=fixture(t),sha=f.commit();
+ await assert.rejects(f.u.apply({branch:'beta',sha,mode:'full'}),/mode.*mismatch/i);
+ assert.equal(f.u.current().uiSha,f.base); assert.equal(f.docker.length,0);
+});
+test('omitted mode is automatically selected by server',async t=>{
+ const f=fixture(t),sha=f.commit(); const r=await f.u.apply({branch:'beta',sha});
+ assert.equal(r.mode,'databind'); assert.equal(f.docker.length,0);
 });
