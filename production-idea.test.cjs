@@ -1,9 +1,10 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const vm=require('node:vm');const html=fs.readFileSync('index.html','utf8');
+test('New exposes only Production Job Idea, not table or Comfy creation',()=>{const panel=html.split('<div class="tab-panel" id="panel-new">')[1].split('<div class="tab-panel" id="panel-setup">')[0];assert.ok(panel.includes('production-idea-form'));assert.ok(!panel.includes('btn-create-table'));assert.ok(!panel.includes('new-cols'));assert.ok(!panel.includes('New Table'));assert.ok(!panel.includes('Template API'));});
 function builder(){const match=html.match(/function productionIdeaRow\(idea\) \{([\s\S]*?)\n  \}/);assert.ok(match,'production idea builder exists');return vm.runInNewContext('(function(idea){'+match[1]+'})');}
 test('Production idea uses actual Research schema and native pending flags',()=>{const row=builder()('  A useful idea  ');assert.deepEqual(JSON.parse(JSON.stringify(row)),{Type:'Research',Ideas:'A useful idea',Status:'Idea',Completed:false,Working:false});assert.throws(()=>builder()('   '),/required/);});
 
 function harness({failure,readback,source}={}) {
- const nodes=Object.fromEntries(['production-idea','production-idea-create','production-idea-status','production-idea-jobs'].map(id=>[id,{value:id==='production-idea'?'A useful idea':'',hidden:true}]));
+ const nodes=Object.fromEntries(['production-idea','production-idea-create','production-idea-status','production-idea-jobs'].map(id=>[id,{value:id==='production-idea'?'A useful idea':'',hidden:true,dataset:{}}]));
  const calls=[];let reads=0;const row={id:42,Type:'Research',Ideas:'A useful idea',Status:'Idea',Completed:false,Working:false};
  const script=html.slice(html.indexOf('  function productionIdeaRow('),html.indexOf("  $('#production-idea-form').addEventListener"));
  const context={Number,Set,Error,String,Object,Array,TABLES:{shorts:source||'production',comfy:'comfy'},state:{currentTableId:'comfy'},$:s=>nodes[s.slice(1)],renderPanels(){},readAllRows:async()=>{reads++;return reads===1?[]:readback||[row]},callWebhook:async(path,payload)=>{calls.push({path,payload});if(failure)throw failure;return [{success:true,insertedRows:1}]}};

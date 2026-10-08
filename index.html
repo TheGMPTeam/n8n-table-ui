@@ -929,32 +929,6 @@
       <button class="btn-cancel" id="production-idea-jobs" type="button" hidden>Open Jobs · Research</button>
     </form>
   </div>
-  <div class="panel" id="panel-create">
-    <div class="panel-header">
-      <span class="panel-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg> New Table</span>
-    </div>
-    <div class="creation-layout">
-    <div class="new-table-form">
-      <section class="creation-card"><h3>01 · Table identity</h3>
-      <label for="new-name">Table name</label>
-      <input type="text" id="new-name" placeholder="Table name (e.g. MyTable)">
-      </section>
-      <section class="creation-card"><h3>02 · Column schema</h3>
-      <label for="new-cols">Columns</label>
-      <textarea id="new-cols" placeholder="One JSON object per line"></textarea>
-      <small style="color:var(--muted)">e.g. {"name": "prompt", "type": "string"} — one per line, or a JSON array</small>
-      </section>
-      <section class="creation-card"><h3>03 · Create</h3>
-      <div style="display:flex; gap:8px;">
-        <button class="btn-save" id="btn-create-table" style="padding:8px 16px;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Create Table</button>
-        <button class="btn-cancel" id="btn-cancel-create" style="padding:8px 16px;border:none;border-radius:4px;cursor:pointer;background:var(--border);color:var(--text);">Cancel</button>
-      </div>
-      <div class="status-bar" id="new-status" style="margin-top:8px;"></div>
-      </section>
-    </div>
-    <aside class="creation-summary"><h3>Define your table</h3><p>Choose a name, then describe each column with a JSON object.</p><p><code>name</code> identifies the column. <code>type</code> defines its value.</p><p>Check the schema before creating. Cancel returns without creating a table.</p></aside>
-    </div>
-  </div>
 </div>
 
 <div class="tab-panel" id="panel-setup">
@@ -1155,6 +1129,7 @@
       else {state.otherRows = rows; state.otherTableId = tableId;}
       input.value = '';
       status.textContent = 'Created Research row #' + createdId + '. No workflow dispatched. Open Jobs and Push when ready.';
+      $('#production-idea-jobs').dataset.rowId = String(createdId);
       $('#production-idea-jobs').hidden = false;
     } catch (error) {
       // A rejected validation request is safe to correct. Any ambiguous write/readback must not be blindly repeated.
@@ -1168,6 +1143,12 @@
   $('#production-idea-jobs').addEventListener('click', () => {
     activeJobStage = 'research'; localStorage.setItem('jobs-workflow-tab', activeJobStage);
     document.querySelector('.tab-btn[data-role="jobs"]').click(); renderJobsWorkflows();
+    const rowId = $('#production-idea-jobs').dataset.rowId;
+    const focusCreatedRow = () => {
+      const row = document.querySelector('#stage-sheet-research .production-type[data-id="' + rowId + '"]')?.closest('tr');
+      if (row) {row.tabIndex = -1; row.focus({preventScroll:true}); row.scrollIntoView({block:'nearest'});}
+    };
+    focusCreatedRow(); setTimeout(focusCreatedRow, 1000);
   });
 
   function canonicalType(type) {
@@ -2723,7 +2704,7 @@ let cols = [];
     $('#btn-cancel').addEventListener('click', closeModal);
     $('#modal-overlay').addEventListener('click', e => { if (e.target === $('#modal-overlay')) closeModal(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.modalOpen && $('#updater-overlay').style.display !== 'flex') { e.preventDefault(); closeModal(); } });
-    $('#btn-cancel-create').addEventListener('click', () => {
+    $('#btn-cancel-create')?.addEventListener('click', () => {
       $('#new-name').value = '';
       $('#new-cols').value = '';
       const ns = $('#new-status');
@@ -2982,7 +2963,7 @@ let cols = [];
     }
   }
 
-  $('#btn-create-table').addEventListener('click', (e) => { e.preventDefault(); createTable(); });
+  $('#btn-create-table')?.addEventListener('click', (e) => { e.preventDefault(); createTable(); });
 
 })();
 </script>
