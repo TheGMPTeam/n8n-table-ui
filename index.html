@@ -585,7 +585,22 @@
     color: var(--accent);
     border-color: var(--accent);
   }
-  #updater-overlay { z-index: 90; }
+  /* Nonblocking update information: the page remains interactive and scrollable. */
+  #updater-overlay { z-index: 250; display: none; opacity: 1; pointer-events: none; background: transparent; backdrop-filter: none; }
+  #updater-modal { pointer-events: auto; max-height: calc(100dvh - 80px); overflow-y: auto; overscroll-behavior: contain; box-shadow: 0 16px 48px #0009; }
+  .config-row { display: grid; grid-template-columns: 180px minmax(0,1fr); gap: 12px; align-items: center; margin-bottom: 16px; }
+  .config-row input:not([type="checkbox"]) { width: 100%; min-width: 0; }
+  .config-row input[readonly] { color: var(--muted); background: var(--bg); }
+  .config-form > p { margin-bottom: 22px; color: var(--muted); line-height: 1.6; }
+  .modal, .panel { border: 1px solid var(--border); border-radius: 12px; }
+  .modal { overflow-wrap: anywhere; }
+  .modal input, .modal textarea, .modal select { border-radius: 8px; }
+  .updater-section { margin: 18px 0; padding-top: 14px; border-top: 1px solid var(--border); }
+  .updater-section h4 { margin-bottom: 8px; }
+  .updater-section p, .updater-intro, .updater-footer { line-height: 1.6; margin-bottom: 10px; }
+  .updater-pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); padding: 12px; border-radius: 8px; }
+  .updater-actions { margin: 18px 0; }
+  @media (max-width: 760px) { .config-row { grid-template-columns: minmax(0,1fr); gap: 6px; } #updater-modal { width: calc(100% - 24px); padding: 16px; } }
 
   /* Forest / lime dashboard theme. Presentation only; contracts stay unchanged. */
   :root {
@@ -734,6 +749,10 @@
     *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   }
 
+  /* Restrained shared form borders; keep the restored dashboard layout. */
+  .config-row .cfg-input, .modal input:not([type="checkbox"]), .modal textarea, .modal select { border-radius: 8px !important; border: 1px solid var(--border); }
+  .modal, .panel { border-radius: 12px; }
+  #updater-modal > .btn-row { position: sticky; bottom: -20px; padding: 12px 0; background: var(--panel); border-top: 1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -800,20 +819,20 @@
 <div class="tab-panel" id="panel-config">
   <div class="panel config-form"><h2>Configuration</h2>
     <p>Webhook traffic stays on this proxy. No n8n API key is stored in this browser.</p>
-    <div class="config-row"><label>Home table</label><input id="cfg-table-home" class="cfg-input"></div>
-    <div class="config-row"><label>Production table</label><input id="cfg-table-jobs" class="cfg-input"></div>
-    <div class="config-row"><label>Templates table</label><input id="cfg-table-templates" class="cfg-input"></div>
-    <div class="config-row"><label>Link rule</label><input id="cfg-table-link" class="cfg-input"></div>
-    <div class="config-row"><label>Webhook base</label><input id="cfg-webhook-base" class="cfg-input" readonly></div>
-    <div class="config-row"><label>n8n host</label><input id="cfg-n8n-host" class="cfg-input" readonly></div>
-    <div class="config-row"><label>n8n port</label><input id="cfg-n8n-port" class="cfg-input" readonly></div>
-    <div class="config-row"><label>API base (legacy)</label><input id="cfg-api-base" class="cfg-input" readonly></div>
-    <div class="config-row"><label>API port (legacy)</label><input id="cfg-api-port" class="cfg-input" readonly></div>
-    <div class="config-row"><label>Proxy origin</label><input id="cfg-proxy-base" class="cfg-input" readonly></div>
-    <div class="config-row"><label>Refresh milliseconds</label><input id="cfg-refresh-interval" class="cfg-input" type="number" min="1000"></div>
-    <div class="config-row"><label>Max debug lines</label><input id="cfg-max-debug-lines" class="cfg-input" type="number" min="10"></div>
-    <div class="config-row"><label>Debug by default</label><input id="cfg-debug-default" type="checkbox"></div>
-    <div class="config-row"><label>Auto refresh</label><input id="cfg-auto-refresh-default" type="checkbox"></div>
+    <div class="config-row"><label for="cfg-table-home">Home table</label><input id="cfg-table-home" class="cfg-input"></div>
+    <div class="config-row"><label for="cfg-table-jobs">Production table</label><input id="cfg-table-jobs" class="cfg-input"></div>
+    <div class="config-row"><label for="cfg-table-templates">Templates table</label><input id="cfg-table-templates" class="cfg-input"></div>
+    <div class="config-row"><label for="cfg-table-link">Link rule</label><input id="cfg-table-link" class="cfg-input"></div>
+    <div class="config-row"><label for="cfg-webhook-base">Webhook base</label><input id="cfg-webhook-base" class="cfg-input" readonly></div>
+    <div class="config-row"><label for="cfg-n8n-host">n8n host</label><input id="cfg-n8n-host" class="cfg-input" readonly></div>
+    <div class="config-row"><label for="cfg-n8n-port">n8n port</label><input id="cfg-n8n-port" class="cfg-input" readonly></div>
+    <div class="config-row"><label for="cfg-api-base">API base (legacy)</label><input id="cfg-api-base" class="cfg-input" readonly></div>
+    <div class="config-row"><label for="cfg-api-port">API port (legacy)</label><input id="cfg-api-port" class="cfg-input" readonly></div>
+    <div class="config-row"><label for="cfg-proxy-base">Proxy origin</label><input id="cfg-proxy-base" class="cfg-input" readonly></div>
+    <div class="config-row"><label for="cfg-refresh-interval">Refresh milliseconds</label><input id="cfg-refresh-interval" class="cfg-input" type="number" min="1000"></div>
+    <div class="config-row"><label for="cfg-max-debug-lines">Max debug lines</label><input id="cfg-max-debug-lines" class="cfg-input" type="number" min="10"></div>
+    <div class="config-row"><label for="cfg-debug-default">Debug by default</label><input id="cfg-debug-default" type="checkbox"></div>
+    <div class="config-row"><label for="cfg-auto-refresh-default">Auto refresh</label><input id="cfg-auto-refresh-default" type="checkbox"></div>
     <button id="btn-save-config" class="refresh-btn">Save</button><button id="btn-reset-config" class="refresh-btn">Reconfigure</button><span id="cfg-status"></span>
   </div>
 </div>
@@ -890,7 +909,7 @@
 </div>
 
 <div class="modal-overlay" id="updater-overlay">
-  <div class="modal" id="updater-modal">
+  <div class="modal" id="updater-modal" role="dialog" aria-modal="false" aria-labelledby="updater-title" tabindex="-1">
     <h2 id="updater-title">Check for updates</h2>
     <div id="updater-body"></div>
     <div class="btn-row">
@@ -2440,6 +2459,12 @@ let cols = [];
     if (openBtn) openBtn.addEventListener('click', (e) => { e.preventDefault(); openUpdaterModal(); });
     const closeBtn = $('#updater-close');
     if (closeBtn) closeBtn.addEventListener('click', (e) => { e.preventDefault(); hideUpdaterModal(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && $('#updater-overlay').style.display === 'flex') { e.preventDefault(); hideUpdaterModal(); }
+    });
+    document.addEventListener('click', (e) => {
+      if ($('#updater-overlay').style.display === 'flex' && !$('#updater-modal').contains(e.target) && !openBtn.contains(e.target)) hideUpdaterModal();
+    });
     const overlay = $('#updater-overlay');
     if (overlay) overlay.addEventListener('click', (e) => {
       if (e.target === overlay) hideUpdaterModal();
@@ -2453,20 +2478,21 @@ let cols = [];
     options = options || {};
     body.innerHTML = htmlBody;
     overlay.style.display = 'flex';
-    state.modalOpen = true;
     $('#updater-title').textContent = options.title || 'Check for updates';
     const closeBtn = $('#updater-close');
     if (closeBtn) closeBtn.style.display = (options.hideClose === true) ? 'none' : 'inline-block';
-    if (options.onClose && typeof options.onClose === 'function') state._updaterOnClose = options.onClose;
-    document.body.style.overflow = 'hidden';
+    state._updaterOnClose = typeof options.onClose === 'function' ? options.onClose : null;
+    if (!state._updaterFocus) state._updaterFocus = document.activeElement;
+    $('#updater-modal').focus({ preventScroll: true });
   }
 
   function hideUpdaterModal() {
     const overlay = $('#updater-overlay');
     if (!overlay) return;
     overlay.style.display = 'none';
-    state.modalOpen = false;
-    document.body.style.overflow = '';
+    const focus = state._updaterFocus;
+    state._updaterFocus = null;
+    if (focus && typeof focus.focus === 'function') focus.focus({ preventScroll: true });
     if (state._updaterOnClose && typeof state._updaterOnClose === 'function') {
       state._updaterOnClose();
       state._updaterOnClose = null;
@@ -2502,13 +2528,12 @@ let cols = [];
     body.push('</pre>');
     body.push('</div>');
     body.push('<div class="updater-actions">');
-    body.push('<button class="btn-apply" id="updater-apply">Reload to pick up changes</button>'
-      + '<button class="btn-cancel" id="updater-close">Close</button>');
+    body.push('<button class="btn-apply" id="updater-apply">Refresh table data</button>');
     body.push('</div>');
     body.push('<p class="updater-footer">No automatic GitHub check is wired in. If you want a "new version available" '
       + 'poll, add a <code>/git/refs?keys=refs/heads/main</code> call against the GitHub API here and compare '
       + 'the returned sha against the bottom-bar commit.</p>');
-    showUpdaterModal(body.join(''), { title: 'Check for updates', hideClose: true,
+    showUpdaterModal(body.join(''), { title: 'Check for updates', hideClose: false,
       onClose: null });
     const applyBtn = $('#updater-apply');
     if (applyBtn) applyBtn.addEventListener('click', (e) => {
