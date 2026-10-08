@@ -16,14 +16,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "get",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vN5vMR56WpEsdLMn",
-            "mode": "list",
-            "cachedResultName": "Shorts_Production",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -35,7 +27,15 @@
                 "condition": "isFalse"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vN5vMR56WpEsdLMn",
+            "mode": "list",
+            "cachedResultName": "Shorts_Production",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -96,21 +96,6 @@
         "parameters": {}
       },
       {
-        "name": "Get row(s)3",
-        "type": "n8n-nodes-base.noOp",
-        "parameters": {}
-      },
-      {
-        "name": "Update row(s)",
-        "type": "n8n-nodes-base.noOp",
-        "parameters": {}
-      },
-      {
-        "name": "Delete row(s)",
-        "type": "n8n-nodes-base.noOp",
-        "parameters": {}
-      },
-      {
         "name": "Insert row",
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
@@ -128,14 +113,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vN5vMR56WpEsdLMn",
-            "mode": "list",
-            "cachedResultName": "Shorts_Production",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -144,7 +121,15 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vN5vMR56WpEsdLMn",
+            "mode": "list",
+            "cachedResultName": "Shorts_Production",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -152,14 +137,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "deleteRows",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vxItbJ4B8uYBtqJ3",
-            "mode": "list",
-            "cachedResultName": "running_job",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vxItbJ4B8uYBtqJ3"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -178,7 +155,15 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vxItbJ4B8uYBtqJ3",
+            "mode": "list",
+            "cachedResultName": "running_job",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vxItbJ4B8uYBtqJ3"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -195,29 +180,16 @@
         "name": "Webhook",
         "type": "n8n-nodes-base.webhook",
         "parameters": {
-          "path": "Dispatcher",
+          "options": {},
           "responseMode": "onReceived",
-          "options": {}
+          "path": "Dispatcher"
         }
-      },
-      {
-        "name": "If1",
-        "type": "n8n-nodes-base.if",
-        "parameters": {}
       },
       {
         "name": "Get row(s)1",
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "get",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vN5vMR56WpEsdLMn",
-            "mode": "list",
-            "cachedResultName": "Shorts_Production",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -226,7 +198,15 @@
                 "keyValue": "={{ $json.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vN5vMR56WpEsdLMn",
+            "mode": "list",
+            "cachedResultName": "Shorts_Production",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -268,10 +248,10 @@
         "name": "Webhook POST Bypass",
         "type": "n8n-nodes-base.webhook",
         "parameters": {
-          "path": "Dispatcher",
-          "responseMode": "onReceived",
           "options": {},
-          "httpMethod": "POST"
+          "responseMode": "onReceived",
+          "httpMethod": "POST",
+          "path": "Dispatcher"
         }
       },
       {
@@ -279,14 +259,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vN5vMR56WpEsdLMn",
-            "mode": "list",
-            "cachedResultName": "Shorts_Production",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -295,7 +267,15 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vN5vMR56WpEsdLMn",
+            "mode": "list",
+            "cachedResultName": "Shorts_Production",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -303,14 +283,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "deleteRows",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vxItbJ4B8uYBtqJ3",
-            "mode": "list",
-            "cachedResultName": "running_job",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vxItbJ4B8uYBtqJ3"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -329,7 +301,15 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vxItbJ4B8uYBtqJ3",
+            "mode": "list",
+            "cachedResultName": "running_job",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vxItbJ4B8uYBtqJ3"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -547,24 +527,6 @@
           ]
         ]
       },
-      "If1": {
-        "main": [
-          [
-            {
-              "node": "Get row(s)1",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "Get row(s)",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "Get row(s)1": {
         "main": [
           [
@@ -682,10 +644,10 @@
         "name": "Webhook run",
         "type": "n8n-nodes-base.webhook",
         "parameters": {
-          "httpMethod": "POST",
-          "path": "yt-Test",
+          "options": {},
           "responseMode": "onReceived",
-          "options": {}
+          "httpMethod": "POST",
+          "path": "yt-Test"
         }
       },
       {
@@ -720,14 +682,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "mode": "list",
-            "value": "xKckTZI3ZU5HqIpZ",
-            "cachedResultName": "ComfyUI",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -736,44 +690,21 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "xKckTZI3ZU5HqIpZ",
+            "cachedResultName": "ComfyUI",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
+          },
+          "matchType": "allConditions"
         }
       },
       {
         "name": "Respond",
         "type": "n8n-nodes-base.noOp",
         "parameters": {}
-      },
-      {
-        "name": "Get row(s)",
-        "type": "n8n-nodes-base.dataTable",
-        "parameters": {
-          "operation": "get",
-          "dataTableId": {
-            "__rl": true,
-            "value": "xKckTZI3ZU5HqIpZ",
-            "mode": "list",
-            "cachedResultName": "ComfyUI",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
-          },
-          "matchType": "allConditions",
-          "filters": {
-            "conditions": [
-              {
-                "keyName": "type",
-                "keyValue": "={{ $json.body.Type }}"
-              },
-              {
-                "keyName": "Completed",
-                "condition": "isFalse"
-              },
-              {
-                "keyName": "Working",
-                "condition": "isFalse"
-              }
-            ]
-          }
-        }
       },
       {
         "name": "Parse output",
@@ -792,14 +723,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "get",
-          "dataTableId": {
-            "__rl": true,
-            "value": "xKckTZI3ZU5HqIpZ",
-            "mode": "list",
-            "cachedResultName": "ComfyUI",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -811,7 +734,15 @@
                 "keyValue": "={{ $('Capture Current Job').item.json.currentJobJobID }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "xKckTZI3ZU5HqIpZ",
+            "mode": "list",
+            "cachedResultName": "ComfyUI",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -836,14 +767,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "get",
-          "dataTableId": {
-            "__rl": true,
-            "mode": "list",
-            "value": "haulC2FnGWqHb0no",
-            "cachedResultName": "ComfyUI_Templates",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/haulC2FnGWqHb0no"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -851,7 +774,15 @@
                 "keyValue": "={{ $('Capture Current Job').item.json.currentJobType }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "haulC2FnGWqHb0no",
+            "cachedResultName": "ComfyUI_Templates",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/haulC2FnGWqHb0no"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -859,14 +790,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "mode": "list",
-            "value": "xKckTZI3ZU5HqIpZ",
-            "cachedResultName": "ComfyUI",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -875,27 +798,22 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "xKckTZI3ZU5HqIpZ",
+            "cachedResultName": "ComfyUI",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
+          },
+          "matchType": "allConditions"
         }
-      },
-      {
-        "name": "Switch",
-        "type": "n8n-nodes-base.switch",
-        "parameters": {}
       },
       {
         "name": "Get row(s)1",
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "get",
-          "dataTableId": {
-            "__rl": true,
-            "value": "xKckTZI3ZU5HqIpZ",
-            "mode": "list",
-            "cachedResultName": "ComfyUI",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -904,7 +822,15 @@
                 "keyValue": "={{ $json.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "xKckTZI3ZU5HqIpZ",
+            "mode": "list",
+            "cachedResultName": "ComfyUI",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -912,14 +838,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "mode": "list",
-            "value": "xKckTZI3ZU5HqIpZ",
-            "cachedResultName": "ComfyUI",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -928,7 +846,15 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "xKckTZI3ZU5HqIpZ",
+            "cachedResultName": "ComfyUI",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -953,13 +879,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "deleteRows",
-          "dataTableId": {
-            "__rl": true,
-            "mode": "list",
-            "value": "vxItbJ4B8uYBtqJ3",
-            "cachedResultName": "running_job"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -978,7 +897,14 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "vxItbJ4B8uYBtqJ3",
+            "cachedResultName": "running_job"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -998,14 +924,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "get",
-          "dataTableId": {
-            "__rl": true,
-            "value": "xKckTZI3ZU5HqIpZ",
-            "mode": "list",
-            "cachedResultName": "ComfyUI",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -1017,7 +935,15 @@
                 "condition": "isFalse"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "xKckTZI3ZU5HqIpZ",
+            "mode": "list",
+            "cachedResultName": "ComfyUI",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -1044,14 +970,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "mode": "list",
-            "value": "xKckTZI3ZU5HqIpZ",
-            "cachedResultName": "ComfyUI",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -1060,17 +978,20 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "xKckTZI3ZU5HqIpZ",
+            "cachedResultName": "ComfyUI",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
+          },
+          "matchType": "allConditions"
         }
       },
       {
         "name": "If1",
         "type": "n8n-nodes-base.if",
-        "parameters": {}
-      },
-      {
-        "name": "Stop and Error",
-        "type": "n8n-nodes-base.stopAndError",
         "parameters": {}
       },
       {
@@ -1084,30 +1005,6 @@
         "parameters": {}
       },
       {
-        "name": "Reset All Working",
-        "type": "n8n-nodes-base.dataTable",
-        "parameters": {
-          "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "mode": "list",
-            "value": "xKckTZI3ZU5HqIpZ",
-            "cachedResultName": "ComfyUI",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
-          },
-          "matchType": "allConditions",
-          "filters": {
-            "conditions": [
-              {
-                "keyName": "id",
-                "condition": "eq",
-                "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
-              }
-            ]
-          }
-        }
-      },
-      {
         "name": "Template found?",
         "type": "n8n-nodes-base.if",
         "parameters": {}
@@ -1117,14 +1014,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "mode": "list",
-            "value": "xKckTZI3ZU5HqIpZ",
-            "cachedResultName": "ComfyUI",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -1133,23 +1022,16 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "xKckTZI3ZU5HqIpZ",
+            "cachedResultName": "ComfyUI",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
+          },
+          "matchType": "allConditions"
         }
-      },
-      {
-        "name": "Get row(s)3",
-        "type": "n8n-nodes-base.noOp",
-        "parameters": {}
-      },
-      {
-        "name": "Update row(s)",
-        "type": "n8n-nodes-base.noOp",
-        "parameters": {}
-      },
-      {
-        "name": "Delete row(s)",
-        "type": "n8n-nodes-base.noOp",
-        "parameters": {}
       },
       {
         "name": "Schedule Trigger",
@@ -1173,13 +1055,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "deleteRows",
-          "dataTableId": {
-            "__rl": true,
-            "mode": "list",
-            "value": "vxItbJ4B8uYBtqJ3",
-            "cachedResultName": "running_job"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -1198,7 +1073,14 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "vxItbJ4B8uYBtqJ3",
+            "cachedResultName": "running_job"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -1206,14 +1088,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "mode": "list",
-            "value": "xKckTZI3ZU5HqIpZ",
-            "cachedResultName": "ComfyUI",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -1222,7 +1096,15 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "xKckTZI3ZU5HqIpZ",
+            "cachedResultName": "ComfyUI",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -1273,54 +1155,11 @@
           ]
         ]
       },
-      "Switch": {
-        "main": [
-          [
-            {
-              "node": "Get row(s)2",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "Get row(s)1",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "Get row(s)",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "Get row(s)2",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "Get row(s)1": {
         "main": [
           [
             {
               "node": "Exact row: reject active lock",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Get row(s)": {
-        "main": [
-          [
-            {
-              "node": "If1",
               "type": "main",
               "index": 0
             }
@@ -1739,17 +1578,6 @@
           ]
         ]
       },
-      "Reset All Working": {
-        "main": [
-          [
-            {
-              "node": "Continue Loop?",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "Continue Loop?": {
         "main": [
           [
@@ -1927,14 +1755,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "get",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vN5vMR56WpEsdLMn",
-            "mode": "list",
-            "cachedResultName": "Shorts_Production",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -1946,7 +1766,15 @@
                 "condition": "isFalse"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vN5vMR56WpEsdLMn",
+            "mode": "list",
+            "cachedResultName": "Shorts_Production",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -1961,14 +1789,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vN5vMR56WpEsdLMn",
-            "mode": "list",
-            "cachedResultName": "Shorts_Production",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -1977,7 +1797,15 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vN5vMR56WpEsdLMn",
+            "mode": "list",
+            "cachedResultName": "Shorts_Production",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -2044,21 +1872,6 @@
         }
       },
       {
-        "name": "Get row(s)3",
-        "type": "n8n-nodes-base.noOp",
-        "parameters": {}
-      },
-      {
-        "name": "Update row(s)",
-        "type": "n8n-nodes-base.noOp",
-        "parameters": {}
-      },
-      {
-        "name": "Delete row(s)1",
-        "type": "n8n-nodes-base.noOp",
-        "parameters": {}
-      },
-      {
         "name": "Ollama Chat Model1",
         "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
         "parameters": {}
@@ -2068,14 +1881,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "deleteRows",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vxItbJ4B8uYBtqJ3",
-            "mode": "list",
-            "cachedResultName": "running_job",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vxItbJ4B8uYBtqJ3"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -2094,7 +1899,15 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vxItbJ4B8uYBtqJ3",
+            "mode": "list",
+            "cachedResultName": "running_job",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vxItbJ4B8uYBtqJ3"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -2102,14 +1915,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vN5vMR56WpEsdLMn",
-            "mode": "list",
-            "cachedResultName": "Shorts_Production",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -2118,7 +1923,15 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vN5vMR56WpEsdLMn",
+            "mode": "list",
+            "cachedResultName": "Shorts_Production",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -2126,14 +1939,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vN5vMR56WpEsdLMn",
-            "mode": "list",
-            "cachedResultName": "Shorts_Production",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -2142,28 +1947,7 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
-        }
-      },
-      {
-        "name": "Webhook",
-        "type": "n8n-nodes-base.webhook",
-        "parameters": {
-          "path": "Production",
-          "responseMode": "onReceived",
-          "options": {}
-        }
-      },
-      {
-        "name": "If1",
-        "type": "n8n-nodes-base.if",
-        "parameters": {}
-      },
-      {
-        "name": "Get Script Row1",
-        "type": "n8n-nodes-base.dataTable",
-        "parameters": {
-          "operation": "get",
+          },
           "dataTableId": {
             "__rl": true,
             "value": "vN5vMR56WpEsdLMn",
@@ -2171,7 +1955,23 @@
             "cachedResultName": "Shorts_Production",
             "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
           },
-          "matchType": "allConditions",
+          "matchType": "allConditions"
+        }
+      },
+      {
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "parameters": {
+          "options": {},
+          "responseMode": "onReceived",
+          "path": "Production"
+        }
+      },
+      {
+        "name": "Get Script Row1",
+        "type": "n8n-nodes-base.dataTable",
+        "parameters": {
+          "operation": "get",
           "filters": {
             "conditions": [
               {
@@ -2180,7 +1980,15 @@
                 "keyValue": "={{ $json.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vN5vMR56WpEsdLMn",
+            "mode": "list",
+            "cachedResultName": "Shorts_Production",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -2227,10 +2035,10 @@
         "name": "Webhook POST Bypass",
         "type": "n8n-nodes-base.webhook",
         "parameters": {
-          "path": "Production",
-          "responseMode": "onReceived",
           "options": {},
-          "httpMethod": "POST"
+          "responseMode": "onReceived",
+          "httpMethod": "POST",
+          "path": "Production"
         }
       }
     ],
@@ -2453,24 +2261,6 @@
           [
             {
               "node": "Normalize Bypass Context",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "If1": {
-        "main": [
-          [
-            {
-              "node": "Get Script Row1",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "Get Script Row",
               "type": "main",
               "index": 0
             }
@@ -2867,28 +2657,10 @@
         "parameters": {}
       },
       {
-        "name": "Get row(s)3",
-        "type": "n8n-nodes-base.noOp",
-        "parameters": {}
-      },
-      {
-        "name": "Update row(s)",
-        "type": "n8n-nodes-base.noOp",
-        "parameters": {}
-      },
-      {
         "name": "Get row(s)",
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "get",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vN5vMR56WpEsdLMn",
-            "mode": "list",
-            "cachedResultName": "Shorts_Production",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -2900,7 +2672,15 @@
                 "condition": "isFalse"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vN5vMR56WpEsdLMn",
+            "mode": "list",
+            "cachedResultName": "Shorts_Production",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -2918,14 +2698,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vN5vMR56WpEsdLMn",
-            "mode": "list",
-            "cachedResultName": "Shorts_Production",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -2934,7 +2706,15 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vN5vMR56WpEsdLMn",
+            "mode": "list",
+            "cachedResultName": "Shorts_Production",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -2955,29 +2735,16 @@
         "name": "Webhook",
         "type": "n8n-nodes-base.webhook",
         "parameters": {
-          "path": "Research",
+          "options": {},
           "responseMode": "onReceived",
-          "options": {}
+          "path": "Research"
         }
-      },
-      {
-        "name": "If",
-        "type": "n8n-nodes-base.if",
-        "parameters": {}
       },
       {
         "name": "Get row(s)1",
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "get",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vN5vMR56WpEsdLMn",
-            "mode": "list",
-            "cachedResultName": "Shorts_Production",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -2986,17 +2753,20 @@
                 "keyValue": "={{ $json.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vN5vMR56WpEsdLMn",
+            "mode": "list",
+            "cachedResultName": "Shorts_Production",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
+          },
+          "matchType": "allConditions"
         }
       },
       {
         "name": "If1",
         "type": "n8n-nodes-base.if",
-        "parameters": {}
-      },
-      {
-        "name": "Delete row(s)",
-        "type": "n8n-nodes-base.noOp",
         "parameters": {}
       },
       {
@@ -3016,14 +2786,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vN5vMR56WpEsdLMn",
-            "mode": "list",
-            "cachedResultName": "Shorts_Production",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -3032,7 +2794,15 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vN5vMR56WpEsdLMn",
+            "mode": "list",
+            "cachedResultName": "Shorts_Production",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -3053,14 +2823,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "deleteRows",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vxItbJ4B8uYBtqJ3",
-            "mode": "list",
-            "cachedResultName": "running_job",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vxItbJ4B8uYBtqJ3"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -3079,7 +2841,15 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vxItbJ4B8uYBtqJ3",
+            "mode": "list",
+            "cachedResultName": "running_job",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vxItbJ4B8uYBtqJ3"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -3099,14 +2869,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "update",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vN5vMR56WpEsdLMn",
-            "mode": "list",
-            "cachedResultName": "Shorts_Production",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -3115,7 +2877,15 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vN5vMR56WpEsdLMn",
+            "mode": "list",
+            "cachedResultName": "Shorts_Production",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vN5vMR56WpEsdLMn"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -3162,10 +2932,10 @@
         "name": "Webhook POST Bypass",
         "type": "n8n-nodes-base.webhook",
         "parameters": {
-          "path": "Research",
-          "responseMode": "onReceived",
           "options": {},
-          "httpMethod": "POST"
+          "responseMode": "onReceived",
+          "httpMethod": "POST",
+          "path": "Research"
         }
       },
       {
@@ -3173,14 +2943,6 @@
         "type": "n8n-nodes-base.dataTable",
         "parameters": {
           "operation": "deleteRows",
-          "dataTableId": {
-            "__rl": true,
-            "value": "vxItbJ4B8uYBtqJ3",
-            "mode": "list",
-            "cachedResultName": "running_job",
-            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vxItbJ4B8uYBtqJ3"
-          },
-          "matchType": "allConditions",
           "filters": {
             "conditions": [
               {
@@ -3199,7 +2961,15 @@
                 "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
               }
             ]
-          }
+          },
+          "dataTableId": {
+            "__rl": true,
+            "value": "vxItbJ4B8uYBtqJ3",
+            "mode": "list",
+            "cachedResultName": "running_job",
+            "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/vxItbJ4B8uYBtqJ3"
+          },
+          "matchType": "allConditions"
         }
       },
       {
@@ -3338,24 +3108,6 @@
           [
             {
               "node": "Update row(s)1",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "If": {
-        "main": [
-          [
-            {
-              "node": "Get row(s)1",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "Get row(s)",
               "type": "main",
               "index": 0
             }

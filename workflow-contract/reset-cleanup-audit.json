@@ -1,0 +1,49 @@
+[
+  {
+    "workflow": "Shorts Dispatcher",
+    "before": 32,
+    "after": 28,
+    "removed": [
+      "Delete row(s)",
+      "Get row(s)3",
+      "If1",
+      "Update row(s)"
+    ]
+  },
+  {
+    "workflow": "ComfyUI Runner",
+    "before": 50,
+    "after": 43,
+    "removed": [
+      "Delete row(s)",
+      "Get row(s)",
+      "Get row(s)3",
+      "Reset All Working",
+      "Stop and Error",
+      "Switch",
+      "Update row(s)"
+    ]
+  },
+  {
+    "workflow": "Scene Production",
+    "before": 32,
+    "after": 28,
+    "removed": [
+      "Delete row(s)1",
+      "Get row(s)3",
+      "If1",
+      "Update row(s)"
+    ]
+  },
+  {
+    "workflow": "Research",
+    "before": 35,
+    "after": 31,
+    "removed": [
+      "Delete row(s)",
+      "Get row(s)3",
+      "If",
+      "Update row(s)"
+    ]
+  }
+]
