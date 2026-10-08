@@ -791,6 +791,8 @@
     .creation-summary { order: -1; }
     #panel-tables .panel-header { padding: 12px 14px; }
   }
+
+#jobs-workflows [role="tablist"]{display:flex;gap:8px;overflow-x:auto;padding:10px 0;max-width:100%} #jobs-workflows [role="tab"]{flex:0 0 auto;border:1px solid var(--border);background:var(--panel);color:var(--text);padding:10px;border-radius:6px} #jobs-workflows [aria-selected="true"]{border-color:var(--accent);color:var(--accent)} #jobs-workflows section{padding:12px;border:1px solid var(--border)} #jobs-workflows [hidden]{display:none} #jobs-workflows .table-scroll{max-height:60vh;overflow:auto} #jobs-workflows td{max-width:260px} #jobs-workflows button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 </style>
 </head>
 <body>
@@ -809,6 +811,7 @@
 </div>
 
 <div class="tab-panel active" id="panel-tables">
+<section id="jobs-workflows" hidden><div role="tablist" aria-label="Production workflows"></div></section>
   <div class="panel" id="panel-completed">
     <div class="panel-header">
       <span class="panel-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="#3fb950"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Completed</span>
@@ -1799,6 +1802,70 @@ function renderSetupPanel(direction) {
     }).join('');
   }
 
+  // Jobs workflow model
+  function uniqueStageRows(rows) { return [...new Map(rows.map(r => [String(r.id), r])).values()]; }
+  function jobStage(row) {
+    const type = String(row.Type ?? row.type ?? '').trim().toLowerCase();
+    if (String(row.Status ?? '').toLowerCase() === 'qued') return 'review';
+    return ({ideas:'research',research:'research',script:'scene',scene:'dispatcher'})[type] || 'unknown';
+  }
+  function stageRoute(stage) { return ({research:'research',scene:'scene',dispatcher:'dispatcher',runner:'runner'})[stage] || null; }
+  // Jobs workflow view
+  const JOB_STAGES = [
+    ['research','Research',['Type','Ideas','Reffrence','Status','Completed','Working','File']],
+    ['scene','Scene Production',['Type','Ideas','Script','Reffrence','Status','Completed','Working','File']],
+    ['dispatcher','Shorts Dispatcher',['Type','Script','Scenes','Reffrence','Status','Completed','Working','File']],
+    ['runner','ComfyUI Runner',['type','prompt','Params','ref','JobID','Completed','Working','URL']],
+    ['review','Review',['Type','Status','Script','Scenes','Completed','Working','File']],
+    ['unknown','Unknown / Unassigned',['Type','Ideas','Script','Scenes','Reffrence','Status','Completed','Working','File']]
+  ];
+  const jobsViews = new Map();
+  let activeJobStage = localStorage.getItem('jobs-workflow-tab') || 'research';
+  function jobsData(stage) {
+    const production = state.currentTableId === TABLES.shorts ? state.rows : state.otherRows;
+    const queue = state.currentTableId === TABLES.comfy ? state.rows : state.otherRows;
+    return uniqueStageRows(stage === 'runner' ? queue : production.filter(r => jobStage(r) === stage));
+  }
+  function renderJobsWorkflows() {
+    const host = document.getElementById('jobs-workflows');
+    const active = document.querySelector('.tab-btn.active')?.getAttribute('data-role') === 'jobs';
+    host.hidden = !active;
+    if (!active) return;
+    if (!JOB_STAGES.some(s => s[0] === activeJobStage)) activeJobStage = 'research';
+    host.querySelector('[role="tablist"]').innerHTML = JOB_STAGES.map(([id,label]) => '<button role="tab" id="stage-tab-'+id+'" aria-controls="stage-sheet-'+id+'" aria-selected="'+(id===activeJobStage)+'" tabindex="'+(id===activeJobStage?0:-1)+'" data-stage="'+id+'">'+label+' <span class="count-badge">'+jobsData(id).length+'</span></button>').join('');
+    for (const [id,label,names] of JOB_STAGES) {
+      let view = jobsViews.get(id);
+      if (!view) {
+        const el = document.createElement('section'); el.id='stage-sheet-'+id; el.setAttribute('role','tabpanel'); el.setAttribute('aria-labelledby','stage-tab-'+id);
+        el.innerHTML='<h3>'+label+'</h3><label>Filter rows <input class="stage-filter" type="search" aria-label="Filter '+label+' rows"></label><p class="stage-summary"></p><div class="table-scroll" role="region" tabindex="0" aria-label="'+label+' spreadsheet"><table><thead></thead><tbody></tbody></table></div>';
+        host.append(el); view={el,filter:'',selected:new Set(),hash:null}; jobsViews.set(id,view);
+        el.querySelector('input').addEventListener('input',e=>{view.filter=e.target.value;view.hash=null;renderJobsWorkflows();});
+      }
+      view.el.hidden=id!==activeJobStage;
+      const all=jobsData(id); const rows=all.filter(r=>JSON.stringify(r).toLowerCase().includes(view.filter.toLowerCase()));
+      const pending=all.filter(r=>!isTrue(colVal(r,'Completed'))&&!isTrue(colVal(r,'Working'))).length;
+      const ready = id === 'review' ? all.filter(parent => { const linked=jobsData('runner').filter(j=>String(j.JobID)===String(parent.id)); return linked.length>0 && linked.every(j=>isTrue(j.Completed)&&!isTrue(j.Working)&& /^https?:\/\//.test(String(j.URL || ''))); }).length : 0;
+      view.el.querySelector('.stage-summary').textContent=rows.length+' shown / '+all.length+' total · '+(id==='review'?ready+' outputs ready / '+(all.length-ready)+' awaiting outputs · Decisions only in authenticated n8n Review editor.':pending+' not completed or working');
+      const hash=JSON.stringify(rows); if(view.hash===hash)continue;view.hash=hash;
+      const cols=['id',...names];
+      view.el.querySelector('thead').innerHTML='<tr><th>Select</th>'+cols.map(n=>'<th>'+escapeHtml(n)+'</th>').join('')+'<th>Actions</th></tr>';
+      view.el.querySelector('tbody').innerHTML=rows.map(r=>'<tr data-row-id="'+escapeAttr(r.id)+'"><td><input type="checkbox" aria-label="Select row '+escapeAttr(r.id)+'" data-select="'+escapeAttr(r.id)+'" '+(view.selected.has(String(r.id))?'checked':'')+'></td>'+cols.map(n=>'<td>'+renderCell({name:n},colVal(r,n),r,isTrue(colVal(r,'Working'))?'panel-working':'stage')+'</td>').join('')+'<td>'+ (id!=='review'?'<button class="stage-edit" data-id="'+escapeAttr(r.id)+'" data-stage="'+id+'">Edit</button>':'')+(stageRoute(id)&&!isTrue(colVal(r,'Working'))&&!isTrue(colVal(r,'Completed'))&&(id!=='runner'||state.templates.some(t=>canonicalType(t.type)===canonicalType(colVal(r,'type'))))?'<button class="stage-push" data-id="'+escapeAttr(r.id)+'" data-stage="'+id+'">Push</button>':'')+'</td></tr>').join('')||'<tr><td colspan="'+(cols.length+2)+'">No rows in this workflow stage.</td></tr>';
+    }
+    if (!host._wired) {
+      host._wired=true;
+      host.addEventListener('change',e=>{if(e.target.matches('[data-select]')){const v=jobsViews.get(activeJobStage); const id=e.target.dataset.select;e.target.checked?v.selected.add(id):v.selected.delete(id);}});
+      host.addEventListener('click',async e=>{
+        const tab=e.target.closest('[data-stage][role="tab"]');if(tab){activeJobStage=tab.dataset.stage;localStorage.setItem('jobs-workflow-tab',activeJobStage);renderJobsWorkflows();document.getElementById('stage-tab-'+activeJobStage).focus();return;}
+        const btn=e.target.closest('.stage-edit,.stage-push');if(!btn)return;
+        const stage=btn.dataset.stage;const row=jobsData(stage).find(r=>String(r.id)===btn.dataset.id);if(!row)return;
+        if(btn.matches('.stage-edit')){state.jobsEditor=true;openModalByRow(row,stage==='runner'?TABLES.comfy:TABLES.shorts);return;}
+        if(isTrue(colVal(row,'Working'))||isTrue(colVal(row,'Completed')))return;
+        try {const res=await fetch('/dispatch/'+stageRoute(stage),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rowId:String(row.id)})});const body=await res.json();if(!res.ok||body.error)throw Error(body.message||body.error||res.status);setStatus('Execution request accepted; completion is not yet verified','success');}catch(e){setStatus('Push error: '+e.message,'danger');}
+      });
+      host.addEventListener('keydown',e=>{if(e.target.getAttribute('role')!=='tab')return;const ids=JOB_STAGES.map(s=>s[0]);let i=ids.indexOf(activeJobStage);if(e.key==='ArrowRight')i=(i+1)%ids.length;else if(e.key==='ArrowLeft')i=(i+ids.length-1)%ids.length;else if(e.key==='Home')i=0;else if(e.key==='End')i=ids.length-1;else return;e.preventDefault();activeJobStage=ids[i];localStorage.setItem('jobs-workflow-tab',activeJobStage);renderJobsWorkflows();document.getElementById('stage-tab-'+activeJobStage).focus();});
+    }
+  }
+
   // ─── renderPanels (cached: only rebuild panels whose rows changed) ─────
   var panelCache = { completed: null, next: null, working: null };
   function rowsHash(rows) {
@@ -1811,6 +1878,9 @@ function renderSetupPanel(direction) {
     return rows.length + ':' + (h >>> 0).toString(36);
   }
   function renderPanels() {
+    renderJobsWorkflows();
+    const jobsActive = document.querySelector('.tab-btn.active')?.getAttribute('data-role') === 'jobs';
+    if (jobsActive) { ['completed','next','working'].forEach(id => document.getElementById('panel-'+id).style.display='none'); setStatus('Loaded '+JOB_STAGES.reduce((n,s)=>n+jobsData(s[0]).length,0)+' pipeline rows across workflow stages',''); return; }
     log('renderPanels rows=' + state.rows.length);
     const hasCompleted = state.rows.length && Object.keys(state.rows[0]).some(k => colKey(k) === 'completed');
     const hasWorking = state.rows.length && Object.keys(state.rows[0]).some(k => colKey(k) === 'working');
@@ -2085,7 +2155,7 @@ let cols = [];
         if (!isHiddenCol(k)) cols.push({ name: k });
       });
     }
-    const isJobsEditor = state.modalTableId === TABLES.shorts;
+    const isJobsEditor = state.modalTableId === TABLES.shorts || state.jobsEditor === true;
     // Jobs preserves its pipeline type/API; only generation rows select templates.
     // order: type, Completed, Working, URL, then rest (API hidden — linked to type pulldown)
     const order = ['type', 'Completed', 'Working', 'URL'];
@@ -2173,7 +2243,7 @@ let cols = [];
     if (state.saveInFlight) { setStatus('Save already in progress...', 'warn'); return; }
     state.saveInFlight = true;
     const row = state.modalRow;
-    const isJobsEditor = state.modalTableId === TABLES.shorts;
+    const isJobsEditor = state.modalTableId === TABLES.shorts || state.jobsEditor === true;
     const patch = {};
     const inputs = $('#modal-body').querySelectorAll('input, textarea, select');
     inputs.forEach(inp => {
@@ -2438,8 +2508,10 @@ let cols = [];
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         btn.classList.add('active');
+        state.jobsEditor = btn.getAttribute('data-role') === 'jobs';
         const panel = document.getElementById(btn.getAttribute('data-tab'));
         if (panel) panel.classList.add('active');
+        renderJobsWorkflows();
         const tbl = btn.getAttribute('data-table');
         if (tbl && tbl !== state.currentTableId) {
           state.currentTableId = tbl;
