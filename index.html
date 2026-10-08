@@ -1299,38 +1299,42 @@ const SETUP_STEPS = [
     action: {
       label: 'Run smoke test',
       run: async () => {
-        const id = config.tableHome;
-        if (!id) return { ok: false, message: 'No ComfyUI Jobs table configured yet.' };
         const results = [];
-        // create
+        let tblId = null;
+        let stage = 'create table';
         try {
           const created = await callWebhook('/yt-create', { operation: 'create', row: { name: 'smoke_test_' + Date.now(), columns: [{ name: 'type', type: 'string' }, { name: 'prompt', type: 'string' }] } });
           const tbl = Array.isArray(created) && created.length ? created[0] : created;
-          results.push({ step: 'create table', ok: !!tbl && tbl.id, id: tbl && tbl.id, message: tbl && tbl.id ? 'created ' + tbl.id : 'unexpected' });
-          if (!results[0].ok) return { ok: false, results, message: 'table creation failed' };
-          const tblId = results[0].id;
-          // write a row
-          const wrote = await callWebhook('/yt-wright', { operation: 'write', id: tblId, row: { data: [{ type: 'Test', prompt: 'setup wizard smoke test', Working: true, Completed: false }] } });
-          results.push({ step: 'write row', ok: true, message: 'row written' });
-          // read back
-          const got = await callWebhook('/yt-get', { operation: 'get', id: tblId });
-          const rows = unwrapRows(got);
-          results.push({ step: 'read rows', ok: rows.length > 0, count: rows.length, message: rows.length + ' rows returned' });
-          // update
-          const rowId = rows[0] && rows[0].id;
-          if (rowId) {
-            await callWebhook('/yt-update', { operation: 'update', id: tblId, match: { id: String(rowId) }, row: { prompt: 'updated by setup wizard', Completed: true, Working: false } });
-            results.push({ step: 'update row', ok: true, message: 'row updated' });
-          } else {
-            results.push({ step: 'update row', ok: false, message: 'no row id to update' });
-          }
-          // remove table
-          await callWebhook('/yt-remove', { operation: 'remove', id: tblId });
-          results.push({ step: 'remove table', ok: true, message: 'table removed' });
-          return { ok: results.every(r => r.ok), results };
+          if (!tbl || !tbl.id) throw new Error('Creation returned no isolated table ID');
+          tblId = tbl.id;
+          results.push({ step: stage, ok: true, message: 'created ' + tblId });
+          stage = 'write row';
+          await callWebhook('/yt-wright', { operation: 'write', id: tblId, row: { data: [{ type: 'Test', prompt: 'setup wizard smoke test' }] } });
+          // Readback, not HTTP status alone, proves the write.
+          const rows = unwrapRows(await callWebhook('/yt-get', { operation: 'get', id: tblId }));
+          if (rows.length !== 1 || rows[0].type !== 'Test' || rows[0].prompt !== 'setup wizard smoke test' || !rows[0].id) throw new Error('Write readback did not match the isolated row');
+          results.push({ step: stage, ok: true, message: 'row verified' });
+          results.push({ step: 'read rows', ok: true, message: 'one matching row returned' });
+          stage = 'update row';
+          await callWebhook('/yt-update', { operation: 'update', id: tblId, match: { id: String(rows[0].id) }, row: { prompt: 'updated by setup wizard' } });
+          const updated = unwrapRows(await callWebhook('/yt-get', { operation: 'get', id: tblId }));
+          if (updated.length !== 1 || String(updated[0].id) !== String(rows[0].id) || updated[0].prompt !== 'updated by setup wizard') throw new Error('Update readback did not match');
+          results.push({ step: stage, ok: true, message: 'updated row verified' });
         } catch (e) {
-          return { ok: false, results, message: e.message };
+          results.push({ step: stage, ok: false, message: e.message });
+        } finally {
+          // Only the ID returned by this run's create may ever be removed.
+          if (tblId) {
+            try {
+              await callWebhook('/yt-remove', { operation: 'remove', id: tblId });
+              results.push({ step: 'remove table', ok: true, message: 'isolated test table removed' });
+            } catch (e) {
+              results.push({ step: 'remove table', ok: false, message: 'Cleanup failed for ' + tblId + ': ' + e.message });
+            }
+          }
         }
+        const ok = results.length > 0 && results.every(r => r.ok);
+        return { ok, results, message: ok ? 'Isolated CRUD smoke test passed; test table removed.' : 'CRUD smoke test failed: ' + results.filter(r => !r.ok).map(r => r.step + ' — ' + r.message).join('; ') };
       },
     },
   },
@@ -1341,12 +1345,14 @@ const SETUP_STEPS = [
 // renderSetupPanel('next') advances; renderSetupPanel('done') finishes.
 let setupStepIndex = 0;
 let setupDone = false;
+let setupCrudVerified = false;
 
 async function setupRunAction(step) {
   const btn = $('#setup-action-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Running…'; }
   try {
     const result = await step.action.run();
+    if (step.key === 'verify') setupCrudVerified = result.ok === true;
     $('#setup-action-msg').textContent = result.message || '';
     $('#setup-action-msg').className = 'status-bar ' + (result.ok ? 'success' : 'danger');
     // action result → detail line
@@ -1354,7 +1360,7 @@ async function setupRunAction(step) {
       $('#setup-action-detail').innerHTML = '<strong>Note:</strong><br>' + escapeHtml(result.detail);
       $('#setup-action-detail').style.display = '';
     } else if (result.results) {
-      const list = result.results.map(r => '• ' + r.name + (r.ok ? ' ✓' : ' ✗ — ' + (r.message || ''))).join('<br>');
+      const list = result.results.map(r => '• ' + escapeHtml(r.step || r.name || 'check') + (r.ok === true ? ' ✓' : ' ✗') + ' — ' + escapeHtml(r.message || '')).join('<br>');
       $('#setup-action-detail').innerHTML = '<strong>Details:</strong><br>' + list;
       $('#setup-action-detail').style.display = '';
     } else {
@@ -1376,9 +1382,8 @@ function renderSetupPanel(direction) {
     titleEl.textContent = 'Setup complete';
     statusEl.textContent = 'Done';
     content.innerHTML =
-      '<div class="status-bar success" style="margin-bottom:12px">' +
-      '<strong>All checks passed.</strong> The UI is wired to your n8n data tables. ' +
-      'Switch to the Home or Jobs tab to start working.' +
+      '<div class="status-bar ' + (setupCrudVerified ? 'success' : 'warn') + '" style="margin-bottom:12px">' +
+      (setupCrudVerified ? '<strong>Isolated CRUD verified.</strong> Test table removed. Generation, review and assembly are not verified.' : '<strong>Setup walkthrough finished.</strong> CRUD verification has not passed in this session; return to Step 4.') +
       '</div>' +
       '<div style="margin-bottom:12px">' +
       '<button class="btn-save" id="setup-back-btn" style="padding:8px 16px;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Back to steps</button> ' +
@@ -1807,23 +1812,28 @@ function renderSetupPanel(direction) {
   }
 
   // ─── Push ────────────────────────────────────────────────────────────
-  // Push moves a Next Up row to Working via the yt-wright webhook.
+  // Push invokes the allowlisted exact-row workflow; it never pre-locks via CRUD.
   async function doPush(rowId, rowType) {
     setStatus('Pushing ' + rowId + '...', 'warn');
     log('doPush ' + rowId + ' type=' + rowType);
     try {
       const row = state.rows.find(r => String(r.id) === String(rowId));
       if (!row) throw new Error('Row no longer loaded; refresh first');
-      const workingKey = Object.keys(row).find(k => k.toLowerCase() === 'working');
-      if (!workingKey) throw new Error('No Working column');
-      await callWebhook('/yt-update', {
-        operation: 'update',
-        id: state.currentTableId,
-        match: { id: String(rowId) },
-        row: { [workingKey]: true },
-      });
-      log('yt-wright OK');
-      setStatus('Push sent', 'success');
+      if (!/^[1-9]\d{0,14}$/.test(String(rowId))) throw new Error('Invalid row ID');
+      const type = String(colVal(row, 'Type') || rowType || '').toLowerCase();
+      let route;
+      if (state.currentTableId === TABLES.comfy) route = 'runner';
+      else if (state.currentTableId === TABLES.shorts) {
+        route = {research:'research',script:'scene',scene:'dispatcher'}[type];
+      }
+      if (!route) throw new Error('No exact-row execution route for this table/type');
+      if (Object.entries(row).some(([k,v]) => k.toLowerCase() === 'working' && (v === true || v === 'true'))) throw new Error('Row is already working');
+      const response = await fetch('/dispatch/' + route, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rowId:String(rowId)})});
+      const text = await response.text();
+      let body; try { body = JSON.parse(text); } catch {}
+      if (!response.ok || body?.error) throw new Error('HTTP ' + response.status + ': ' + (body?.message || body?.error || text.slice(0,300)));
+      log('exact-row dispatch OK');
+      setStatus('Execution request accepted; completion is not yet verified', 'success');
       setTimeout(async () => {
         await loadTable(state.currentTableId);
         await loadTemplates();

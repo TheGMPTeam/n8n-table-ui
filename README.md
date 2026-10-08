@@ -13,13 +13,30 @@ npm run build
 docker compose -p table-ui -f /home/dad/Config/docker-compose.n8n-table-ui.local.yml up -d --build --no-deps n8n-table-ui
 ```
 
-- Browser requests always use the same-origin `/webhook/yt-*` proxy. Only the
+- CRUD browser requests use the same-origin `/webhook/yt-*` proxy. Only the
   five explicit POST routes are forwarded; arbitrary REST/fallback and review
   routes return 404. n8n administrator API keys are **not** forwarded to these
   currently unauthenticated CRUD webhooks. Cross-origin writes return 403.
+- Push now invokes the existing exact-row workflow, **without setting Working
+  first** or cloning a queue job. Same-origin POST `/dispatch/research`, `/dispatch/scene`,
+  `/dispatch/dispatcher`, `/dispatch/runner` accept only `{ "rowId": "positive decimal" }`.
+  Fixed upstream transports are GET `Research?Row=…&ByPass=true`, GET
+  `Production?RowID=…&ByPass=true`, GET `Dispatcher?RowID=…&ByPass=true`, and POST
+  `yt-Test` with `{ "Id": "…" }`. Unknown stages, arbitrary URLs, extra fields,
+  bulk selectors and approval are rejected. No administrator key is forwarded.
+  **These execution routes remain unauthenticated on the existing trusted LAN**;
+  origin checks prevent cross-origin browser requests, not malicious LAN clients.
+  Do not expose port 3458 publicly; add authentication before wider access.
+  An accepted HTTP response does not establish generation completion.
+- Setup Step 4 creates its own unique two-column test table, writes only declared
+  fields, verifies write/update by reading back the same row, and removes only
+  the ID returned by this run's create, even after subsequent failures. Errors
+  display the failed stage and HTTP/body details; cleanup failures retain the
+  isolated ID for operator recovery. Finishing/skipping Setup does not claim
+  unrun checks passed.
 - Row loaders follow `nextCursor` using a page limit of 250. Structured n8n
   validation errors are displayed as errors, even in a successful HTTP envelope.
-- Push updates the matched existing row; it does not clone an incomplete queue
+- Push dispatches the matched existing row; it does not clone an incomplete queue
   job. Type aliases map to `Text to image`, `Image to video`, `FLF to video`.
   Template APIs are previews only; the queue has no API column. Params JSON,
   including `seed: 0`, explicit empty `negativePrompt`, and scene linkage, is

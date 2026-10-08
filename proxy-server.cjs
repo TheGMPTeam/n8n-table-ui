@@ -326,6 +326,28 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Fixed exact-row execution transports only. No URL, bulk, or review input.
+  const dispatch = {
+    '/dispatch/research': {path:'/webhook/Research',key:'Row'},
+    '/dispatch/scene': {path:'/webhook/Production',key:'RowID'},
+    '/dispatch/dispatcher': {path:'/webhook/Dispatcher',key:'RowID'},
+    '/dispatch/runner': {path:'/webhook/yt-Test',key:'Id',post:true},
+  }[pathname];
+  if (dispatch && method === 'POST') {
+    if (req.headers.origin && req.headers.origin !== 'http://' + req.headers.host && req.headers.origin !== 'https://' + req.headers.host) {
+      res.writeHead(403, {'Content-Type':'application/json'});res.end(JSON.stringify({error:'forbidden_origin',message:'Same-origin access required'}));return;
+    }
+    let input;
+    try { input=JSON.parse(buf.toString()); } catch {}
+    if (!input || Array.isArray(input) || Object.keys(input).length !== 1 || typeof input.rowId !== 'string' || !/^[1-9]\d{0,14}$/.test(input.rowId) || u.search) {
+      res.writeHead(400, {'Content-Type':'application/json'});res.end(JSON.stringify({error:'invalid_request',message:'Exactly one positive decimal string rowId is required'}));return;
+    }
+    const payload=dispatch.post ? Buffer.from(JSON.stringify({Id:input.rowId})) : Buffer.alloc(0);
+    const query=dispatch.post ? '' : '?' + new URLSearchParams({[dispatch.key]:input.rowId,ByPass:'true'});
+    proxyReq(res,N8N_HOST,N8N_PORT,dispatch.path,query,dispatch.post?'POST':'GET',payload,req);
+    return;
+  }
+
   // Explicit webhook-only contract. Review decisions are editor-only.
   const allowed = new Set(['/webhook/yt-get','/webhook/yt-create','/webhook/yt-wright','/webhook/yt-update','/webhook/yt-remove']);
   if (allowed.has(pathname) && method === 'POST') {
