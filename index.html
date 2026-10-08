@@ -753,6 +753,44 @@
   .config-row .cfg-input, .modal input:not([type="checkbox"]), .modal textarea, .modal select { border-radius: 8px !important; border: 1px solid var(--border); }
   .modal, .panel { border-radius: 12px; }
   #updater-modal > .btn-row { position: sticky; bottom: -20px; padding: 12px 0; background: var(--panel); border-top: 1px solid var(--border); }
+  /* Reference-mapped restrained accents: section structure, not a full HUD. */
+  .topbar, .modal-overlay { backdrop-filter: none; }
+  #panel-tables .panel { padding: 0; border-radius: 10px; }
+  #panel-tables .panel-header { padding: 12px 18px; margin: 0; border-bottom: 1px solid var(--border); background: #1b2b1c; border-radius: 10px 10px 0 0; }
+  #panel-tables .table-scroll { border-radius: 0 0 10px 10px; }
+  #panel-tables th { background: #132117; border-right: 1px solid var(--border); text-transform: none; letter-spacing: .2px; }
+  #panel-tables td { border-right: 1px solid #2c403055; padding: 9px 12px; }
+  #panel-tables tbody tr:nth-child(even) { background: #142019; }
+  .settings-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 18px; align-items: start; }
+  .settings-grid fieldset { min-width: 0; margin: 0; border-radius: 8px; background: #0d1811; padding: 18px; }
+  .settings-grid legend { color: var(--accent); font-weight: 600; letter-spacing: .4px; }
+  .settings-preferences { grid-column: 1 / -1; }
+  .settings-grid .config-row { grid-template-columns: 145px minmax(0,1fr); padding-bottom: 12px; border-bottom: 1px solid #2c403055; }
+  .settings-grid .config-row:last-child { margin-bottom: 0; border-bottom: 0; }
+  .settings-grid .config-row label { min-width: 0; }
+  .config-actions { padding-top: 18px; margin-top: 18px; border-top: 1px solid var(--border); }
+  .creation-layout { display: grid; grid-template-columns: minmax(0,2fr) minmax(220px,1fr); gap: 22px; max-width: 1100px; }
+  .creation-layout .new-table-form { max-width: none; gap: 16px; }
+  .creation-card, .creation-summary { border: 1px solid #425438; border-radius: 16px; padding: 20px; background: #132219; min-width: 0; }
+  .creation-card h3 { color: var(--accent); margin-bottom: 14px; }
+  .creation-card label { display: block; color: var(--muted); margin-bottom: 8px; }
+  .creation-card input, .creation-card textarea { width: 100%; border-radius: 8px !important; }
+  .creation-card textarea { min-height: 150px; }
+  .creation-summary { align-self: start; border-top: 3px solid var(--accent); line-height: 1.7; }
+  .config-form > h2, #panel-create .panel-header, #panel-review h2, .modal > h2 { padding: 10px 14px; border-left: 3px solid var(--accent); background: linear-gradient(110deg,#273b22,transparent 85%); border-radius: 0 8px 8px 0; }
+  .config-form, #panel-create, #panel-review > .panel, .modal { background-image: linear-gradient(var(--accent),var(--accent)), linear-gradient(var(--accent),var(--accent)); background-size: 18px 2px, 2px 18px; background-position: right 12px bottom 12px; background-repeat: no-repeat; background-color: var(--panel); }
+  .modal .field-group { padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: #0d1811; }
+  .modal > .btn-row { border-top: 1px solid var(--border); padding-top: 14px; }
+  #updater-modal { border-top: 2px solid var(--accent); }
+  #updater-modal > h2 { margin-right: 0; }
+  @media (max-width: 760px) {
+    .settings-grid, .creation-layout { grid-template-columns: minmax(0,1fr); }
+    .settings-preferences { grid-column: auto; }
+    .settings-grid .config-row { grid-template-columns: minmax(0,1fr); gap: 6px; }
+    .creation-card, .creation-summary, .settings-grid fieldset { padding: 14px; }
+    .creation-summary { order: -1; }
+    #panel-tables .panel-header { padding: 12px 14px; }
+  }
 </style>
 </head>
 <body>
@@ -819,21 +857,31 @@
 <div class="tab-panel" id="panel-config">
   <div class="panel config-form"><h2>Configuration</h2>
     <p>Webhook traffic stays on this proxy. No n8n API key is stored in this browser.</p>
+    <div class="settings-grid">
+    <fieldset><legend>Table routing</legend>
     <div class="config-row"><label for="cfg-table-home">Home table</label><input id="cfg-table-home" class="cfg-input"></div>
     <div class="config-row"><label for="cfg-table-jobs">Production table</label><input id="cfg-table-jobs" class="cfg-input"></div>
     <div class="config-row"><label for="cfg-table-templates">Templates table</label><input id="cfg-table-templates" class="cfg-input"></div>
     <div class="config-row"><label for="cfg-table-link">Link rule</label><input id="cfg-table-link" class="cfg-input"></div>
+    </fieldset>
+    <fieldset><legend>Connection details</legend>
     <div class="config-row"><label for="cfg-webhook-base">Webhook base</label><input id="cfg-webhook-base" class="cfg-input" readonly></div>
     <div class="config-row"><label for="cfg-n8n-host">n8n host</label><input id="cfg-n8n-host" class="cfg-input" readonly></div>
     <div class="config-row"><label for="cfg-n8n-port">n8n port</label><input id="cfg-n8n-port" class="cfg-input" readonly></div>
     <div class="config-row"><label for="cfg-api-base">API base (legacy)</label><input id="cfg-api-base" class="cfg-input" readonly></div>
     <div class="config-row"><label for="cfg-api-port">API port (legacy)</label><input id="cfg-api-port" class="cfg-input" readonly></div>
     <div class="config-row"><label for="cfg-proxy-base">Proxy origin</label><input id="cfg-proxy-base" class="cfg-input" readonly></div>
+    </fieldset>
+    <fieldset class="settings-preferences"><legend>Display & refresh</legend>
     <div class="config-row"><label for="cfg-refresh-interval">Refresh milliseconds</label><input id="cfg-refresh-interval" class="cfg-input" type="number" min="1000"></div>
     <div class="config-row"><label for="cfg-max-debug-lines">Max debug lines</label><input id="cfg-max-debug-lines" class="cfg-input" type="number" min="10"></div>
     <div class="config-row"><label for="cfg-debug-default">Debug by default</label><input id="cfg-debug-default" type="checkbox"></div>
     <div class="config-row"><label for="cfg-auto-refresh-default">Auto refresh</label><input id="cfg-auto-refresh-default" type="checkbox"></div>
+    </fieldset>
+    </div>
+    <div class="config-actions">
     <button id="btn-save-config" class="refresh-btn">Save</button><button id="btn-reset-config" class="refresh-btn">Reconfigure</button><span id="cfg-status"></span>
+    </div>
   </div>
 </div>
 
@@ -861,15 +909,26 @@
     <div class="panel-header">
       <span class="panel-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg> New Table</span>
     </div>
+    <div class="creation-layout">
     <div class="new-table-form">
+      <section class="creation-card"><h3>01 · Table identity</h3>
+      <label for="new-name">Table name</label>
       <input type="text" id="new-name" placeholder="Table name (e.g. MyTable)">
+      </section>
+      <section class="creation-card"><h3>02 · Column schema</h3>
+      <label for="new-cols">Columns</label>
       <textarea id="new-cols" placeholder="One JSON object per line"></textarea>
       <small style="color:var(--muted)">e.g. {"name": "prompt", "type": "string"} — one per line, or a JSON array</small>
+      </section>
+      <section class="creation-card"><h3>03 · Create</h3>
       <div style="display:flex; gap:8px;">
         <button class="btn-save" id="btn-create-table" style="padding:8px 16px;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Create Table</button>
         <button class="btn-cancel" id="btn-cancel-create" style="padding:8px 16px;border:none;border-radius:4px;cursor:pointer;background:var(--border);color:var(--text);">Cancel</button>
       </div>
       <div class="status-bar" id="new-status" style="margin-top:8px;"></div>
+      </section>
+    </div>
+    <aside class="creation-summary"><h3>Define your table</h3><p>Choose a name, then describe each column with a JSON object.</p><p><code>name</code> identifies the column. <code>type</code> defines its value.</p><p>Check the schema before creating. Cancel returns without creating a table.</p></aside>
     </div>
   </div>
 </div>
