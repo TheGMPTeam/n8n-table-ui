@@ -55,6 +55,9 @@ const N8N_HOST = process.env.N8N_HOST || 'n8n';
 const N8N_PORT = parseInt(process.env.N8N_PORT, 10) || 5678;
 
 const N8N_API_KEY = process.env.N8N_API_KEY;
+const COMFYUI_HOST = process.env.COMFYUI_HOST || '10.0.0.157';
+const COMFYUI_PORT = parseInt(process.env.COMFYUI_PORT, 10) || 8188;
+const COMFYUI_TOKEN_FILE = process.env.COMFYUI_TOKEN_FILE;
 
 function proxyReq(res, host, port, pathname, search, method, body, incoming) {
   const headers = {
@@ -64,7 +67,8 @@ function proxyReq(res, host, port, pathname, search, method, body, incoming) {
   };
   // Only send the key when one is actually configured — an undefined header
   // value makes http.request throw and would break every proxied call.
-  if (N8N_API_KEY) headers['X-N8N-API-KEY'] = N8N_API_KEY;
+  // CRUD webhooks are not REST endpoints. Do not attach an administrator API
+  // key to unauthenticated webhook calls (nor proxy arbitrary REST routes).
   const opts = {
     hostname: host,
     port: port,
@@ -78,7 +82,7 @@ function proxyReq(res, host, port, pathname, search, method, body, incoming) {
       if (k.toLowerCase() === 'access-control-allow-origin') continue;
       hdrs[k] = pr.headers[k];
     }
-    hdrs['Access-Control-Allow-Origin'] = '*';
+
     res.writeHead(pr.statusCode, hdrs);
     pr.pipe(res);
   });
@@ -95,9 +99,26 @@ const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://localhost');
   const pathname = u.pathname;
   const method = req.method;
+  // Bound buffered JSON requests before forwarding; never send partial bodies.
+  const maxBodyBytes = 1024 * 1024;
   const body = [];
-  for await (const chunk of req) body.push(chunk);
-  const buf = Buffer.concat(body);
+  let bodyBytes = 0;
+  try {
+    for await (const chunk of req) {
+      bodyBytes += chunk.length;
+      if (bodyBytes > maxBodyBytes) {
+        res.writeHead(413, {'Content-Type':'application/json','Connection':'close'});
+        res.end(JSON.stringify({error:'payload_too_large',message:'Request body exceeds 1 MiB'}));
+        return;
+      }
+      body.push(chunk);
+    }
+  } catch {
+    if (!res.headersSent) res.writeHead(400, {'Content-Type':'application/json'});
+    res.end(JSON.stringify({error:'invalid_request',message:'Request body interrupted'}));
+    return;
+  }
+  const buf = Buffer.concat(body, bodyBytes);
 
   // CORS preflight (UI may call same-origin /webhook/* which we forward)
   if (method === 'OPTIONS') {
@@ -234,16 +255,92 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route /webhook/* to n8n
-  if (pathname.startsWith('/webhook/')) {
+  // Narrow download-only route to a configured host. Never accept a destination
+  // URL from the browser or follow redirects with the bearer credential.
+  if (pathname === '/media/comfy/view' && method === 'GET') {
+    const query = u.searchParams;
+    const filename = query.get('filename') || '';
+    const subfolder = query.get('subfolder') || '';
+    const type = query.get('type') || 'output';
+    const fail = (status, message) => { res.writeHead(status, {'Content-Type':'application/json','Cache-Control':'no-store'}); res.end(JSON.stringify({error:'media_unavailable',message})); };
+    if ([...query.keys()].some(k => !['filename','subfolder','type'].includes(k) || query.getAll(k).length !== 1) || !filename || filename.length > 255 || /[/\\\x00-\x1f\x7f]/.test(filename) || ['.','..'].includes(filename) || subfolder.length > 1024 || subfolder.startsWith('/') || /[\\\x00-\x1f\x7f:]/.test(subfolder) || subfolder.split('/').some(x => x === '..' || x === '.') || !['input','output','temp'].includes(type)) { fail(400,'Use a filename, safe relative subfolder and input/output/temp type'); return; }
+    if (!['10.0.0.157','127.0.0.1','localhost','comfyui'].includes(COMFYUI_HOST)) { fail(503,'Output destination is not allowlisted'); return; }
+    const q = new URLSearchParams({filename,subfolder,type});
+    const crypto = require('crypto');
+    const cacheDir = path.join(DATA_DIR,'media-cache');
+    const key = crypto.createHash('sha256').update(COMFYUI_HOST + ':' + COMFYUI_PORT + '/view?' + q).digest('hex');
+    const cached = path.join(cacheDir,key + '.media');
+    const metaPath = path.join(cacheDir,key + '.json');
+    const types = new Set(['image/png','image/jpeg','image/webp','image/gif','image/avif','video/mp4','video/webm','video/quicktime','video/x-matroska']);
+    const maxBytes = 512 * 1024 * 1024;
+    const readCache = () => { try { const m=JSON.parse(fs.readFileSync(metaPath,'utf8')); const stat=fs.statSync(cached); if (types.has(m.contentType) && stat.size === m.size && stat.size > 0 && stat.size <= maxBytes) return m; } catch {} return null; };
+    try {
+      let meta = readCache();
+      if (!meta) {
+        // A single in-flight fill per key; only complete validated downloads commit.
+        if (!server.mediaFills) server.mediaFills = new Map();
+        let fill = server.mediaFills.get(key);
+        if (!fill) {
+          fill = (async () => {
+            const token = fs.readFileSync(COMFYUI_TOKEN_FILE,'utf8').split(/\r?\n/)[0].trim();
+            if (!token) throw Error('auth');
+            fs.mkdirSync(cacheDir,{recursive:true});
+            const tmp = cached + '.' + crypto.randomUUID() + '.tmp';
+            let timer;
+            try {
+              const upstream = await new Promise((resolve,reject) => {
+                const request = http.get({hostname:COMFYUI_HOST,port:COMFYUI_PORT,path:'/view?' + q,headers:{Authorization:'Bearer ' + token}},resolve);
+                timer=setTimeout(()=>request.destroy(Error('deadline')),120000); timer.unref();
+                request.setTimeout(30000,()=>request.destroy(Error('timeout'))); request.on('error',reject);
+              });
+              const contentType=String(upstream.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+              if (upstream.statusCode !== 200 || !types.has(contentType) || Number(upstream.headers['content-length'] || 0) > maxBytes) { upstream.destroy(); throw Error('invalid upstream'); }
+              const out = await fs.promises.open(tmp,'wx',0o600); let size=0;
+              try { for await (const chunk of upstream) { size+=chunk.length; if(size>maxBytes) { upstream.destroy(); throw Error('size'); } await out.writeFile(chunk); } await out.sync(); } finally { await out.close(); }
+              if (!size || (upstream.headers['content-length'] && size !== Number(upstream.headers['content-length']))) throw Error('incomplete');
+              await fs.promises.rename(tmp,cached);
+              const metadata={contentType,size}; const mt=tmp+'.json';
+              try { await fs.promises.writeFile(mt,JSON.stringify(metadata),{flag:'wx',mode:0o600}); await fs.promises.rename(mt,metaPath); } finally { await fs.promises.rm(mt,{force:true}); }
+              return metadata;
+            } finally { clearTimeout(timer); await fs.promises.rm(tmp,{force:true}); }
+          })();
+          server.mediaFills.set(key,fill);
+          fill.finally(()=>server.mediaFills.delete(key)).catch(()=>{});
+        }
+        meta = await fill;
+      }
+      let start=0,end=meta.size-1,status=200;
+      const headers={'Content-Type':meta.contentType,'Cache-Control':'private, max-age=3600','X-Content-Type-Options':'nosniff','Accept-Ranges':'bytes'};
+      if (req.headers.range) {
+        const range=/^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
+        if (range && (range[1] || range[2])) {
+          if (!range[1]) { start=Math.max(0,meta.size-Number(range[2])); } else {start=Number(range[1]);if(range[2])end=Math.min(end,Number(range[2]));}
+        }
+        if (!range || (!range[1] && (!range[2] || Number(range[2])===0)) || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start>end || start>=meta.size) {res.writeHead(416,{'Content-Range':'bytes */'+meta.size});res.end();return;}
+        status=206;headers['Content-Range']=`bytes ${start}-${end}/${meta.size}`;
+      }
+      headers['Content-Length']=end-start+1;
+      res.writeHead(status,headers);
+      const stream=fs.createReadStream(cached,{start,end});stream.on('error',()=>res.destroy());res.on('close',()=>stream.destroy());stream.pipe(res);
+    } catch { if(!res.headersSent) fail(502,'Authenticated media download/cache unavailable'); else res.destroy(); }
+    return;
+  }
+
+  // Explicit webhook-only contract. Review decisions are editor-only.
+  const allowed = new Set(['/webhook/yt-get','/webhook/yt-create','/webhook/yt-wright','/webhook/yt-update','/webhook/yt-remove']);
+  if (allowed.has(pathname) && method === 'POST') {
+    if (req.headers.origin && req.headers.origin !== 'http://' + req.headers.host && req.headers.origin !== 'https://' + req.headers.host) {
+      res.writeHead(403, {'Content-Type':'application/json'});
+      res.end(JSON.stringify({error:'forbidden_origin',message:'Same-origin access required'}));
+      return;
+    }
     writeLog('-> ' + method + ' ' + pathname + '  n8n=' + N8N_HOST + ':' + N8N_PORT);
     proxyReq(res, N8N_HOST, N8N_PORT, pathname, u.search, method, buf, req);
     return;
   }
 
-  // Fallback: proxy to n8n
-  writeLog('-> ' + method + ' ' + pathname + '  (fallback) n8n=' + N8N_HOST + ':' + N8N_PORT);
-  proxyReq(res, N8N_HOST, N8N_PORT, pathname, u.search, method, buf, req);
+  res.writeHead(404, {'Content-Type':'application/json'});
+  res.end(JSON.stringify({error:'not_found',message:'Only configured CRUD webhook routes are supported; review decisions require the authenticated editor'}));
 });
 
 server.listen(PORT, '0.0.0.0', () => {

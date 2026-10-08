@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>n8n Tables</title>
+<title>n8n Tables</title><!-- NO-REBUILD-UPDATE-TEST: index.html dropped into .data -->
 <style>
   :root {
     --bg: #0d1117;
@@ -596,6 +596,7 @@
     <button class="tab-btn active" data-tab="panel-tables" data-role="home" data-table="xKckTZI3ZU5HqIpZ">Home</button>
     <button class="tab-btn" data-tab="panel-tables" data-role="jobs" data-table="vN5vMR56WpEsdLMn">Jobs</button>
     <button class="tab-btn" data-tab="panel-config">Config</button>
+    <button class="tab-btn" data-tab="panel-review">Review</button>
     <button class="tab-btn" data-tab="panel-new">New</button>
     <button class="tab-btn" data-tab="panel-setup">Setup</button>
   </div>
@@ -640,6 +641,46 @@
   </div>
 
   <div class="status-bar" id="status-bar"></div>
+</div>
+
+<div class="tab-panel" id="panel-config">
+  <div class="panel config-form"><h2>Configuration</h2>
+    <p>Webhook traffic stays on this proxy. No n8n API key is stored in this browser.</p>
+    <div class="config-row"><label>Home table</label><input id="cfg-table-home" class="cfg-input"></div>
+    <div class="config-row"><label>Production table</label><input id="cfg-table-jobs" class="cfg-input"></div>
+    <div class="config-row"><label>Templates table</label><input id="cfg-table-templates" class="cfg-input"></div>
+    <div class="config-row"><label>Link rule</label><input id="cfg-table-link" class="cfg-input"></div>
+    <div class="config-row"><label>Webhook base</label><input id="cfg-webhook-base" class="cfg-input" readonly></div>
+    <div class="config-row"><label>n8n host</label><input id="cfg-n8n-host" class="cfg-input" readonly></div>
+    <div class="config-row"><label>n8n port</label><input id="cfg-n8n-port" class="cfg-input" readonly></div>
+    <div class="config-row"><label>API base (legacy)</label><input id="cfg-api-base" class="cfg-input" readonly></div>
+    <div class="config-row"><label>API port (legacy)</label><input id="cfg-api-port" class="cfg-input" readonly></div>
+    <div class="config-row"><label>Proxy origin</label><input id="cfg-proxy-base" class="cfg-input" readonly></div>
+    <div class="config-row"><label>Refresh milliseconds</label><input id="cfg-refresh-interval" class="cfg-input" type="number" min="1000"></div>
+    <div class="config-row"><label>Max debug lines</label><input id="cfg-max-debug-lines" class="cfg-input" type="number" min="10"></div>
+    <div class="config-row"><label>Debug by default</label><input id="cfg-debug-default" type="checkbox"></div>
+    <div class="config-row"><label>Auto refresh</label><input id="cfg-auto-refresh-default" type="checkbox"></div>
+    <button id="btn-save-config" class="refresh-btn">Save</button><button id="btn-reset-config" class="refresh-btn">Reset</button><span id="cfg-status"></span>
+  </div>
+</div>
+
+<div class="tab-panel" id="panel-review">
+  <div class="panel">
+    <h2>Manual Review — before final video</h2>
+    <p>Only fully dispatched productions with all linked generation jobs completed are ready. This UI lists outputs and persisted review state; decisions run in the authenticated n8n editor, not an unauthenticated webhook.</p>
+    <p><a class="url-link" href="http://10.0.0.157:5678/workflow/KMtoCzHcKMiTKNvZ" target="_blank" rel="noopener">Open authenticated Review workflow</a></p>
+    <ol style="margin:12px 24px;line-height:1.7">
+      <li>Set <code>Review Request</code> to the explicit production <code>JobID</code> and <code>action: 'list'</code>; execute manually to persist the current snapshot.</li>
+      <li>Inspect every output in <code>Capture Output Snapshot</code> (and the previews below).</li>
+      <li>Set <code>action: 'approve'</code> or <code>'reject'</code> and a reason; execute again. Approval fails if outputs changed since listing or any job is incomplete.</li>
+    </ol>
+    <p style="color:var(--warn)">Approve/reject are unavailable in this UI until authenticated server-side review integration is configured. No final-video assembly workflow exists; approval does not generate a final video.</p>
+    <button id="review-refresh" class="refresh-btn">List outputs / refresh state</button>
+    <button disabled title="Use authenticated n8n editor">Approve (editor only)</button>
+    <button disabled title="Use authenticated n8n editor">Reject (editor only)</button>
+    <div id="review-status" class="status-bar"></div>
+    <div id="review-list"></div>
+  </div>
 </div>
 
 <div class="tab-panel" id="panel-new">
@@ -716,7 +757,7 @@
     tableJobs: 'vN5vMR56WpEsdLMn',
     tableTemplates: 'haulC2FnGWqHb0no',
     tableLink: 'ComfyUI.JobID == Shorts_Production.id',
-    webhookBase: 'http://10.0.0.157:5678/webhook',
+    webhookBase: location.origin + '/webhook',
     n8nHost: 'n8n',
     n8nPort: '5678',
     apiBase: '127.0.0.1',
@@ -732,8 +773,8 @@
   let serverConfig = null;
 
   function getWebhookBase() {
-    const b = (config.webhookBase || '').trim() || CONFIG_DEFAULTS.webhookBase;
-    return b.replace(/\/+$/, '');
+    // Always mediated by our server; old saved LAN URLs must not bypass it.
+    return location.origin + '/webhook';
   }
 
   // ─── State ───────────────────────────────────────────────────────────────
@@ -802,6 +843,42 @@
   }
   function visibleCols(cols) { return cols.filter(c => !isHiddenCol(c.name)); }
 
+  function reviewSummary(parent, jobs, previous) {
+    const validUrl = value => { try { const u = new URL(value); return ['http:', 'https:'].includes(u.protocol) && !!u.hostname; } catch { return false; } };
+    const ready = parent?.Status === 'Qued' && jobs.length > 0 && jobs.every(j => j.Completed === true && j.Working !== true && validUrl(j.URL));
+    const outputs = [...jobs].sort((a,b) => a.id - b.id).map(j => ({id:j.id,type:j.type,URL:j.URL,Completed:j.Completed,Working:j.Working,Params:j.Params,prompt:j.prompt}));
+    const snapshot = JSON.stringify(outputs);
+    const state = previous.length > 1 ? 'ambiguous — editor repair required' : !previous.length ? 'not listed' : previous[0].Snapshot !== snapshot || !ready ? 'stale — list again' : previous[0].State;
+    return { ready, snapshot, state };
+  }
+  async function refreshReview() {
+    const status = $('#review-status');
+    status.textContent = 'Loading production, generation jobs and review state…';
+    try {
+      const [parents, jobs, reviews] = await Promise.all([readAllRows(config.tableJobs),readAllRows(config.tableHome),readAllRows('5xZbQOeVq0mh9cJu')]);
+      $('#review-list').innerHTML = parents.map(parent => {
+        const linked = jobs.filter(j => String(j.JobID) === String(parent.id));
+        const summary = reviewSummary(parent, linked, reviews.filter(r => String(r.JobID) === String(parent.id)));
+        return '<div class="panel"><h3>JobID ' + escapeHtml(parent.id) + ' · ' + escapeHtml(parent.Status || 'no status') + ' · ' + (summary.ready ? 'ready for manual review' : 'not ready') + '</h3><p>Review: ' + escapeHtml(summary.state) + ' · ' + linked.length + ' linked jobs</p>' + linked.map(j => '<div class="jobid-job-card"><p>#' + escapeHtml(j.id) + ' · ' + escapeHtml(canonicalType(j.type)) + ' · ' + (j.Completed === true && j.Working !== true ? 'completed' : 'incomplete') + '</p>' + renderURL({name:'URL'},j.URL) + '<pre style="white-space:pre-wrap">' + escapeHtml(j.prompt || '') + '</pre></div>').join('') + '</div>';
+      }).join('') || '<p>No production rows.</p>';
+      status.textContent = 'Read-only listing refreshed. Use editor list → inspect → approve/reject; no generation started.';
+    } catch (e) { status.textContent = 'Review load error: ' + e.message; }
+  }
+  $('#review-refresh').addEventListener('click', refreshReview);
+  document.querySelector('[data-tab="panel-review"]').addEventListener('click', refreshReview);
+
+  function canonicalType(type) {
+    return ({text_to_image:'Text to image',image_to_video:'Image to video',flf_to_video:'FLF to video'})[type] || type;
+  }
+  function validateParams(raw) {
+    let params;
+    try { params = JSON.parse(raw || '{}'); } catch { throw new Error('Params must be valid JSON'); }
+    if (!params || typeof params !== 'object' || Array.isArray(params)) throw new Error('Params must be a JSON object');
+    if (params.seed !== undefined && (!Number.isSafeInteger(Number(params.seed)) || Number(params.seed) < 0)) throw new Error('Params.seed must be a nonnegative safe integer');
+    if (params.negativePrompt !== undefined && typeof params.negativePrompt !== 'string') throw new Error('Params.negativePrompt must be a string');
+    return raw || '{}';
+  }
+
   // ─── Webhook ─────────────────────────────────────────────────────────────
   async function callWebhook(path, body) {
     log('→ ' + path + ' ' + JSON.stringify(body).slice(0, 120));
@@ -812,12 +889,18 @@
     });
     const text = await resp.text();
     log('← ' + path + ' HTTP ' + resp.status + ' ' + text.slice(0, 120));
-    if (!resp.ok) throw new Error('HTTP ' + resp.status + ': ' + text.slice(0, 200));
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      throw new Error('Non-JSON response: ' + text.slice(0, 200));
+    let parsed;
+    try { parsed = JSON.parse(text); }
+    catch (e) { throw new Error('Non-JSON response: ' + text.slice(0, 200)); }
+    const result = Array.isArray(parsed) && parsed.length === 1 ? parsed[0] : parsed;
+    if (result?.error || result?._validationError) {
+      const error = new Error(String(result.error || 'invalid_request') + ': ' + (result.message || 'Request failed'));
+      error.code = result.error;
+      error.status = result.statusCode || resp.status;
+      throw error;
     }
+    if (!resp.ok) throw new Error('HTTP ' + resp.status + ': ' + text.slice(0, 200));
+    return parsed;
   }
 
   // yt-get returns [ { data: [...], nextCursor: null } ] — unwrap to rows.
@@ -828,11 +911,23 @@
     if (Array.isArray(body)) return body;
     return [];
   }
+  async function readAllRows(tableId) {
+    const rows = [], seen = new Set();
+    let cursor;
+    do {
+      const body = await callWebhook('/yt-get', { operation: 'get', id: tableId, limit: 250, ...(cursor ? { cursor } : {}) });
+      const page = Array.isArray(body) && body.length === 1 && body[0]?.data ? body[0] : body;
+      rows.push(...unwrapRows(body));
+      cursor = page?.nextCursor;
+      if (cursor && seen.has(cursor)) throw new Error('Pagination cursor repeated');
+      if (cursor) seen.add(cursor);
+    } while (cursor);
+    return rows;
+  }
   async function loadTable(tableId) {
     log('loadTable ' + tableId);
     try {
-      const body = await callWebhook('/yt-get', { operation: 'get', id: tableId });
-      const rows = unwrapRows(body);
+      const rows = await readAllRows(tableId);
       state.rows = rows;
       log('loadTable loaded ' + rows.length + ' rows');
       await loadLinkedTable(tableId);
@@ -850,8 +945,7 @@
   async function loadLinkedTable(tableId) {
     const otherId = tableId === TABLES.comfy ? TABLES.shorts : TABLES.comfy;
     try {
-      const body = await callWebhook('/yt-get', { operation: 'get', id: otherId });
-      state.otherRows = unwrapRows(body);
+      state.otherRows = await readAllRows(otherId);
       state.otherTableId = otherId;
       log('loadLinkedTable loaded ' + state.otherRows.length + ' rows from ' + otherId);
     } catch (e) {
@@ -862,8 +956,7 @@
   async function loadTemplates() {
     log('loadTemplates');
     try {
-      const body = await callWebhook('/yt-get', { operation: 'get', id: config.tableTemplates });
-      const rows = unwrapRows(body);
+      const rows = await readAllRows(config.tableTemplates);
       state.templates = rows;
       log('loadTemplates loaded ' + rows.length + ' templates');
       return rows;
@@ -1048,7 +1141,7 @@ const SETUP_STEPS = [
   {
     key: 'verify',
     title: 'Verify everything works',
-    description: 'Run a smoke test: create a row in ComfyUI Jobs, read it back, update it, then clean up. If all four pass, the pipeline is fully wired.',
+    description: 'Run an isolated CRUD smoke test, never a production generation job. Passing proves table operations only; it does not verify generation, manual review, or final assembly.',
     action: {
       label: 'Run smoke test',
       run: async () => {
@@ -1288,21 +1381,10 @@ function renderSetupPanel(direction) {
   }
 
   function enrichRowsWithTemplateAPI() {
-    const templateByType = {};
-    state.templates.forEach(t => {
-      if (t.type) templateByType[t.type] = t.API;
-    });
-    state.rows.forEach(row => {
-      try {
-        if (row.type && templateByType[row.type] !== undefined) {
-          row.API = templateByType[row.type];
-        }
-      } catch (e) {
-        log('enrich row ' + row.id + ' skipped: ' + e.message);
-      }
-    });
+    // Queue schema has no API column. Templates are read-only previews;
+    // injecting virtual fields into row objects would break yt-update.
     renderPanels();
-    log('enriched ' + state.rows.length + ' rows with template API');
+    log('template previews ready; queue rows unchanged');
   }
 
   // ─── Case-insensitive column key helper ──────────────────────────
@@ -1342,12 +1424,25 @@ function renderSetupPanel(direction) {
     return '<span class="api-trunc" ' + tip + '>' + escapeHtml(title) + (s.length > 120 ? '…' : '') + '</span>';
   }
 
+  function browserOutputURL(value) {
+    try {
+      const u = new URL(value);
+      if (['10.0.0.157','127.0.0.1','localhost','comfyui'].includes(u.hostname) && u.port === '8188' && u.pathname === '/view' && ['http:','https:'].includes(u.protocol)) {
+        if (u.username || u.password || [...u.searchParams.keys()].some(k => !['filename','subfolder','type'].includes(k) || u.searchParams.getAll(k).length !== 1)) return '';
+        // Keep the original direct ComfyUI URL byte-for-byte, including metadata.
+        // Browser media uses the ComfyUI session cookie, never a bearer token.
+        return String(value);
+      }
+    } catch {}
+    return String(value || '');
+  }
   function renderURL(col, val) {
     if (!val) return '<span style="color:var(--muted)">—</span>';
     try {
-      const v = String(val);
+      const v = browserOutputURL(val);
       if (v.startsWith('http://') || v.startsWith('https://')) {
-        if (/\.(mp4|webm|mov|mkv)(\?|&|$)/i.test(v)) {
+        const file = new URL(v).searchParams.get('filename') || v;
+        if (/\.(mp4|webm|mov|mkv)(\?|&|$)/i.test(file)) {
           return '<video class="url-cell" controls playsInline data-url-fallback="' + escapeAttr(v) + '"><source src="' + escapeAttr(v) + '"></video>';
         }
         return '<img class="url-cell" src="' + escapeAttr(v) + '" alt="preview" data-url-fallback="' + escapeAttr(v) + '" style="cursor:pointer" onclick="window.open(this.src)">';
@@ -1563,10 +1658,15 @@ function renderSetupPanel(direction) {
     setStatus('Pushing ' + rowId + '...', 'warn');
     log('doPush ' + rowId + ' type=' + rowType);
     try {
-      await callWebhook('/yt-wright', {
-        operation: 'write',
+      const row = state.rows.find(r => String(r.id) === String(rowId));
+      if (!row) throw new Error('Row no longer loaded; refresh first');
+      const workingKey = Object.keys(row).find(k => k.toLowerCase() === 'working');
+      if (!workingKey) throw new Error('No Working column');
+      await callWebhook('/yt-update', {
+        operation: 'update',
         id: state.currentTableId,
-        row: { data: [{ Type: rowType, Working: true }] },
+        match: { id: String(rowId) },
+        row: { [workingKey]: true },
       });
       log('yt-wright OK');
       setStatus('Push sent', 'success');
@@ -1671,7 +1771,7 @@ function renderSetupPanel(direction) {
             st === 'working' ? 'var(--warn)' : 'var(--muted)';
           const stLabel = st === 'done' ? '✓ done' :
             st === 'working' ? '… working' : 'pending';
-          const url = colVal(j, 'url');
+          const url = browserOutputURL(colVal(j, 'url'));
           const link = url ? '<a class="url-link" href="' + escapeAttr(String(url)) + '" target="_blank">open output</a>' : '';
           const prompt = String(colVal(j, 'prompt') || '');
 
@@ -1756,8 +1856,9 @@ let cols = [];
       if (isCol(col.name, 'API')) return; // hidden — linked to type pulldown, preview below shows it
       if (isCol(col.name, 'type')) {
         html += '<div class="field-group"><label>' + escapeHtml(col.name) + '</label><select id="modal-type"><option value="">—</option>';
+        if (val && !state.templates.some(t => canonicalType(t.type) === canonicalType(val))) html += '<option selected value="' + escapeAttr(val) + '">' + escapeHtml(val) + ' (no template)</option>';
         state.templates.forEach(t => {
-          html += '<option value="' + escapeAttr(t.type) + '"' + (t.type === val ? ' selected' : '') + '>' + escapeHtml(t.type) + '</option>';
+          html += '<option value="' + escapeAttr(canonicalType(t.type)) + '"' + (canonicalType(t.type) === canonicalType(val) ? ' selected' : '') + '>' + escapeHtml(canonicalType(t.type)) + '</option>';
         });
         html += '</select></div>';
       } else if (isCol(col.name, 'Completed', 'completed')) {
@@ -1778,14 +1879,12 @@ let cols = [];
     const typeSel = $('#modal-type');
     if (typeSel) {
       typeSel.addEventListener('change', () => {
-        const t = state.templates.find(t => t.type === typeSel.value);
+        const t = state.templates.find(t => canonicalType(t.type) === typeSel.value);
         const ta = $('#modal-template-api');
         if (t && t.API) {
           ta.value = t.API;
-          state.modalRow.API = t.API;
         } else {
           ta.value = '';
-          state.modalRow.API = null;
         }
       });
       // trigger initial
@@ -1846,17 +1945,17 @@ let cols = [];
         patch[actualKey] = inp.checked ? true : null;
       } else if (isCol(actualKey, 'type')) {
         patch[actualKey] = inp.value;
-        const t = state.templates.find(t => t.type === inp.value);
-        if (t) patch.API = t.API;
       } else {
         patch[actualKey] = inp.value;
       }
     });
     log('sendPatch patch=' + JSON.stringify(patch));
     try {
+      const paramsKey = Object.keys(patch).find(k => isCol(k, 'Params'));
+      if (paramsKey) patch[paramsKey] = validateParams(patch[paramsKey]);
       await callWebhook('/yt-update', {
         operation: 'update',
-        id: state.currentTableId,
+        id: state.modalTableId,
         match: { id: String(row.id) },
         row: patch,
       });
@@ -1923,7 +2022,8 @@ let cols = [];
     $('#cfg-table-jobs').value = config.tableJobs;
     $('#cfg-table-templates').value = config.tableTemplates;
     $('#cfg-table-link').value = config.tableLink;
-    $('#cfg-webhook-base').value = config.webhookBase;
+    $('#cfg-webhook-base').value = getWebhookBase();
+    $('#cfg-webhook-base').readOnly = true;
     $('#cfg-n8n-host').value = ro.n8nHost;
     $('#cfg-n8n-port').value = ro.n8nPort;
     $('#cfg-api-base').value = ro.apiBase;
@@ -2147,6 +2247,7 @@ let cols = [];
 
     log('init complete, loading table ' + state.currentTableId);
     populateConfigForm();
+    renderSetupPanel();
     fetchServerConfig();
     updateBottomBar();
     attachBottomBarHandlers();
@@ -2273,7 +2374,6 @@ let cols = [];
       await loadTemplates();
       await enrichRowsWithTemplateAPI();
     })().catch(e => log('init chain error: ' + e.message));
-  }
 
   function fullReload() {
     return (async () => {
@@ -2310,7 +2410,7 @@ let cols = [];
   }
 
   // ─── Create table ────────────────────────────────────────────────────────
-  async function parseColumns(text) {
+  function parseColumns(text) {
     text = (text || '').trim();
     if (!text) return null;
     try {

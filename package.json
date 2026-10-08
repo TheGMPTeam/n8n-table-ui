@@ -2,10 +2,11 @@
   "name": "n8n-table-ui",
   "version": "1.0.0",
   "description": "",
-  "main": "server.js",
+  "main": "proxy-server.cjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "test": "node --test *.test.cjs",
+    "build": "node --check proxy-server.cjs && node -e \"const fs=require('fs'),vm=require('vm');const html=fs.readFileSync('index.html','utf8');new vm.Script(html.match(/<script>([\\s\\S]*?)<\\/script>/)[1]);\"",
+    "start": "node proxy-server.cjs"
   },
   "keywords": [],
   "author": "",
