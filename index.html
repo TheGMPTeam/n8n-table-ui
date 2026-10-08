@@ -1164,6 +1164,7 @@
     try {
       const rows = await readAllRows(tableId);
       state.rows = rows;
+      state.rowsTableId = tableId;
       log('loadTable loaded ' + rows.length + ' rows');
       await loadLinkedTable(tableId);
       renderPanels();
@@ -1827,7 +1828,7 @@ function renderSetupPanel(direction) {
   const jobsViews = new Map();
   let activeJobStage = localStorage.getItem('jobs-workflow-tab') || 'research';
   function jobsData(stage) {
-    const production = state.currentTableId === TABLES.shorts ? state.rows : state.otherRows;
+    const production = state.rowsTableId === TABLES.shorts ? state.rows : state.otherTableId === TABLES.shorts ? state.otherRows : [];
     return uniqueStageRows(production.filter(r => jobStage(r) === stage));
   }
   function renderJobsWorkflows() {
