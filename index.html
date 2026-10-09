@@ -2905,30 +2905,40 @@ let cols = [];
   }
 
   function openUpdaterModal() {
-    showUpdaterModal('<p>Check the selected GitHub branch, then apply the exact checked commit. Persistent operator data is preserved.</p>'
+    showUpdaterModal('<p>Check main/beta and install available Web UI updates.</p>'
       + '<label for="updater-branch">Branch</label> <select id="updater-branch"><option value="beta">beta</option><option value="main">main</option></select> '
       + '<button id="updater-check">Check selected branch</button>'
       + '<p id="updater-result" role="status">Not checked yet.</p>'
       + '<p id="updater-mode-summary" role="status">Recommended mode: check a branch first.</p>'
-      + '<p>Public GitHub updates need no GitHub login. Web apply must be explicitly enabled by the host operator for this trusted LAN. Anyone on that LAN may then update this app; do not expose it publicly.</p>'
       + '<div class="updater-actions"><button id="updater-apply" disabled>Apply checked update</button> <button id="updater-document" hidden>Reload updated application</button></div>',
       {title:'Check for updates', hideClose:false, onClose:null});
     let checked = null;
     const result = $('#updater-result'), apply = $('#updater-apply'), selector = $('#updater-branch');
     const request = async (url, options) => { const r = await fetch(url, options); const data = await r.json(); if (!r.ok) throw new Error(data.error || 'Update request failed'); return data; };
-    selector.onchange = () => { checked = null; apply.disabled = true; result.textContent = 'Branch changed. Check again.'; };
+    let checkSequence = 0;
+    selector.onchange = () => { checkSequence++; checked = null; apply.disabled = true; result.textContent = 'Branch changed. Check again.'; $('#updater-mode-summary').textContent = 'Recommended mode: check a branch first.'; };
     $('#updater-check').onclick = async () => {
-      const selected = selector.value;
+      const selected = selector.value, sequence = ++checkSequence;
       checked = null; apply.disabled = true; result.textContent = 'Checking ' + selected + '…';
-      try { const c = await request('/updates/check?branch=' + encodeURIComponent(selected));
-        if (selector.value !== selected) return;
-        checked = c; result.textContent = 'Deployed UI: ' + c.deployedSha + ' | server: ' + c.serverSha + ' | ' + c.branch + ': ' + c.remoteSha
+      $('#updater-mode-summary').textContent = 'Determining recommended mode…';
+      try { const response = await request('/updates/check?branch=' + encodeURIComponent(selected));
+        if (selector.value !== selected || sequence !== checkSequence) return;
+        const c = response.recommendedMode !== undefined ? response : response.data;
+        if (!c || c.branch !== selected || !/^[a-f0-9]{40}$/.test(c.remoteSha || '') || !/^[a-f0-9]{40}$/.test(c.deployedSha || '') || !/^[a-f0-9]{40}$/.test(c.serverSha || '') || typeof c.updateAvailable !== 'boolean' || !['databind','full','noRuntimeUpdate'].includes(c.recommendedMode) || typeof c.modeReason !== 'string' || !c.modeReason.trim() || (c.recommendedMode === 'full' ? c.runtimeAction !== 'image' : !['none','restart'].includes(c.runtimeAction))) throw new Error('Invalid update check response; host worker update required');
+        const modeLabel = c.recommendedMode === 'full' ? 'Image update' : c.recommendedMode === 'noRuntimeUpdate' ? 'No runtime changes' : c.runtimeAction === 'restart' ? 'Bind update + app restart' : 'Bind update';
+        checked = c; result.textContent = 'Installed UI: ' + c.deployedSha + ' (' + (c.deployedCommitDate || 'commit date unavailable') + ') | server: ' + c.serverSha + ' | ' + c.branch + ': ' + c.remoteSha + ' (' + (c.remoteCommitDate || 'commit date unavailable') + ')'
           + (c.updateAvailable ? ' — update available.' : ' — already current.')
           + (c.requiresConfirmation ? ' Branch switch or downgrade: review before applying.' : '')
-          + (!c.databindCompatible ? ' Full mode required for server/build changes.' : ' Databind compatible.');
-        $('#updater-mode-summary').textContent = c.recommendedMode ? 'Recommended mode: ' + c.recommendedMode + ' — ' + c.modeReason : 'Automatic mode requires the updated host worker; apply unavailable.';
-        apply.disabled = !c.updateAvailable || !c.recommendedMode;
-      } catch (e) { result.textContent = e.message; }
+          ;
+        $('#updater-mode-summary').textContent = 'Recommended mode: ' + modeLabel + ' — ' + c.modeReason;
+        apply.disabled = !c.updateAvailable || c.recommendedMode === 'noRuntimeUpdate' || c.applyAllowed === false;
+        if (c.applyAllowed === false && c.applyBlockedReason) result.textContent += ' Apply disabled: ' + c.applyBlockedReason;
+      } catch (e) {
+        if (selector.value !== selected || sequence !== checkSequence) return;
+        checked = null; apply.disabled = true; result.textContent = e.message;
+        $('#updater-mode-summary').textContent = /reconcile|registered SHA|Operator changes|deploy\/restart/i.test(e.message)
+          ? 'Cannot determine mode: deployment drift' : 'Cannot determine mode: ' + e.message;
+      }
     };
     apply.onclick = async () => {
       if (!checked || checked.branch !== selector.value) return;
