@@ -13,7 +13,7 @@ test('forest theme exposes consistent tokens and accessible contrast', () => {
   assert.ok(contrast('#15200e',tokens.accent)>=4.5);
 });
 test('theme keeps mobile table scrolling, keyboard focus and reduced motion', () => {
-  assert.equal((html.match(/class="table-scroll" tabindex="0" role="region"/g)||[]).length,3);
+  assert.equal((html.match(/class="table-scroll" tabindex="0" role="region"/g)||[]).length,4);
   assert.match(css,/\.table-scroll\s*\{[^}]*overflow-x: auto/);
   assert.match(css,/:focus-visible/);
   assert.match(css,/@media \(max-width: 760px\)/);
