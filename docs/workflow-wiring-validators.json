@@ -1,0 +1,301 @@
+{
+  "validators": {
+    "Research": "const sample={\"title\": \"\", \"alternate_titles\": [\"\", \"\", \"\"], \"total_duration_seconds\": 0, \"hook\": \"\", \"setup\": \"\", \"main_content\": \"\", \"payoff\": \"\", \"cta\": \"\", \"full_voiceover\": \"\", \"scenes\": [{\"scene_id\": 1, \"duration_seconds\": 0, \"script_section\": \"hook\", \"what_happens\": \"\", \"viewer_takeaway\": \"\", \"visual_concept\": \"\", \"voiceover\": \"\", \"on_screen_text\": [], \"dialogue\": [], \"sound_design\": \"\", \"transition\": \"\"}]};\nfunction check(value,shape,path){\n if(Array.isArray(shape)){if(!Array.isArray(value))throw new Error(path+' must be an array');if(shape.length&&value.length===0&&path.endsWith('scenes'))throw new Error(path+' must not be empty');if(shape.length)for(let i=0;i<value.length;i++)check(value[i],shape[0],path+'['+i+']');return;}\n if(shape&&typeof shape==='object'){if(!value||typeof value!=='object'||Array.isArray(value))throw new Error(path+' must be an object');for(const k of Object.keys(shape)){if(!Object.prototype.hasOwnProperty.call(value,k))throw new Error(path+'.'+k+' required; no synthesized defaults');check(value[k],shape[k],path+'.'+k);}return;}\n if(typeof value!==typeof shape||(typeof value==='number'&&!Number.isFinite(value)))throw new Error(path+' has invalid type');\n}\nreturn $input.all().map((item,index)=>{\n const start=$('Start AI Timing').item.json._aiStartedAt;\n let valid=true,error='';try{check(item.json.output,sample,'output');\n const s=item.json.output;\n if(!Array.isArray(s.scenes)||!s.scenes.length)throw new Error('Script scenes missing');\n let total=0;for(let i=0;i<s.scenes.length;i++){const c=s.scenes[i];if(c.scene_id!==i+1)throw new Error('Script scene IDs/order invalid');if(typeof c.duration_seconds!=='number'||!Number.isFinite(c.duration_seconds)||c.duration_seconds<=0)throw new Error('Script scene duration invalid');total+=c.duration_seconds;}\n if(total!==s.total_duration_seconds||total<45||total>60)throw new Error('Script duration total/45-60s invalid');\n if(s.scenes.map(c=>c.voiceover).join(' ').trim().split(/\\s+/).join(' ')!==s.full_voiceover.trim().split(/\\s+/).join(' '))throw new Error('full_voiceover does not match scene narration');\nif(item.json.output.full_voiceover!==undefined&&!item.json.output.full_voiceover.trim())throw new Error('full_voiceover is empty');}catch(e){valid=false;error=e.message;}\n const model=item.json.response_metadata?.model||item.json.metadata?.model||item.json.model||'unknown';\n const row=$('Capture Acquired Lock').item.json;\n return {json:{...item.json,_aiMetric:{JobID:String(row.JobID??row._context.currentId),Task:String($workflow.name),Model:typeof model==='string'?model:'unknown',ExecutionID:String($execution.id),DurationMs:Math.max(0,Date.now()-start),ValidOutput:valid,Error:error}},pairedItem:{item:index}};\n});",
+    "Scene Production": "const sample={\"project\": \"AI That Can Build Its Own Workflow\", \"format\": \"youtube_short\", \"aspect_ratio\": \"9:16\", \"scenes\": [{\"scene_id\": \"SCENE_01\", \"duration\": \"0-3\", \"type\": \"image\", \"scene\": \"...\", \"visual\": \"...\", \"prompt\": \"...\", \"voiceover\": \"...\", \"on_screen_text\": \"...\", \"sound\": \"...\"}]};\nfunction check(value,shape,path){\n if(Array.isArray(shape)){if(!Array.isArray(value))throw new Error(path+' must be an array');if(shape.length&&value.length===0&&path.endsWith('scenes'))throw new Error(path+' must not be empty');if(shape.length)for(let i=0;i<value.length;i++)check(value[i],shape[0],path+'['+i+']');return;}\n if(shape&&typeof shape==='object'){if(!value||typeof value!=='object'||Array.isArray(value))throw new Error(path+' must be an object');for(const k of Object.keys(shape)){if(!Object.prototype.hasOwnProperty.call(value,k))throw new Error(path+'.'+k+' required; no synthesized defaults');check(value[k],shape[k],path+'.'+k);}return;}\n if(typeof value!==typeof shape||(typeof value==='number'&&!Number.isFinite(value)))throw new Error(path+' has invalid type');\n}\nreturn $input.all().map((item,index)=>{\n const start=$('Start AI Timing').item.json._aiStartedAt;\n let valid=true,error='';try{check(item.json.output,sample,'output');\n const o=item.json.output;let src=$('Start AI Timing').item.json.Script;if(typeof src==='string')src=JSON.parse(src);\n if(!src||!Array.isArray(src.scenes)||!src.full_voiceover)throw new Error('Complete source script object required for coverage validation');\n if(o.format!=='youtube_short'||o.aspect_ratio!=='9:16'||o.scenes.length!==src.scenes.length)throw new Error('Full script scene/format coverage mismatch');\n let cursor=0;for(let i=0;i<o.scenes.length;i++){const c=o.scenes[i],s=src.scenes[i];if(c.scene_id!=='SCENE_'+String(i+1).padStart(2,'0'))throw new Error('Scene IDs/order invalid');if(c.voiceover!==s.voiceover)throw new Error('Source narration was changed');const m=/^\\s*(\\d+(?:\\.\\d+)?)\\s*-\\s*(\\d+(?:\\.\\d+)?)\\s*$/.exec(String(c.duration));if(!m||Number(m[1])!==cursor||Number(m[2])-Number(m[1])!==s.duration_seconds||Number(m[2])<=Number(m[1]))throw new Error('Source scene timing changed');cursor=Number(m[2]);if(!['text_to_image','image_to_video','flf_to_video'].includes(c.generation_type??c.type))throw new Error('Unsupported scene generation type');}\n if(cursor!==src.total_duration_seconds)throw new Error('Scene timing does not cover full script');\nif(item.json.output.full_voiceover!==undefined&&!item.json.output.full_voiceover.trim())throw new Error('full_voiceover is empty');}catch(e){valid=false;error=e.message;}\n const model=item.json.response_metadata?.model||item.json.metadata?.model||item.json.model||'unknown';\n const row=$('Capture Acquired Lock').item.json;\n return {json:{...item.json,_aiMetric:{JobID:String(row.JobID??row._context.currentId),Task:String($workflow.name),Model:typeof model==='string'?model:'unknown',ExecutionID:String($execution.id),DurationMs:Math.max(0,Date.now()-start),ValidOutput:valid,Error:error}},pairedItem:{item:index}};\n});",
+    "Shorts Dispatcher": "const sample={\"scenes\": [{\"scene_id\": \"SCENE_01\", \"image_prompt\": \"string\", \"video_prompt\": \"string\", \"flf_prompt\": \"string\", \"type\": \"string\", \"dialogue\": \"string\"}]};\nfunction check(value,shape,path){\n if(Array.isArray(shape)){if(!Array.isArray(value))throw new Error(path+' must be an array');if(shape.length&&value.length===0&&path.endsWith('scenes'))throw new Error(path+' must not be empty');if(shape.length)for(let i=0;i<value.length;i++)check(value[i],shape[0],path+'['+i+']');return;}\n if(shape&&typeof shape==='object'){if(!value||typeof value!=='object'||Array.isArray(value))throw new Error(path+' must be an object');for(const k of Object.keys(shape)){if(!Object.prototype.hasOwnProperty.call(value,k))throw new Error(path+'.'+k+' required; no synthesized defaults');check(value[k],shape[k],path+'.'+k);}return;}\n if(typeof value!==typeof shape||(typeof value==='number'&&!Number.isFinite(value)))throw new Error(path+' has invalid type');\n}\nreturn $input.all().map((item,index)=>{\n const start=$('Start AI Timing').item.json._aiStartedAt;\n let valid=true,error='';try{check(item.json.output,sample,'output');for(const scene of item.json.output.scenes){if(!['text_to_image','image_to_video','flf_to_video'].includes(scene.type))throw new Error('Unsupported Dispatcher generation type');}if(item.json.output.full_voiceover!==undefined&&!item.json.output.full_voiceover.trim())throw new Error('full_voiceover is empty');}catch(e){valid=false;error=e.message;}\n const model=item.json.response_metadata?.model||item.json.metadata?.model||item.json.model||'unknown';\n const row=$('Capture Acquired Lock').item.json;\n return {json:{...item.json,_aiMetric:{JobID:String(row.JobID??row._context.currentId),Task:String($workflow.name),Model:typeof model==='string'?model:'unknown',ExecutionID:String($execution.id),DurationMs:Math.max(0,Date.now()-start),ValidOutput:valid,Error:error}},pairedItem:{item:index}};\n});"
+  },
+  "fixtures": {
+    "research": {
+      "executionId": "58106",
+      "output": {
+        "title": "Test Your AI Workflow Without Breaking Production",
+        "alternate_titles": [
+          "n8n AI Testing Without Risk",
+          "Your AI Isn't Magic, It's Nodes",
+          "Clone, Disconnect, Test: n8n AI Safety"
+        ],
+        "total_duration_seconds": 56,
+        "hook": "Your AI assistant isn't magic. It's a chain of actions you can test without touching production.",
+        "setup": "In n8n, workflows connect nodes. This one uses an Ollama chat-model node, then writes results to production. You want to try a new prompt, but you can't risk breaking what's live.",
+        "main_content": "Clone the workflow. In the test copy, disconnect the production write nodes. Now the AI can still run, the Ollama node still gets its input, but nothing dangerous writes out. Run the test, watch the JSON between nodes. Does the model return the fields you expect? Check the contract. Missing keys show up instantly. Tweak the prompt, reconnect a safe output like a test webhook, iterate fast. When it looks right, push the change back to production.",
+        "payoff": "Tools are actions, not magic. Every node is a step you can inspect, reroute, and isolate. Pipelines are safe to test.",
+        "cta": "Have you ever broken production testing an AI workflow? Drop a test tube in the comments and follow for more n8n testing tips.",
+        "full_voiceover": "Your AI assistant isn't magic. It's a chain of actions you can test without touching production. In n8n, workflows connect nodes. This one uses an Ollama chat-model node, then writes results to production. You want to try a new prompt, but you can't risk breaking what's live. Clone the workflow. In the test copy, disconnect the production write nodes. Now the AI can still run, the Ollama node still gets its input, but nothing dangerous writes out. Run the test, watch the JSON between nodes. Does the model return the fields you expect? Check the contract. Missing keys show up instantly. Tweak the prompt, reconnect a safe output like a test webhook, iterate fast. When it looks right, push the change back to production. Tools are actions, not magic. Every node is a step you can inspect, reroute, and isolate. Pipelines are safe to test. Have you ever broken production testing an AI workflow? Drop a test tube in the comments and follow for more n8n testing tips.",
+        "scenes": [
+          {
+            "scene_id": 1,
+            "duration_seconds": 5,
+            "script_section": "hook",
+            "what_happens": "Quick cut to a glowing AI assistant interface then zoom out to reveal it's a node chain.",
+            "viewer_takeaway": "AI is a chain not magic.",
+            "visual_concept": "Close up of a chat window saying an answer, then the UI dissolves into a chain of connected boxes representing nodes.",
+            "voiceover": "Your AI assistant isn't magic. It's a chain of actions you can test without touching production.",
+            "on_screen_text": [
+              "Not magic. Nodes."
+            ],
+            "dialogue": [],
+            "sound_design": "Soft whoosh, then a subtle digital pulse.",
+            "transition": "hard cut"
+          },
+          {
+            "scene_id": 2,
+            "duration_seconds": 7,
+            "script_section": "setup",
+            "what_happens": "Show n8n canvas with Ollama node connected to a database write node.",
+            "viewer_takeaway": "This workflow uses Ollama and writes to production.",
+            "visual_concept": "n8n workflow canvas on screen, Ollama chat-model node in center, line going to a production database node with a warning halo.",
+            "voiceover": "In n8n, workflows connect nodes. This one uses an Ollama chat-model node, then writes results to production. You want to try a new prompt, but you can't risk breaking what's live.",
+            "on_screen_text": [
+              "n8n workflow",
+              "Ollama node"
+            ],
+            "dialogue": [],
+            "sound_design": "Low ambient hum, soft typing.",
+            "transition": "push in"
+          },
+          {
+            "scene_id": 3,
+            "duration_seconds": 26,
+            "script_section": "main_content",
+            "what_happens": "Clone workflow, disconnect write nodes, test, inspect JSON.",
+            "viewer_takeaway": "Clone and disconnect lets you test safely and verify data contracts.",
+            "visual_concept": "Duplicate workflow appears side-by-side. The write node connection is lifted in the test copy and replaced with a test webhook. JSON payload highlights between nodes.",
+            "voiceover": "Clone the workflow. In the test copy, disconnect the production write nodes. Now the AI can still run, the Ollama node still gets its input, but nothing dangerous writes out. Run the test, watch the JSON between nodes. Does the model return the fields you expect? Check the contract. Missing keys show up instantly. Tweak the prompt, reconnect a safe output like a test webhook, iterate fast. When it looks right, push the change back to production.",
+            "on_screen_text": [
+              "Clone",
+              "Disconnect writes",
+              "Check JSON contract"
+            ],
+            "dialogue": [],
+            "sound_design": "Clicks for disconnect, subtle data stream sound, then a soft ding on valid JSON.",
+            "transition": "match cut"
+          },
+          {
+            "scene_id": 4,
+            "duration_seconds": 12,
+            "script_section": "payoff",
+            "what_happens": "Montage of nodes being inspected and rerouted.",
+            "viewer_takeaway": "Tools are actions you control.",
+            "visual_concept": "Hands hovering over node chain, rerouting lines, nodes light up as inspectable steps.",
+            "voiceover": "Tools are actions, not magic. Every node is a step you can inspect, reroute, and isolate. Pipelines are safe to test.",
+            "on_screen_text": [
+              "Actions, not magic"
+            ],
+            "dialogue": [],
+            "sound_design": "Music swells, then settles.",
+            "transition": "fade"
+          },
+          {
+            "scene_id": 5,
+            "duration_seconds": 6,
+            "script_section": "cta",
+            "what_happens": "Creator looks at camera, asks question.",
+            "viewer_takeaway": "Engage and follow for more tips.",
+            "visual_concept": "Creator in workshop setting gestures to comment area graphic.",
+            "voiceover": "Have you ever broken production testing an AI workflow? Drop a test tube in the comments and follow for more n8n testing tips.",
+            "on_screen_text": [
+              "Broken prod before?"
+            ],
+            "dialogue": [],
+            "sound_design": "Friendly outro music, soft pop.",
+            "transition": ""
+          }
+        ]
+      }
+    },
+    "scene": {
+      "executionId": "58159",
+      "sourceExecutionId": "58093",
+      "input": {
+        "title": "Validate JSON Before Your Local AI Queues It",
+        "alternate_titles": [
+          "Why Local AI Workflows Need a JSON Check",
+          "Stop Broken Jobs Before They Hit the Queue",
+          "The Missing Guardrail in Local AI Workflows"
+        ],
+        "total_duration_seconds": 54,
+        "hook": "One missing JSON field can break a local AI workflow.",
+        "setup": "If work is queued before checking input, bad data can waste compute, block the queue, or produce broken results.",
+        "main_content": "Before queuing, the workflow checks required fields, types, and structure. A valid payload can run. A missing required field fails it, with a clear error instead of sending broken work downstream. A read-only dry run makes it safer by simulating the next steps without writing outputs, so the operator can catch problems before anything changes.",
+        "payoff": "Validation is not extra bureaucracy. It turns silent failures into fast, obvious feedback.",
+        "cta": "If you are running local AI workflows, put a JSON check between the prompt and the queue.",
+        "full_voiceover": "One missing JSON field can break a local AI workflow. If work is queued before checking input, bad data can waste compute, block the queue, or produce broken results. Before queuing, the workflow checks required fields, types, and structure. A valid payload can run. A missing required field fails it, with a clear error instead of sending broken work downstream. A read-only dry run makes it safer. It simulates the next steps without writing outputs, so the operator can catch problems before anything changes. Validation is not extra bureaucracy. It turns silent failures into fast, obvious feedback. If you are running local AI workflows, put a JSON check between the prompt and the queue.",
+        "scenes": [
+          {
+            "scene_id": 1,
+            "duration_seconds": 4,
+            "script_section": "hook",
+            "what_happens": "A local AI workflow receives a JSON payload, and one required field is missing.",
+            "viewer_takeaway": "A tiny JSON mistake can stop or corrupt a workflow.",
+            "visual_concept": "A local workflow interface shows a JSON card on a clean dashboard. A required field is highlighted red as the workflow pauses.",
+            "voiceover": "One missing JSON field can break a local AI workflow.",
+            "on_screen_text": [
+              "missing field",
+              "workflow at risk"
+            ],
+            "dialogue": [],
+            "sound_design": "Short low synth pulse, then one soft error tick.",
+            "transition": "Quick cut to the workflow queue."
+          },
+          {
+            "scene_id": 2,
+            "duration_seconds": 7,
+            "script_section": "setup",
+            "what_happens": "The workflow is about to queue the unvalidated job.",
+            "viewer_takeaway": "Checking input before queuing protects the whole system.",
+            "visual_concept": "A job card moves toward a queue lane, then a warning icon appears before it fully enters.",
+            "voiceover": "If work is queued before checking input, bad data can waste compute, block the queue, or produce broken results.",
+            "on_screen_text": [
+              "before queue",
+              "check first"
+            ],
+            "dialogue": [],
+            "sound_design": "Subtle mechanical hum, followed by a restrained warning tone.",
+            "transition": "Smooth push into a validation panel."
+          },
+          {
+            "scene_id": 3,
+            "duration_seconds": 14,
+            "script_section": "main_content",
+            "what_happens": "The workflow validates required fields, types, and structure, then separates a valid payload from an invalid one.",
+            "viewer_takeaway": "Validation turns unclear failures into specific, fixable errors.",
+            "visual_concept": "A validation checklist appears: required fields, types, structure. A valid JSON payload passes, while a second payload fails because a required field is missing.",
+            "voiceover": "Before queuing, the workflow checks required fields, types, and structure. A valid payload can run. A missing required field fails it, with a clear error instead of sending broken work downstream.",
+            "on_screen_text": [
+              "required fields",
+              "types",
+              "structure",
+              "valid / invalid"
+            ],
+            "dialogue": [],
+            "sound_design": "Checklist ticks for valid items, then one clear fail thud for the missing field.",
+            "transition": "Split-screen transition into the dry-run idea."
+          },
+          {
+            "scene_id": 4,
+            "duration_seconds": 13,
+            "script_section": "main_content",
+            "what_happens": "A read-only dry run simulates the workflow steps without changing outputs.",
+            "viewer_takeaway": "A dry run catches issues before anything is written or changed.",
+            "visual_concept": "The valid job moves through a simulated path. A read-only badge appears, and output files remain untouched while the simulated steps complete.",
+            "voiceover": "A read-only dry run makes it safer. It simulates the next steps without writing outputs, so the operator can catch problems before anything changes.",
+            "on_screen_text": [
+              "dry run",
+              "read-only",
+              "no output changes"
+            ],
+            "dialogue": [],
+            "sound_design": "Clean, confident interface sounds with a soft completion chime.",
+            "transition": "Pull back to the full workflow as the final point lands."
+          },
+          {
+            "scene_id": 5,
+            "duration_seconds": 9,
+            "script_section": "payoff",
+            "what_happens": "The video frames validation as practical protection, not extra complexity.",
+            "viewer_takeaway": "Validation makes failures obvious and easier to fix.",
+            "visual_concept": "A small shield-like check icon appears beside the workflow queue. A broken job is stopped cleanly, while the healthy job proceeds.",
+            "voiceover": "Validation is not extra bureaucracy. It turns silent failures into fast, obvious feedback.",
+            "on_screen_text": [
+              "clearer failures",
+              "faster fixes"
+            ],
+            "dialogue": [],
+            "sound_design": "Warm resolution note under the voiceover.",
+            "transition": "Simple fade into the closing prompt."
+          },
+          {
+            "scene_id": 6,
+            "duration_seconds": 7,
+            "script_section": "cta",
+            "what_happens": "The viewer is encouraged to add JSON validation to their own local AI workflow.",
+            "viewer_takeaway": "Put a JSON check between the prompt and the queue.",
+            "visual_concept": "The workflow diagram shows three connected parts: prompt, JSON check, queue. The JSON check glows as the final recommendation.",
+            "voiceover": "If you are running local AI workflows, put a JSON check between the prompt and the queue.",
+            "on_screen_text": [
+              "prompt",
+              "JSON check",
+              "queue"
+            ],
+            "dialogue": [],
+            "sound_design": "Final short UI confirmation sound, then clean outro tone.",
+            "transition": "End card hold."
+          }
+        ]
+      },
+      "output": {
+        "project": "Validate JSON Before Your Local AI Queues It",
+        "format": "youtube_short",
+        "aspect_ratio": "9:16",
+        "scenes": [
+          {
+            "scene_id": "SCENE_01",
+            "duration": "0-4",
+            "type": "text_to_image",
+            "scene": "A local workflow interface shows a JSON card on a clean dashboard. A required field is highlighted red as the workflow pauses.",
+            "visual": "Clean dashboard with a JSON payload card; one required field highlighted in red; workflow paused indicator.",
+            "prompt": "A clean minimal dashboard UI in portrait 9:16, a JSON payload card with code lines, one required field highlighted in red, a red pause indicator showing the local AI workflow has stopped, soft studio lighting, crisp tech aesthetic, centered composition",
+            "voiceover": "One missing JSON field can break a local AI workflow.",
+            "on_screen_text": "missing field | workflow at risk",
+            "sound": "Short low synth pulse, then one soft error tick."
+          },
+          {
+            "scene_id": "SCENE_02",
+            "duration": "4-11",
+            "type": "image_to_video",
+            "scene": "A job card moves toward a queue lane, then a warning icon appears before it fully enters.",
+            "visual": "Job card slides toward the queue lane; a warning icon fades in as it nears the entry point, same dashboard UI as previous frame.",
+            "prompt": "Animate the same dashboard UI: a job card smoothly glides from center toward the queue lane, then a warning triangle icon pulses into view just before the card enters, subtle camera push-in, continuous lighting, UI motion style",
+            "voiceover": "If work is queued before checking input, bad data can waste compute, block the queue, or produce broken results.",
+            "on_screen_text": "before queue | check first",
+            "sound": "Subtle mechanical hum, followed by a restrained warning tone."
+          },
+          {
+            "scene_id": "SCENE_03",
+            "duration": "11-25",
+            "type": "text_to_image",
+            "scene": "A validation checklist appears: required fields, types, structure. A valid JSON payload passes, while a second payload fails because a required field is missing.",
+            "visual": "Validation checklist (required fields, types, structure) with two JSON payloads side by side: one marked valid with a green check, the other marked invalid with a red X on a missing field.",
+            "prompt": "Portrait 9:16 dashboard UI showing a validation checklist with rows labeled 'required fields', 'types', 'structure'; two JSON payload cards side by side, the left one with a green checkmark and the right one with a red X highlighting a missing field, clean minimal tech style, consistent lighting",
+            "voiceover": "Before queuing, the workflow checks required fields, types, and structure. A valid payload can run. A missing required field fails it, with a clear error instead of sending broken work downstream.",
+            "on_screen_text": "required fields | types | structure | valid / invalid",
+            "sound": "Checklist ticks for valid items, then one clear fail thud for the missing field."
+          },
+          {
+            "scene_id": "SCENE_04",
+            "duration": "25-38",
+            "type": "image_to_video",
+            "scene": "The valid job moves through a simulated path. A read-only badge appears, and output files remain untouched while the simulated steps complete.",
+            "visual": "Valid job card travels along a glowing simulated path through workflow steps; a 'read-only' badge appears; output file icons remain unchanged while steps complete, same dashboard styling.",
+            "prompt": "Animate the same dashboard UI: the valid job card moves smoothly along a glowing path through three workflow step nodes, a 'read-only' badge glows in, and output file icons stay static and untouched as each step ticks complete, gentle camera follow, consistent lighting",
+            "voiceover": "A read-only dry run makes it safer. It simulates the next steps without writing outputs, so the operator can catch problems before anything changes.",
+            "on_screen_text": "dry run | read-only | no output changes",
+            "sound": "Clean, confident interface sounds with a soft completion chime."
+          },
+          {
+            "scene_id": "SCENE_05",
+            "duration": "38-47",
+            "type": "text_to_image",
+            "scene": "A small shield-like check icon appears beside the workflow queue. A broken job is stopped cleanly, while the healthy job proceeds.",
+            "visual": "Shield check icon beside the queue; a broken job card stopped at a red boundary, a healthy job card advancing through the queue.",
+            "prompt": "Portrait 9:16 dashboard UI showing a small shield check icon glowing beside the workflow queue lane; a broken job card halted at a red boundary line, and a healthy job card advancing smoothly through the queue, clean minimal tech style, consistent lighting",
+            "voiceover": "Validation is not extra bureaucracy. It turns silent failures into fast, obvious feedback.",
+            "on_screen_text": "clearer failures | faster fixes",
+            "sound": "Warm resolution note under the voiceover."
+          },
+          {
+            "scene_id": "SCENE_06",
+            "duration": "47-54",
+            "type": "image_to_video",
+            "scene": "The workflow diagram shows three connected parts: prompt, JSON check, queue. The JSON check glows as the final recommendation.",
+            "visual": "Workflow diagram of three connected nodes (prompt, JSON check, queue); the JSON check node glows brighter as the final recommendation, same dashboard styling.",
+            "prompt": "Animate the same dashboard UI: a workflow diagram with three connected nodes labeled 'prompt', 'JSON check', 'queue', the 'JSON check' node glows and pulses brighter as the final recommendation, subtle camera pull-back to frame all three, consistent lighting, UI motion style",
+            "voiceover": "If you are running local AI workflows, put a JSON check between the prompt and the queue.",
+            "on_screen_text": "prompt | JSON check | queue",
+            "sound": "Final short UI confirmation sound, then clean outro tone."
+          }
+        ]
+      }
+    }
+  }
+}
