@@ -1075,10 +1075,24 @@
     if (value === null || value === undefined || value === '' || !['number','string'].includes(typeof value) || !Number.isFinite(Number(value)) || Number(value) < 0) return 'Pending / unknown';
     return (Number(value) / 1000).toFixed(3) + ' s';
   }
-  function executionLink(value) {
+  function executionLink(value, row) {
     const id = String(value ?? '');
     if (!/^[1-9]\d*$/.test(id)) return escapeHtml(id || 'Pending / unknown');
-    return '<a target="_blank" rel="noopener noreferrer" href="http://10.0.0.157:5678/execution/'+encodeURIComponent(id)+'">'+escapeHtml(id)+'</a>';
+    // RequestKey captures the execution owner at claim time. Type/Task may have advanced.
+    const key = String(row ? colVal(row, 'RequestKey') ?? '' : '');
+    const owner = key.match(/^([A-Za-z0-9_-]{1,128}):([A-Za-z0-9_-]{1,128}):([1-9]\d*)$/);
+    if (!owner || owner[3] !== String(row.id) || String(colVal(row, 'ExecutionID') ?? '') !== id) return '<span title="Execution workflow metadata unavailable">'+escapeHtml(id)+'</span>';
+    return '<a onclick="event.stopPropagation()" target="_blank" rel="noopener noreferrer" href="http://10.0.0.157:5678/workflow/'+encodeURIComponent(owner[1])+'/executions/'+encodeURIComponent(id)+'">'+escapeHtml(id)+'</a>';
+  }
+  function metricExecutionOwner(value, owners) {
+    const id = String(value ?? '');
+    const matches = owners.filter(row => String(colVal(row, 'ExecutionID') ?? '') === id);
+    if (!matches.length || new Set(matches.map(row => String(colVal(row, 'RequestKey') ?? ''))).size !== 1) return undefined;
+    return matches[0];
+  }
+  function metricModelLabel(row) {
+    const value = colVal(row, 'Model');
+    return typeof value === 'string' && value.trim() && !/^(unknown|null|undefined)$/i.test(value.trim()) ? value : 'Unknown — model metadata unavailable';
   }
   document.getElementById('metrics-refresh').addEventListener('click', refreshMetrics);
   async function refreshMetrics() {
@@ -1087,9 +1101,12 @@
     status.textContent = 'Loading read-only AI_Run_Metrics…';
     try {
       const rows = await readAllRows('MgzHSOR57oYxcmZq'); // Resolved by name from live API metadata, not inferred from a row.
+      // Only exact execution matches can supply an owner; never infer it from Task or current Type.
+      const ownerReads = await Promise.allSettled([TABLES.shorts, TABLES.comfy].filter(Boolean).map(id => readAllRows(id)));
+      const owners = ownerReads.flatMap(result => result.status === 'fulfilled' ? result.value : []);
       const columns = ['Task','Model','ExecutionID','DurationMs','ValidOutput','Error','JobID'];
       host.querySelector('thead').innerHTML = '<tr>'+columns.map(n=>'<th>'+escapeHtml(n)+'</th>').join('')+'</tr>';
-      host.querySelector('tbody').innerHTML = rows.map(row=>'<tr>'+columns.map(n=>'<td>'+(n==='DurationMs'?formatMetricDuration(row[n]):n==='ExecutionID'?executionLink(row[n]):n==='ValidOutput'?(row[n]===true?'Valid':row[n]===false?'Invalid':'Pending / unknown'):escapeHtml(row[n] ?? ''))+'</td>').join('')+'</tr>').join('') || '<tr><td colspan="7">No metrics recorded. No model calls were started.</td></tr>';
+      host.querySelector('tbody').innerHTML = rows.map(row=>'<tr>'+columns.map(n=>'<td style="overflow-wrap:anywhere"'+(n==='Model'?' title="'+escapeAttr(metricModelLabel(row))+'"':'')+'>'+(n==='DurationMs'?formatMetricDuration(row[n]):n==='ExecutionID'?executionLink(row[n], metricExecutionOwner(row[n], owners)):n==='Model'?escapeHtml(metricModelLabel(row)):n==='ValidOutput'?(row[n]===true?'Valid':row[n]===false?'Invalid':'Pending / unknown'):escapeHtml(row[n] ?? ''))+'</td>').join('')+'</tr>').join('') || '<tr><td colspan="7">No metrics recorded. No model calls were started.</td></tr>';
       status.textContent = rows.length+' recorded runs · Read-only · DurationMs is measured milliseconds, not an estimate.';
     } catch (error) { host.querySelector('tbody').innerHTML='';status.textContent='Metrics load failed: '+error.message; }
   }
@@ -1726,7 +1743,7 @@ function renderSetupPanel(direction) {
   }
 
   function renderCell(col, val, row, panelId) {
-    if (isTrackingCol(col.name)) return '<span title="Workflow-managed · read-only" style="font-size:11px;max-width:240px;display:inline-block;overflow-wrap:anywhere">'+(isCol(col.name,'ExecutionID')?executionLink(val):escapeHtml(val ?? 'Pending / unknown'))+'</span>';
+    if (isTrackingCol(col.name)) return '<span title="Workflow-managed · read-only" style="font-size:11px;max-width:240px;display:inline-block;overflow-wrap:anywhere">'+(isCol(col.name,'ExecutionID')?executionLink(val, row):escapeHtml(val ?? 'Pending / unknown'))+'</span>';
     // Dispatch to the typed renderers: URL/File → img/video preview,
     // API → truncated JSON, Working → status spinner.
     // Job ID columns are clickable — open the linked row like Edit does.
