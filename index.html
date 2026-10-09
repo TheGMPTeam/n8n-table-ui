@@ -1090,10 +1090,6 @@
     if (!matches.length || new Set(matches.map(row => String(colVal(row, 'RequestKey') ?? ''))).size !== 1) return undefined;
     return matches[0];
   }
-  function metricModelLabel(row) {
-    const value = colVal(row, 'Model');
-    return typeof value === 'string' && value.trim() && !/^(unknown|null|undefined)$/i.test(value.trim()) ? value : 'Unknown — model metadata unavailable';
-  }
   document.getElementById('metrics-refresh').addEventListener('click', refreshMetrics);
   async function refreshMetrics() {
     const host = document.getElementById('jobs-metrics');
@@ -1104,9 +1100,9 @@
       // Only exact execution matches can supply an owner; never infer it from Task or current Type.
       const ownerReads = await Promise.allSettled([TABLES.shorts, TABLES.comfy].filter(Boolean).map(id => readAllRows(id)));
       const owners = ownerReads.flatMap(result => result.status === 'fulfilled' ? result.value : []);
-      const columns = ['Task','Model','ExecutionID','DurationMs','ValidOutput','Error','JobID'];
+      const columns = ['Task','ExecutionID','DurationMs','ValidOutput','Error','JobID'];
       host.querySelector('thead').innerHTML = '<tr>'+columns.map(n=>'<th>'+escapeHtml(n)+'</th>').join('')+'</tr>';
-      host.querySelector('tbody').innerHTML = rows.map(row=>'<tr>'+columns.map(n=>'<td style="overflow-wrap:anywhere"'+(n==='Model'?' title="'+escapeAttr(metricModelLabel(row))+'"':'')+'>'+(n==='DurationMs'?formatMetricDuration(row[n]):n==='ExecutionID'?executionLink(row[n], metricExecutionOwner(row[n], owners)):n==='Model'?escapeHtml(metricModelLabel(row)):n==='ValidOutput'?(row[n]===true?'Valid':row[n]===false?'Invalid':'Pending / unknown'):escapeHtml(row[n] ?? ''))+'</td>').join('')+'</tr>').join('') || '<tr><td colspan="7">No metrics recorded. No model calls were started.</td></tr>';
+      host.querySelector('tbody').innerHTML = rows.map(row=>'<tr>'+columns.map(n=>'<td style="overflow-wrap:anywhere"'+'>'+(n==='DurationMs'?formatMetricDuration(row[n]):n==='ExecutionID'?executionLink(row[n], metricExecutionOwner(row[n], owners)):n==='ValidOutput'?(row[n]===true?'Valid':row[n]===false?'Invalid':'Pending / unknown'):escapeHtml(row[n] ?? ''))+'</td>').join('')+'</tr>').join('') || '<tr><td colspan="6">No metrics recorded. No model calls were started.</td></tr>';
       status.textContent = rows.length+' recorded runs · Read-only · DurationMs is measured milliseconds, not an estimate.';
     } catch (error) { host.querySelector('tbody').innerHTML='';status.textContent='Metrics load failed: '+error.message; }
   }
