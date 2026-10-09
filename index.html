@@ -1211,18 +1211,25 @@
   }
   async function loadTable(tableId) {
     log('loadTable ' + tableId);
+    const request = pushRefreshReads?.get(tableId) || readAllRows(tableId);
+    pushRefreshReads?.set(tableId, request);
     try {
-      const rows = await readAllRows(tableId);
+      const rows = await request;
+      if (state.currentTableId !== tableId) return rows;
+      pushRefreshDue?.delete(tableId);
       state.rows = rows;
       state.rowsTableId = tableId;
       log('loadTable loaded ' + rows.length + ' rows');
       await loadLinkedTable(tableId);
+      if (state.currentTableId !== tableId) return rows;
       renderPanels();
       return rows;
     } catch (e) {
       log('loadTable ERROR: ' + e.message);
       setStatus('Load error: ' + e.message, 'danger');
       return [];
+    } finally {
+      if (pushRefreshReads?.get(tableId) === request) pushRefreshReads.delete(tableId);
     }
   }
 
@@ -1915,6 +1922,7 @@ function renderSetupPanel(direction) {
     return uniqueStageRows(production.filter(r => jobStage(r) === stage));
   }
   function renderJobsWorkflows() {
+    if (pushRefreshDue?.size) void flushPushRefresh();
     const host = document.getElementById('jobs-workflows');
     const active = document.querySelector('.tab-btn.active')?.getAttribute('data-role') === 'jobs';
     host.hidden = !active;
@@ -1963,10 +1971,12 @@ function renderSetupPanel(direction) {
         if(btn.matches('.stage-edit')){state.jobsEditor=true;openModalByRow(row,stage==='runner'?TABLES.comfy:TABLES.shorts);return;}
         if(isTrue(colVal(row,'Working'))||isTrue(colVal(row,'Completed')))return;
         if (!stageRoute(stage) || !/^[1-9]\d{0,14}$/.test(String(row.id))) {setStatus('Push unavailable: no explicit bypass or valid row ID','danger');return;}
-        const pendingKey=TABLES.shorts+':'+String(row.id);
+        const sourceTable = stage === 'runner' ? TABLES.comfy : TABLES.shorts;
+        const sourceTab = pushRefreshRole();
+        const pendingKey=sourceTable+':'+String(row.id);
         if(pendingPushIds.has(pendingKey)){setStatus('Push already pending; check execution before reloading/retrying','warn');return;}
         pendingPushIds.add(pendingKey);
-        try {const res=await fetch('/dispatch/'+stageRoute(stage),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rowId:String(row.id)})});const body=await res.json();if(!res.ok||body.error)throw Error(body.message||body.error||res.status);setStatus('Execution request accepted; completion is not yet verified','success');}catch(e){setStatus('Push error: '+e.message,'danger');}
+        try {const res=await fetch('/dispatch/'+stageRoute(stage),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rowId:String(row.id)})});const body=await res.json();if(!res.ok||body.error)throw Error(body.message||body.error||res.status);schedulePushRefresh(sourceTable,sourceTab,stage,String(row.id));setStatus('Accepted; refreshing in 60 seconds','success');}catch(e){setStatus('Push error: '+e.message,'danger');}
       });
       host.addEventListener('keydown',e=>{if(e.target.getAttribute('role')!=='tab')return;const ids=JOB_STAGES.map(s=>s[0]);let i=ids.indexOf(activeJobStage);if(e.key==='ArrowRight')i=(i+1)%ids.length;else if(e.key==='ArrowLeft')i=(i+ids.length-1)%ids.length;else if(e.key==='Home')i=0;else if(e.key==='End')i=ids.length-1;else return;e.preventDefault();activeJobStage=ids[i];localStorage.setItem('jobs-workflow-tab',activeJobStage);renderJobsWorkflows();document.getElementById('stage-tab-'+activeJobStage).focus();});
     }
@@ -2122,7 +2132,48 @@ function renderSetupPanel(direction) {
   }
   var pendingPushIds = new Set();
 
+  // Push acceptance refresh: first successful acknowledgement owns the 60s deadline.
+  var pushRefreshTimers = new Map(), pushRefreshDue = new Map(), pushRefreshReads = new Map();
+  function pushRefreshRole() { return document.querySelector('.tab-btn.active')?.dataset.role; }
+  function clearPushRefresh() {
+    for (const timer of pushRefreshTimers.values()) clearTimeout(timer);
+    pushRefreshTimers.clear(); pushRefreshDue.clear();
+  }
+  function pushRefreshMatches(source) {
+    return state.currentTableId === source.tableId && pushRefreshRole() === source.tab &&
+      (source.tab !== 'jobs' || activeJobStage === source.stage);
+  }
+  async function flushPushRefresh() {
+    for (const [tableId, source] of pushRefreshDue) {
+      if (TABLES[source.configKey] !== tableId) { pushRefreshDue.delete(tableId); continue; }
+      if (!pushRefreshMatches(source) || state.modalOpen || document.querySelector('.tab-panel.active input:focus, .tab-panel.active textarea:focus, .tab-panel.active [contenteditable="true"]:focus')) continue;
+      if (pushRefreshReads.has(tableId)) continue;
+      pushRefreshDue.delete(tableId);
+      const request = readAllRows(tableId); pushRefreshReads.set(tableId, request);
+      try {
+        const rows = await request;
+        if (TABLES[source.configKey] !== tableId) continue;
+        if (!pushRefreshMatches(source) || state.modalOpen) { pushRefreshDue.set(tableId, source); continue; }
+        state.rows = rows; state.rowsTableId = tableId;
+        renderPanels();
+      } catch (error) { log('Push refresh error: ' + error.message); }
+      finally { pushRefreshReads.delete(tableId); }
+    }
+  }
+  function schedulePushRefresh(tableId, tab, stage, selectedId) {
+    if (pushRefreshTimers.has(tableId) || pushRefreshDue.has(tableId)) return;
+    const source = {tableId, tab, stage, selectedId, configKey:tableId === TABLES.comfy ? 'comfy' : 'shorts'};
+    pushRefreshTimers.set(tableId, setTimeout(async () => {
+      pushRefreshTimers.delete(tableId);
+      if (TABLES[source.configKey] !== tableId) return;
+      pushRefreshDue.set(tableId, source);
+      await flushPushRefresh();
+    }, 60000));
+  }
+  window.addEventListener('pagehide', clearPushRefresh);
+
   async function doPush(rowId, rowType) {
+    const sourceTable = state.currentTableId, sourceTab = pushRefreshRole(), sourceStage = activeJobStage;
     setStatus('Pushing ' + rowId + '...', 'warn');
     log('doPush ' + rowId + ' type=' + rowType);
     try {
@@ -2146,12 +2197,8 @@ function renderSetupPanel(direction) {
       let body; try { body = JSON.parse(text); } catch {}
       if (!response.ok || body?.error) throw new Error('HTTP ' + response.status + ': ' + (body?.message || body?.error || text.slice(0,300)));
       log('exact-row dispatch OK');
-      setStatus('Execution request accepted; completion is not yet verified', 'success');
-      setTimeout(async () => {
-        await loadTable(state.currentTableId);
-        await loadTemplates();
-        await enrichRowsWithTemplateAPI();
-      }, 1200);
+      schedulePushRefresh(sourceTable, sourceTab, sourceStage, String(rowId));
+      setStatus('Accepted; refreshing in 60 seconds', 'success');
     } catch (e) {
       log('doPush ERROR: ' + e.message);
       setStatus('Push error: ' + e.message, 'danger');
@@ -2403,6 +2450,7 @@ let cols = [];
     overlay.classList.remove('open');
     state.modalOpen = false;
     state.modalRow = null;
+    void flushPushRefresh();
     const focus = state._modalFocus;
     state._modalFocus = null;
     if (focus && typeof focus.focus === 'function') focus.focus({preventScroll:true});
@@ -2562,6 +2610,7 @@ let cols = [];
   }
 
   function saveConfig() {
+    clearPushRefresh();
     const next = readConfigForm();
     if (!next.webhookBase) {
       showConfigStatus('Webhook base URL is required.', 'var(--danger)');
@@ -2682,7 +2731,6 @@ let cols = [];
         state.jobsEditor = btn.getAttribute('data-role') === 'jobs';
         const panel = document.getElementById(btn.getAttribute('data-tab'));
         if (panel) panel.classList.add('active');
-        renderJobsWorkflows();
         const tbl = btn.getAttribute('data-table');
         if (tbl && tbl !== state.currentTableId) {
           state.currentTableId = tbl;
@@ -2690,6 +2738,8 @@ let cols = [];
           log('switched to table ' + state.currentTableId);
           fullReload().catch(e => log('switch error: ' + e.message));
         }
+        renderJobsWorkflows();
+        if (!tbl || tbl === state.rowsTableId) void flushPushRefresh();
       });
     });
 
