@@ -13,9 +13,16 @@
 
 services:
   n8n-table-ui:
-    build:
-      context: ./n8n-table-ui
-      dockerfile: Dockerfile
+    # Published image (no local checkout needed):
+    #   docker pull thegmpteam/n8n-table-ui:beta
+    # To build from this checkout instead, comment out `image:` and uncomment `build:`.
+    image: thegmpteam/n8n-table-ui:beta
+    # build:
+    #   context: ./n8n-table-ui
+    #   dockerfile: Dockerfile
+    #   args:
+    #     GIT_BRANCH: beta
+    #     VERSION: 1.0.0-beta
     container_name: n8n-table-ui
     restart: unless-stopped
     ports:

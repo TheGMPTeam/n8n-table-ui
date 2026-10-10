@@ -2,6 +2,22 @@
 
 A trusted-LAN table and per-asset Review interface for n8n. **Beta publication is not deployment or production-readiness certification.** Final assembly/upload is not connected, and the complete UI test suite still has 17 failures.
 
+## Run from the published image
+
+The UI is published as a public image — no local checkout or build required:
+
+```sh
+docker pull thegmpteam/n8n-table-ui:beta
+```
+
+`docker-compose.n8n-table-ui.yml` uses that image by default. To build from a
+checkout instead, comment out `image:` and uncomment the `build:` block in that
+file. An immutable digest is available as `thegmpteam/n8n-table-ui:sha-<short-sha>`.
+
+Publishing the image does not change the trust boundary: the UI is a
+trusted-LAN service, and the container still needs `N8N_API_KEY` supplied at
+runtime. Never expose port 3458 unauthenticated.
+
 ## Install: VirusGPT-derived terminal CLI, no host Python
 
 The stack installer now lives in the separate [TheGMPTeam/n8n-ai-stack](https://github.com/TheGMPTeam/n8n-ai-stack) repository. It is derived from the actual [VirusGPT](https://github.com/TheGMPTeam/VirusGPT) `vgctl.py` control/diagnostic foundation, ported to JavaScript to meet the no-host-Python requirement. Its source mapping, preserved MIT attribution and pinned foundation commit are documented in that repository's `FOUNDATION.md`.
