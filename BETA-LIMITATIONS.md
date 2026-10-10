@@ -8,9 +8,9 @@ This is an explicitly authorized experimental beta, not a production-ready relea
 - Three Jobs editor harness failures were repaired by supplying the DOM focus/document and tracking helper dependencies used by the current editor; all three original behavioral assertions now pass.
 - `npm run build`: passed, including complete inline browser script compilation.
 - Focused current-contract Config/enhancement/trusted-LAN Review/Home Push/CRUD-first Setup tests: 18 passed.
-- Python importer/helper tests: 7 passed, using instrumented mock transports and mocked Torch, not live imports/model boot.
-- External FFmpeg prerequisite tests: 3 passed (missing image, unavailable image, inspect-only success).
-- Preflight passed with the operator's existing local `config-ffmpeg-api` image: all nine services, real bundled build contexts, Python AST, 11 native workflow Code graphs and Compose config. The sample `ffmpeg-api:latest` was unavailable and was correctly rejected; no image was pulled or built.
+- Legacy Python discovery: 14 tests passed across old installer/downloader/importer/helper fixtures. They are historical source checks, not the current no-host-Python CLI or native model/import evidence.
+- The supported installer is the separate private TheGMPTeam/n8n-ai-stack beta: a JavaScript port of the benign VirusGPT vgctl.py foundation. Its own tests/build and isolated source/Compose/UI/Pocket image builds are reported there.
+- Exactly six current selectable services: n8n-table-ui, n8n, ollama, pockettts, searxng, comfyui. Legacy nine-service check_setup.py/Caddyfile/external-image fixtures are not the current preflight and FFMPEG_IMAGE is not an installation prerequisite.
 - No fresh stack boot, production generation, schema write, approval, workflow import, acoustic acceptance or live updater activation was performed.
 
 ## Remaining full-suite failures
@@ -39,6 +39,6 @@ Two pipeline harness failures remain: readiness fixture/contract mismatch and an
 
 ## External dependencies and missing stages
 
-FFmpeg implementation source and generated source patches are excluded by the user's publication choice. The nine-service Compose requires an operator-supplied compatible `FFMPEG_IMAGE`, verified locally by preflight; the example local tag is not a published image. Pocket source retains its upstream MIT license. No external model/voice/source rights are granted or presumed.
+FFmpeg implementation source and generated source patches are excluded by the user's publication choice. The current six-service Compose has no FFmpeg service or FFMPEG_IMAGE requirement. Exported FFmpeg HTTP consumers require an independently supplied external API/endpoint mapping and remain unusable without it. Pocket source retains its upstream MIT license. No external model/voice/source rights are granted or presumed.
 
 Final assembly/upload is not connected. Approval is not final-video completion. Cross-host installation, actual GPU/model/voice readiness, end-to-end audiovisual production and updater activation are unverified. Trusted-LAN Origin checks are not authentication; do not expose this UI directly to the public Internet. Mutable image tags are not reproducible pinned releases.
