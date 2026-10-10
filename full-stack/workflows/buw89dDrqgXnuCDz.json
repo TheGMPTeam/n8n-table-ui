@@ -1,0 +1,399 @@
+{
+  "name": "ComfyUI Error Reset",
+  "nodes": [
+    {
+      "id": "9fa14d77-0afe-4e23-9173-e8359e38adc3",
+      "name": "Catch Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "5c8cbc22-ae8f-45be-90c9-7cc0b63ec2b6",
+      "name": "Read Running ID",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        0
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "vxItbJ4B8uYBtqJ3"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $json.lockId }}"
+            },
+            {
+              "keyName": "workflow",
+              "keyValue": "={{ $json.workflowId }}"
+            },
+            {
+              "keyName": "rowId",
+              "keyValue": "={{ $json.rowId }}"
+            }
+          ]
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "6aba24a3-7330-4ee1-95f4-bd06e17578db",
+      "name": "Clear Job Working",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        2016,
+        0
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Capture Exact Failed Lock').first().json.tableId }}"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Validate Terminal Lock Ownership').first().json._context.currentId }}"
+            },
+            {
+              "keyName": "ExecutionID",
+              "keyValue": "={{ $('Capture Exact Failed Lock').first().json.executionId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Working": false,
+            "LastError": "={{ String($('Read Failed Execution').first().json.data?.resultData?.error?.message || $('Catch Error').first().json.execution?.error?.message || 'Terminal execution failure') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "LastError",
+              "displayName": "LastError",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c0f01194-2d86-4b54-809e-d9b78ca9fca8",
+      "name": "Clear Store",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        0
+      ],
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "vxItbJ4B8uYBtqJ3"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Exact Failed Lock').first().json.lockId }}"
+            },
+            {
+              "keyName": "workflow",
+              "keyValue": "={{ $('Capture Exact Failed Lock').first().json.workflowId }}"
+            },
+            {
+              "keyName": "rowId",
+              "keyValue": "={{ $('Capture Exact Failed Lock').first().json.rowId }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "2fcd44aa-ebe0-4487-82da-8d3a25ff92b9",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        80
+      ],
+      "parameters": {
+        "content": "## ComfyUI Error Reset\n\nCatches **ComfyUI Runner failures** and cleans up orphaned state.\n\n### Triggered by\n\nThe ComfyUI Runner's error output \u2014 when a generation fails (ComfyUI down, prompt reject, timeout, etc.).\n\n### What it does\n\n1. **Read the running job** \u2014 reads the `running_job` store to find the ComfyUI Jobs row ID that was being processed when the error occurred\n2. **Clear the job's Working flag** \u2014 sets `Working=false` on the failed ComfyUI Jobs row so it becomes pickable again for retry\n3. **Clear the store** \u2014 resets the `running_job` store\n\n### Why it matters\n\nWithout this, a failed runner run leaves `Working=true` on the job row. The row becomes invisible to the normal queue picker (which filters `Working=false`). The job is stuck until manually reset.\n\nThis workflow makes failures self-healing \u2014 the row gets cleared and re-enters the queue automatically.",
+        "height": 540,
+        "width": 720,
+        "color": 4
+      }
+    },
+    {
+      "id": "c6d88454-cf38-4a6d-b8fa-4b33d455dd72",
+      "name": "Validate Failure Scope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const tables={\"M9SnVr1xBYNDwJDF\": \"vN5vMR56WpEsdLMn\", \"MZK3Pv01FHqZbooz\": \"xKckTZI3ZU5HqIpZ\", \"TWMnQqnEwD7qTfbp\": \"vN5vMR56WpEsdLMn\", \"x4AirppgK2nvJGuf\": \"vN5vMR56WpEsdLMn\"};const workflowId=String($json.workflow?.id||'');const executionId=String($json.execution?.id||'');if(!tables[workflowId]||!/^\\d+$/.test(executionId))return [];return [{json:{workflowId,executionId,tableId:tables[workflowId]}}];"
+      }
+    },
+    {
+      "id": "6604e035-0662-4c4f-a9d3-77ae7d33ab6f",
+      "name": "Read Failed Execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "url": "={{ 'http://10.0.0.157:5678/api/v1/executions/'+$json.executionId+'?includeData=true' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "options": {}
+      },
+      "credentials": {
+        "n8nApi": {
+          "id": "pGnySYqCqyJo5BZ8",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "id": "b77da78c-d9cc-459e-be93-9e4a1c7614b5",
+      "name": "Capture Exact Failed Lock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const scope=$('Validate Failure Scope').first().json;const e=$('Read Failed Execution').first().json;if(String(e.workflowId)!==scope.workflowId||String(e.id)!==scope.executionId)throw new Error('Execution ownership mismatch');if(!['error','crashed','canceled'].includes(e.status)||!e.stoppedAt||e.waitTill)return [];const lists=['Read Active Executions','Read Waiting Executions','Read Queued Executions'].map(n=>$(n).first().json);if(lists.some(l=>l.nextCursor||!Array.isArray(l.data)))return [];const active=lists.flatMap(l=>l.data);if(active.some(x=>String(x.id)===scope.executionId))return [];const run=e.data?.resultData?.runData||{};const captured=run['Capture Acquired Lock']||[];let c=null;\nif(captured.length){const last=captured[captured.length-1];const items=(last.data?.main?.[0]||[]).map(i=>i.json._context).filter(Boolean);if(items.length!==1)return [];c=items[0];}\nelse {const legacyName=scope.workflowId==='MZK3Pv01FHqZbooz'?'Set Running ID':'Insert row';const entries=run[legacyName]||[];if(!entries.length)return [];const items=(entries[entries.length-1].data?.main?.[0]||[]).map(i=>i.json);if(items.length!==1)return [];const l=items[0];c={workflowId:String(l.workflow),currentId:l.rowId,lockId:l.id,source:'legacy',executionId:scope.executionId};}\nif((c.executionId!==undefined && String(c.executionId)!==scope.executionId)||c.workflowId!==scope.workflowId||!Number.isSafeInteger(c.currentId)||c.currentId<=0||!Number.isSafeInteger(c.lockId)||c.lockId<=0)return [];return [{json:{...c,rowId:c.currentId,executionId:scope.executionId,eventworkflowId:scope.workflowId,tableId:scope.tableId,hasActiveOwnerWorkflow:active.some(x=>String(x.workflowId)===scope.workflowId)}}];"
+      }
+    },
+    {
+      "id": "1bdb0698-a541-49eb-9273-f703793e4372",
+      "name": "Read Active Executions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "url": "http://10.0.0.157:5678/api/v1/executions?status=running&limit=100",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "options": {}
+      },
+      "credentials": {
+        "n8nApi": {
+          "id": "pGnySYqCqyJo5BZ8",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "id": "1bd3ce64-8464-4a44-9657-05ff62a5460a",
+      "name": "Read Waiting Executions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        896,
+        0
+      ],
+      "parameters": {
+        "url": "http://10.0.0.157:5678/api/v1/executions?status=waiting&limit=100",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "options": {}
+      },
+      "credentials": {
+        "n8nApi": {
+          "id": "pGnySYqCqyJo5BZ8",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "id": "a0420b9f-f385-4e1f-a9bd-c8b92b6190fc",
+      "name": "Read Queued Executions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1120,
+        0
+      ],
+      "parameters": {
+        "url": "http://10.0.0.157:5678/api/v1/executions?status=new&limit=100",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "options": {}
+      },
+      "credentials": {
+        "n8nApi": {
+          "id": "pGnySYqCqyJo5BZ8",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "id": "d58a580d-9c8c-4259-9164-65433bc2d97e",
+      "name": "Validate Terminal Lock Ownership",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const c=$('Capture Exact Failed Lock').first().json;const l=$json;if(l.id!==c.lockId||String(l.workflow)!==c.workflowId||l.rowId!==c.currentId)return [];if(l.executionId!=null && String(l.executionId)!==c.executionId)return [];if(l.executionId==null && c.hasActiveOwnerWorkflow)return [];return [{json:{...l,_context:c}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Catch Error": {
+      "main": [
+        [
+          {
+            "node": "Validate Failure Scope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Running ID": {
+      "main": [
+        [
+          {
+            "node": "Validate Terminal Lock Ownership",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Job Working": {
+      "main": [
+        [
+          {
+            "node": "Clear Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Failure Scope": {
+      "main": [
+        [
+          {
+            "node": "Read Failed Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Failed Execution": {
+      "main": [
+        [
+          {
+            "node": "Read Active Executions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Exact Failed Lock": {
+      "main": [
+        [
+          {
+            "node": "Read Running ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Active Executions": {
+      "main": [
+        [
+          {
+            "node": "Read Waiting Executions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Waiting Executions": {
+      "main": [
+        [
+          {
+            "node": "Read Queued Executions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Queued Executions": {
+      "main": [
+        [
+          {
+            "node": "Capture Exact Failed Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Terminal Lock Ownership": {
+      "main": [
+        [
+          {
+            "node": "Clear Job Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "availableInMCP": false,
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "id": "buw89dDrqgXnuCDz",
+  "active": false
+}

@@ -1,0 +1,24 @@
+{
+  "ollamaExactTags": [
+    "granite4.2:latest",
+    "muse-glimmer:30b-q4_K_M-dflash",
+    "nemotron-3.5-lightning:latest",
+    "qwen3.8:latest"
+  ],
+  "comfyModelFiles": [
+    "ae.safetensors",
+    "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+    "gemma4_e2b_it_int8_convrot.safetensors",
+    "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+    "ltx-2.5-22b-distilled-transformer-nvfp4.safetensors",
+    "ltx-2.5-audio-vae-bf16.safetensors",
+    "ltx-2.5-latent-temporal-upscaler-x2-bf16-1.0.safetensors",
+    "ltx-2.5-video-vae-bf16.safetensors",
+    "qwen_3_4b.safetensors",
+    "z_image_turbo_bf16.safetensors"
+  ],
+  "voices": "Operator supplies authorized references and registry IDs; Jarvis reference/audio/cache not distributed",
+  "unconfiguredTemplates": [
+    "Text to image 20"
+  ]
+}

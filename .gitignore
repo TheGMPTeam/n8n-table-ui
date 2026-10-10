@@ -1,10 +1,25 @@
+# Runtime files and operator secrets are never release inputs.
+.env
+.env.*
+!.env.example
+full-stack/data/
+full-stack/*.private.json
+full-stack/credential-map.json
+full-stack/import-state.json
+**/__pycache__/
+*.pyc
+*.pem
+*.key
+*.crt
+review-secret
+setup-table-map.json
 # local node deps
 node_modules/
-__pycache__/
-*.pyc
 
 # runtime state — bind mounted at runtime, never commit host state
 .data/
+# Private server-side enhancement choice (also ignore standalone copies).
+ollama-enhancement-settings.json
 
 # logs
 *.log

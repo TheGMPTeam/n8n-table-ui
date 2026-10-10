@@ -1,0 +1,5 @@
+{
+  "http://10.0.0.157:8188": "http://REPLACE_TRUSTED_LAN_HOST:8188",
+  "http://10.0.0.157:5678": "http://n8n:5678",
+  "http://10.0.0.157:11434": "http://ollama:11434"
+}

@@ -1,0 +1,2520 @@
+{
+  "name": "ComfyUI Runner",
+  "nodes": [
+    {
+      "id": "d2cfa841-ed98-4923-9e9d-ba8eccc2ee12",
+      "name": "Webhook run",
+      "webhookId": "a2a51b6b-5cc9-466f-8345-7189609582d1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        288
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yt-Test",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "8eef7814-1033-4ad4-a80a-034c47dbdcac",
+      "name": "Inject fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueErrorOutput",
+      "position": [
+        4256,
+        0
+      ],
+      "parameters": {
+        "jsCode": "if(!$('Normalize Bypass Context').isExecuted){const h=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'}).format(new Date()));if(h>=7&&h<22)throw Error('Nighttime window closed before submission');}\nconst __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst currentJob = $('Capture Current Job').item.json;\nconst seedRaw = currentJob.currentJobSeed !== undefined && currentJob.currentJobSeed !== null && currentJob.currentJobSeed !== '' ? currentJob.currentJobSeed : 0;\nconst seed = Number(seedRaw) || 0;\nconst rowId = Number(currentJob.currentJobId) || 0;\nconst prompt = String(currentJob.currentJobPrompt || 'a neutral standing portrait, soft studio light');\n\n// Baked-in FieldMap per type - only 3 API templates exist, no need for FieldMap/NeedsFrames\n// columns on ComfyUI_Templates. Node IDs verified by tracing each template's graph\n// backward from its Save node.\nconst FIELD_MAPS = {\n  \"Text to image\": {\n    positive: \"57:27\", prompt: \"57:27\", seed: \"57:3\",\n    extra: {\n      width: { node: \"57:13\", input: \"width\" },\n      height: { node: \"57:13\", input: \"height\" }\n    }\n  },\n  \"Image to video\": {\n    positive: \"398:364\", prompt: \"398:364\", negative: \"398:373\",\n    image1: \"395\", seed: \"398:339\",\n    extra: {\n      duration: { node: \"398:362\", input: \"value\" },\n      fps: { node: \"398:361\", input: \"value\" },\n      promptEnhance: { node: \"398:383\", input: \"value\" },\n      seed2: { node: \"398:338\", input: \"noise_seed\" },\n      // Overwrites the PrimitiveInt passthroughs directly, bypassing the\n      // Resolution Selector node (403) entirely.\n      width: { node: \"398:372\", input: \"value\" },\n      height: { node: \"398:360\", input: \"value\" }\n    }\n  },\n  \"FLF to video\": {\n    positive: \"251:222\", prompt: \"251:222\", negative: \"251:217\",\n    image1: \"31\", image2: \"39\", seed: \"251:196\",\n    extra: {\n      duration: { node: \"251:198\", input: \"value\" },\n      fps: { node: \"251:205\", input: \"value\" },\n      promptEnhance: { node: \"251:250\", input: \"value\" },\n      width: { node: \"251:215\", input: \"value\" },\n      height: { node: \"251:216\", input: \"value\" }\n    }\n  }\n};\n\nconst map = FIELD_MAPS[currentJob.currentJobType];\nif (!map) throw new Error(\"Unsupported template type\");\n\nconst tpl = $('Get template').item.json;\nlet api;\nlet apiParseError = null;\ntry { api = typeof tpl.API === 'string' ? JSON.parse(tpl.API) : (tpl.API || {}); } catch (e) { api = {}; apiParseError = e.message; }\n\nif (apiParseError || !api || Array.isArray(api) || !Object.keys(api).length || Object.values(api).some(n => !n || typeof n.class_type !== \"string\" || !n.inputs)) throw new Error(\"Missing or invalid API template\");\nconst dependencyMetadata=typeof tpl.Dependencies==='string'?JSON.parse(tpl.Dependencies):tpl.Dependencies;if(!dependencyMetadata||dependencyMetadata.version!==1||!Array.isArray(dependencyMetadata.inputs))throw Error('Invalid template Dependencies');if(dependencyMetadata.inputs.length>2)throw Error('Unsupported image binding count');if(dependencyMetadata.inputs.length){map.image1=dependencyMetadata.inputs[0].target.node;map.image2=dependencyMetadata.inputs[1]?.target.node;}\nlet frames = [];\ntry { frames = $('Collect frame names').item.json.frames || []; } catch (e) {}\n\n// ------------------------------------------------------------\n// DEBUG: track which mapped keys actually existed in the parsed\n// API object, vs which were silently skipped.\n// ------------------------------------------------------------\nconst hit = [];\nconst miss = [];\n\nfunction tryInject(label, nodeId, fn) {\n  if (!nodeId) return;\n  if (api[nodeId] && api[nodeId].inputs) {\n    fn();\n    hit.push(label + ' -> node ' + nodeId);\n  } else {\n    miss.push(label + ' -> node ' + nodeId + ' (not found in api)');\n  }\n}\n\ntryInject('positive', map.positive, () => { api[map.positive].inputs.text = prompt; });\ntryInject('prompt', map.prompt, () => { api[map.prompt].inputs.text = prompt; });\n// Preserve template negative prompt unless Params.negativePrompt is supplied.\ntryInject('seed', map.seed, () => {\n  const inputs = api[map.seed].inputs;\n  if (inputs.noise_seed !== undefined) inputs.noise_seed = seed;\n  else if (inputs.seed !== undefined) inputs.seed = seed;\n  else throw new Error('Mapped seed node has neither seed nor noise_seed');\n});\nif (map.image1 && frames[0]) {\n  tryInject('image1', map.image1, () => { api[map.image1].inputs.image = frames[0]; });\n}\nif (map.image2) {\n  tryInject('image2', map.image2, () => { api[map.image2].inputs.image = (frames[1] || frames[0] || ''); });\n}\n\n// Runtime params (duration, fps, prompt-enhance, second seed, width/height, etc.) -\n// optional, applied only when the job's Params column explicitly supplies them.\nlet params = {};\ntry { params = typeof currentJob.currentJobParams === 'string' ? JSON.parse(currentJob.currentJobParams) : (currentJob.currentJobParams || {}); } catch (e) {}\nif (params.negativePrompt !== undefined && map.negative) {\n  if (typeof params.negativePrompt !== 'string') throw new Error('Params.negativePrompt must be a string');\n  tryInject('negative', map.negative, () => { api[map.negative].inputs.text = params.negativePrompt; });\n}\nif (map.extra && typeof map.extra === 'object') {\n  for (const [key, target] of Object.entries(map.extra)) {\n    if (params[key] !== undefined) {\n      tryInject('extra.' + key, target && target.node, () => { api[target.node].inputs[target.input] = params[key]; });\n    }\n  }\n}\n\nif (miss.length) throw new Error('Required template fields missing: '+miss.join(', '));\nif (map.image1 && !frames[0]) throw new Error('Missing first frame');\nif (map.image2 && !frames[1]) throw new Error('Missing last frame');\nconst templateStr = JSON.stringify({ prompt: api });\n\n// If literally nothing was injected, fail loudly instead of silently\n// POSTing an untouched template to ComfyUI.\nif (hit.length === 0) {\n  throw new Error(\n    'Inject fields: NOTHING matched for type \"' + currentJob.currentJobType + '\". ' +\n    (apiParseError ? ('API JSON failed to parse: ' + apiParseError + '. ') : '') +\n    'Expected node keys: ' + JSON.stringify(map) + '. ' +\n    'Actual top-level keys in parsed API: ' + JSON.stringify(Object.keys(api))\n  );\n}\n\nreturn [{ json: { templateStr: templateStr, rowId: rowId, prompt: prompt, _injectHit: hit, _injectMiss: miss } }];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "c749f606-280e-47f5-abfa-7276ce303397",
+      "name": "POST ComfyUI /prompt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueErrorOutput",
+      "position": [
+        4480,
+        80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.0.0.157:8188/prompt",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={{ $json.templateStr }}",
+        "options": {
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DzRhWnp2AoLPfs38",
+          "name": "ComfyUI-Login Bearer (restricted hosts)"
+        }
+      }
+    },
+    {
+      "id": "1e69a3c0-8f3a-4b29-b719-1c55cc8d0b53",
+      "name": "Poll /history",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueErrorOutput",
+      "position": [
+        4928,
+        272
+      ],
+      "parameters": {
+        "url": "=http://10.0.0.157:8188/history/{{ $('Store Prompt Info').item.json.prompt_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DzRhWnp2AoLPfs38",
+          "name": "ComfyUI-Login Bearer (restricted hosts)"
+        }
+      }
+    },
+    {
+      "id": "b7837dda-6ebd-40be-9afa-603888bdc442",
+      "name": "Is ComfyUI done?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        5824,
+        368
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "done-safe",
+              "leftValue": "={{ $json._done }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "219d57da-518c-4c00-a4bf-dd7056a47d93",
+      "name": "Wait",
+      "webhookId": "61073e94-0edc-40f8-a1cb-5646a3ddc596",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        6048,
+        512
+      ],
+      "parameters": {
+        "amount": 10
+      }
+    },
+    {
+      "id": "8c85833d-148d-441e-bee1-bcd676b9d5fb",
+      "name": "Mark completed",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "continueOnFail": true,
+      "onError": "continueErrorOutput",
+      "position": [
+        6272,
+        320
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "xKckTZI3ZU5HqIpZ"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Completed": true,
+            "URL": "={{ $json.outputUrl }}",
+            "Working": false
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Working",
+              "displayName": "Working",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "prompt",
+              "displayName": "prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ref",
+              "displayName": "ref",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "JobID",
+              "displayName": "JobID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Params",
+              "displayName": "Params",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ea0213b5-9a51-40ee-b256-7a9fa3ac2c1a",
+      "name": "Parse output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueErrorOutput",
+      "position": [
+        6048,
+        240
+      ],
+      "parameters": {
+        "jsCode": "const job=$('Capture Current Job').item.json;const pid=$('Store Prompt Info').item.json.prompt_id;const result=$json.body?.[pid];if(!result||result.status?.status_str==='error')throw Error('Missing or failed exact prompt history');const wantVideo=job.currentJobType!=='Text to image';const files=Object.values(result.outputs||{}).flatMap(o=>[...(o.images||[]),...(o.gifs||[]),...(o.videos||[])]);const matching=files.filter(f=>typeof f.filename==='string'&&(wantVideo?/\\.(mp4|webm|mov|gif)$/i:/\\.(png|jpe?g|webp)$/i).test(f.filename));if(!matching.length)throw Error('Missing valid expected output filename/type');const f=matching[0];const url='http://10.0.0.157:8188/view?filename='+encodeURIComponent(f.filename)+(f.subfolder?'&subfolder='+encodeURIComponent(f.subfolder):'')+(f.type?'&type='+encodeURIComponent(f.type):'');return [{json:{rowId:job.currentJobId,outputUrl:url,filename:f.filename,isVideo:wantVideo,subfolder:f.subfolder||''},pairedItem:{item:0}}];"
+      }
+    },
+    {
+      "id": "488fabfb-3a7a-4274-a329-db490ab17535",
+      "name": "Needs frames?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2688,
+        432
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "needs-frames-1",
+              "leftValue": "={{ $('Resolve exact dependencies before claim').item.json._dependency.frames.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "afe397f6-5367-4942-9bd4-e184e41d4ca0",
+      "name": "Get last 2 T2I frames",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput",
+      "position": [
+        2912,
+        1088
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "xKckTZI3ZU5HqIpZ",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "JobID",
+              "keyValue": "={{ $('Capture Current Job').item.json.currentJobJobID }}"
+            }
+          ]
+        },
+        "returnAll": true,
+        "orderBy": true,
+        "orderByColumn": "updatedAt"
+      }
+    },
+    {
+      "id": "e89e1a9c-0451-4ced-bf8b-908964ff32ca",
+      "name": "GET frame /view",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueErrorOutput",
+      "position": [
+        3584,
+        1280
+      ],
+      "parameters": {
+        "url": "={{ (() => { const raw=String($json.URL||''); const m=/^(https?):\\/\\/([^/?#]+)(\\/view\\?[^#]*)$/i.exec(raw); if(!m||!['comfyui:8188','localhost:8188','127.0.0.1:8188','10.0.0.157:8188'].includes(m[2].toLowerCase())) throw new Error('Untrusted ComfyUI frame destination'); if(!/(?:\\?|&)filename=[^&]+/.test(m[3])) throw new Error('Missing ComfyUI frame filename'); return 'http://10.0.0.157:8188'+m[3]; })() }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "image"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DzRhWnp2AoLPfs38",
+          "name": "ComfyUI-Login Bearer (restricted hosts)"
+        }
+      }
+    },
+    {
+      "id": "9f9a9b8b-317b-40cd-adaf-b6f1cc631128",
+      "name": "POST upload /image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": false,
+      "onError": "continueErrorOutput",
+      "position": [
+        3808,
+        1344
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.0.0.157:8188/upload/image",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "image",
+              "inputDataFieldName": "image"
+            }
+          ]
+        },
+        "options": {
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DzRhWnp2AoLPfs38",
+          "name": "ComfyUI-Login Bearer (restricted hosts)"
+        }
+      }
+    },
+    {
+      "id": "e82ec6c0-5774-4ac5-af80-815009cbec9c",
+      "name": "Collect frame names",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueErrorOutput",
+      "position": [
+        4032,
+        1424
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst items = $input.all();\nconst frames = items.map(i => i.json.name).filter(Boolean);\nreturn [{ json: { frames } }];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "9aea12a8-6f56-4c46-92da-0fdb0b24e7d3",
+      "name": "Get template",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput",
+      "position": [
+        2240,
+        288
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "haulC2FnGWqHb0no"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "type",
+              "keyValue": "={{ $('Capture Current Job').item.json.currentJobType }}"
+            }
+          ]
+        },
+        "limit": 1
+      }
+    },
+    {
+      "id": "46618667-4451-4f9e-9512-cc22ef1a657a",
+      "name": "Set Working",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "continueOnFail": true,
+      "onError": "continueErrorOutput",
+      "position": [
+        2016,
+        224
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "xKckTZI3ZU5HqIpZ"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Completed": false,
+            "Working": true,
+            "ExecutionID": "={{ String($execution.id) }}",
+            "AttemptCount": "={{ (() => { const n = Number($('Capture Acquired Lock').item.json.AttemptCount); return (Number.isFinite(n) && n >= 0 ? n : 0) + 1; })() }}",
+            "LastError": "",
+            "RequestKey": "={{ String($workflow.id) + ':' + 'xKckTZI3ZU5HqIpZ' + ':' + String($('Capture Acquired Lock').item.json._context.currentId) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Working",
+              "displayName": "Working",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "prompt",
+              "displayName": "prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ref",
+              "displayName": "ref",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "JobID",
+              "displayName": "JobID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Params",
+              "displayName": "Params",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ExecutionID",
+              "displayName": "ExecutionID",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "AttemptCount",
+              "displayName": "AttemptCount",
+              "type": "number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LastError",
+              "displayName": "LastError",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "RequestKey",
+              "displayName": "RequestKey",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8976f257-ce52-4fe4-9c7d-9b792a62e1fb",
+      "name": "Get row(s)1",
+      "notesInFlow": true,
+      "notes": "Returns 0 items if the row is already completed/working.",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "alwaysOutputData": true,
+      "position": [
+        448,
+        288
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "xKckTZI3ZU5HqIpZ",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $json.currentId }}"
+            }
+          ]
+        },
+        "limit": 1
+      }
+    },
+    {
+      "id": "874d9cf6-e566-4d88-bebc-c3abd5e9faa9",
+      "name": "Clear Working",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "continueOnFail": true,
+      "onError": "continueErrorOutput",
+      "position": [
+        6496,
+        432
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "xKckTZI3ZU5HqIpZ"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Working": false
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Working",
+              "displayName": "Working",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "prompt",
+              "displayName": "prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ref",
+              "displayName": "ref",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "JobID",
+              "displayName": "JobID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9317d6cc-1382-4147-9923-841056febcc8",
+      "name": "Time Saved1",
+      "type": "n8n-nodes-base.timeSaved",
+      "typeVersion": 1,
+      "position": [
+        6272,
+        576
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "2ae3f5a0-5e5a-4791-aca4-bc868bb5cdc2",
+      "name": "Set Running ID",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        224
+      ],
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "vxItbJ4B8uYBtqJ3"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "rowId": "={{ $json._context.currentId }}",
+            "status": "Working",
+            "workflow": "={{ $json._context.workflowId }}",
+            "executionId": "={{ $execution.id }}",
+            "HeartbeatAt": "={{ $now.toISO() }}",
+            "LeaseUntil": "={{ $now.plus({ seconds: 3600 }).toISO() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "rowId",
+              "displayName": "rowId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "executionId",
+              "displayName": "executionId",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "HeartbeatAt",
+              "displayName": "HeartbeatAt",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LeaseUntil",
+              "displayName": "LeaseUntil",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "44c1be82-0294-4b3b-bab8-81a02ff0b509",
+      "name": "Clear Running ID",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        6944,
+        224
+      ],
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "vxItbJ4B8uYBtqJ3"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.lockId }}"
+            },
+            {
+              "keyName": "workflow",
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.workflowId }}"
+            },
+            {
+              "keyName": "rowId",
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "011a40bb-cbd9-4dde-9b54-dfb509ad787c",
+      "name": "Store Prompt Info",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueErrorOutput",
+      "position": [
+        4704,
+        144
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nif ($json.error || ($json.node_errors && Object.keys($json.node_errors).length) || typeof $json.prompt_id !== 'string' || !$json.prompt_id) throw new Error('Generation submission failed');\nreturn [{json:{prompt_id:$json.prompt_id,_submittedAt:Date.now(),rowId:$('Inject fields').item.json.rowId}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "199a1730-3071-4072-9f43-52d2861eba10",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2704,
+        -544
+      ],
+      "parameters": {
+        "content": "## ComfyUI Generation Runner\n\nPicks up **one ComfyUI Jobs queue row at a time** and executes the corresponding generation.\n\n### How it works\n\n1. **Pick a queue row** \u2014 reads ComfyUI Jobs for rows where `type=X`, `Completed=false`, `Working=false`\n2. **Lock the row** \u2014 sets `Working=true` so no other run picks it up\n3. **Look up the template** \u2014 matches the job's `type` to a ComfyUI_Templates row (same type string)\n4. **Inject job data** \u2014 rewrites the workflow:\n   - Sets the prompt text from the job's `prompt` column\n   - For I2V: finds the matching T2I job (by ref + JobID) and rewrites the LoadImage filename to the T2I output\n   - For FLF: finds the first + last scene T2I jobs (by ref) and rewrites both LoadImage filenames\n   - Sets runtime params (duration, fps, prompt enhance toggle) if the job specifies them\n5. **POST to ComfyUI** \u2014 sends the injected workflow JSON to `/prompt`\n6. **Poll for completion** \u2014 loops on `/history/<prompt_id>` until generation finishes\n7. **Mark done** \u2014 sets `Completed=true`, writes the output URL to the job row\n8. **Clear lock** \u2014 sets `Working=false`\n\n### Image-first ordering\n\nImages are generated before videos. I2V and FLF jobs depend on their source T2I images being ready. If a source T2I isn't completed when the video job is picked up, the runner skips it (Working stays false, row stays in queue for retry).\n\n### Error handling\n\nErrors are caught by the **ComfyUI Error Reset** workflow, which clears the Working flag on the failed row so it can be retried.",
+        "height": 732,
+        "width": 976,
+        "color": 4
+      }
+    },
+    {
+      "id": "0e103d66-c275-44fa-a03f-8f7f42050ef7",
+      "name": "Get row(s)2",
+      "notesInFlow": true,
+      "notes": "Returns 0 items if no pending row of this type exists.",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "alwaysOutputData": true,
+      "position": [
+        6944,
+        1728
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "xKckTZI3ZU5HqIpZ",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "Completed",
+              "condition": "isFalse"
+            },
+            {
+              "keyName": "Working",
+              "condition": "isFalse"
+            }
+          ]
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "81f28f6a-f209-4ad5-b970-9887c7bf6212",
+      "name": "Capture Current Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        224
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst params = typeof $json.Params === 'string' ? JSON.parse($json.Params || '{}') : ($json.Params || {});\nif (!params || typeof params !== 'object' || Array.isArray(params)) throw new Error('Invalid Params');\nconst types = {text_to_image:'Text to image',image_to_video:'Image to video',flf_to_video:'FLF to video'};\nconst type = types[$json.type] || $json.type;\nif(typeof type!=='string'||!type.trim())throw new Error('Missing job type');\nconst seed = params.seed ?? 0;\nif (!Number.isSafeInteger(Number(seed)) || Number(seed)<0) throw new Error('Invalid Params.seed');\nreturn [{json:{...$json,type,currentJobId:$json.id,currentJobJobID:$json.JobID ?? null,currentJobType:type,currentJobPrompt:$json.prompt || '',currentJobSeed:Number(seed),currentJobParams:params}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "c6361c44-201f-4312-bebe-d0372a6cd036",
+      "name": "Check frames ready",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueErrorOutput",
+      "position": [
+        3136,
+        1152
+      ],
+      "parameters": {
+        "jsCode": "const result=$('Resolve exact dependencies before claim').item.json._dependency;if(result.status!=='ready'||!result.frames.length)throw Error('Exact prerequisites no longer ready');return result.frames.map(r=>({json:r,pairedItem:$input.all().map((_,item)=>({item}))}));"
+      }
+    },
+    {
+      "id": "e8d30f4c-9bbd-4875-a97c-267a8eded7f6",
+      "name": "Source ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3360,
+        1232
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "source-ready-check",
+              "leftValue": "={{ $json._skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8bba8a4b-1079-46a9-b9cd-160665ca5785",
+      "name": "Skip - Clear Working",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        6720,
+        0
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "xKckTZI3ZU5HqIpZ"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
+            },
+            {
+              "keyName": "ExecutionID",
+              "keyValue": "={{ String($execution.id) }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Working": false,
+            "LastError": "={{ typeof $json.error === 'string' ? $json.error : ($json.error?.message || $json.message || $json.reason || 'Stage failed; inspect execution ' + String($execution.id)) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Working",
+              "displayName": "Working",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "prompt",
+              "displayName": "prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ref",
+              "displayName": "ref",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "JobID",
+              "displayName": "JobID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "LastError",
+              "displayName": "LastError",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "32f20373-224f-4195-bba9-df0e45864272",
+      "name": "If1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        896,
+        288
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "adf13b6d-787e-4bb6-a1e0-62f77f6d8423",
+              "leftValue": "={{ $json.isEmpty() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7ce77109-b97f-4a29-9825-687ed4310221",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        7392,
+        896
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "aa731327-dc9d-44bc-9a2b-f5e03b991822",
+      "name": "Continue Loop?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        7168,
+        224
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "continue-loop-check",
+              "leftValue": "={{ ($('Webhook run').isExecuted ? ($('Webhook run').first().json.body?.ALL ?? $('Webhook run').first().json.query?.ALL ?? $('Webhook run').first().json.ALL) : undefined) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "45081382-cf96-48aa-928a-69185daf07d9",
+              "leftValue": "={{ ($('Schedule Trigger').isExecuted ? $('Schedule Trigger').first().json.timestamp : undefined) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "dateTime",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "37663369-f23d-4dca-8e5f-eec3c7c528fe",
+      "name": "Template found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2464,
+        368
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "template-found-check",
+              "leftValue": "={{ $json.type }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6c5318c6-02c1-4c04-9fd5-10dd477b015b",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        6720,
+        1728
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */15 0-6,22-23 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "777e9a04-dc01-4d56-81fb-a9856add8411",
+      "name": "Validate History",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueErrorOutput",
+      "position": [
+        5152,
+        288
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst body=$json.body || {};\nconst pid=$('Store Prompt Info').item.json.prompt_id;\nconst result=body[pid];\nif ($json.error || ($json.statusCode && $json.statusCode >= 400)) throw new Error('History request failed');\nif (result?.status?.status_str === 'error' || result?.status?.messages?.some(m=>m[0]==='execution_error')) throw new Error('Generation error');\nconst done=!!result?.outputs && Object.values(result.outputs).some(o=>o?.images?.length || o?.gifs?.length);\nif (!done && Date.now()-$('Store Prompt Info').item.json._submittedAt >= 1200000) throw new Error('Generation polling timeout');\nreturn [{json:{...$json,_done:done}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "1f8bf648-3b0e-4adb-a514-9f784c2e89fa",
+      "name": "Exact row: reject active lock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        288
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nreturn $input.all().filter(item => Number.isSafeInteger(item.json.id) && item.json.id > 0 && item.json.Working !== true);\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "d63181bf-1c7e-4312-ac90-f622c3ec94e2",
+      "name": "Normalize Bypass Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        288
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst raw={...($json.query||{}),...($json.body||{})};const values=[raw.Id,raw.Row,raw.RowID].filter(v=>v!==undefined);const s=String(values[0]??'');if(!/^[1-9][0-9]*$/.test(s)||!Number.isSafeInteger(Number(s))||values.some(v=>String(v)!==s))throw new Error('invalid_request: Id must be one positive safe decimal row ID');if(raw.ByPass!==undefined && ![true,'true'].includes(raw.ByPass))throw new Error('invalid_request: ByPass must be true');return [{json:{workflowId:String($workflow.id),currentId:Number(s),lockId:null,source:'webhook',ByPass:true}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "e5e1e87b-467a-4aaa-aab0-070222e87870",
+      "name": "Capture Internal Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        224
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst row=$json;if(!Number.isSafeInteger(row.id)||row.id<=0)throw new Error('Invalid selected row');const source=$('Normalize Bypass Context').isExecuted?'webhook':'schedule';if(source==='webhook'&&row.id!==$('Normalize Bypass Context').first().json.currentId)throw new Error('Selected row mismatch');return [{json:{...row,_context:{workflowId:String($workflow.id),currentId:row.id,lockId:null,source,executionId:String($execution.id)}}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "2c488205-b383-43f2-bb1c-a3e27d3acfdd",
+      "name": "Capture Acquired Lock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        224
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst row=$('Capture Internal Context').item.json;const c=row._context;const lock=$json;if(!Number.isSafeInteger(lock.id)||lock.id<=0||String(lock.workflow)!==c.workflowId||lock.rowId!==c.currentId||String(lock.executionId)!==c.executionId)throw new Error('Acquired lock ownership mismatch');return [{json:{...row,_context:{...c,lockId:lock.id}}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "c300078c-e366-497f-afc8-e5a4f761750f",
+      "name": "Canonical scheduled queue gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "retryOnFail": true,
+      "position": [
+        7168,
+        1728
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst allowed=new Set(['Text to image','Image to video','FLF to video','text_to_image','image_to_video','flf_to_video']);return $input.all().flatMap((item,index)=>{const r=item.json;return Number.isSafeInteger(r.id)&&r.id>0&&typeof r.type==='string'&&r.type.trim().length>0&&r.Completed===false&&r.Working===false&&(r.LastError===null||r.LastError===undefined||r.LastError===\"\")?[{json:r,pairedItem:{item:index}}]:[];});\n})();\n__contractOutput.sort((a,b)=>{const count=r=>{try{return JSON.parse(r.Dependencies).inputs.length;}catch{return 999;}};return count(a.json)-count(b.json)||a.json.id-b.json.id;});\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "c41e2b25-cd12-4773-aaf4-667b9120ed17",
+      "name": "Finish",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        7616,
+        128
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "5a77410d-a4a1-401d-9ac3-69e270f0acda",
+      "name": "Record Poll Heartbeat",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        5376,
+        368
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "vxItbJ4B8uYBtqJ3"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.lockId }}"
+            },
+            {
+              "keyName": "workflow",
+              "keyValue": "={{ String($workflow.id) }}"
+            },
+            {
+              "keyName": "rowId",
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
+            },
+            {
+              "keyName": "executionId",
+              "keyValue": "={{ String($execution.id) }}"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "Working"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "HeartbeatAt": "={{ $now.toISO() }}",
+            "LeaseUntil": "={{ $('Set Running ID').item.json.LeaseUntil }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "HeartbeatAt",
+              "displayName": "HeartbeatAt",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LeaseUntil",
+              "displayName": "LeaseUntil",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9c778cb2-eb3f-4e94-857f-cba13e929986",
+      "name": "Restore Poll History",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5600,
+        368
+      ],
+      "parameters": {
+        "jsCode": "return [{json:$('Validate History').item.json,pairedItem:{item:0}}];"
+      }
+    },
+    {
+      "id": "900542ae-cce9-448d-a45c-af8a80238718",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        7840,
+        128
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "6802bf6f-47d6-474c-800a-326924be4e2e",
+      "name": "Respond to Webhook1",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        7616,
+        1536
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "7a9f2fef-e135-44e3-a480-c50bcf623634",
+      "name": "Read fresh dependency queue",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "xKckTZI3ZU5HqIpZ",
+          "mode": "list"
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "ade9c499-d891-4992-b33e-45f6ce747210",
+      "name": "Read fresh dependency templates",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "executeOnce": true,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "haulC2FnGWqHb0no",
+          "mode": "list"
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "37427f40-10b6-4445-871f-1dbc8f46b62b",
+      "name": "Resolve exact dependencies before claim",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const job=$('Capture Current Job').item.json;const rows=$('Read fresh dependency queue').all().map(i=>i.json);const templates=$input.all().map(i=>i.json);const matches=templates.filter(t=>t.type===job.type);let result={status:'failed',reason:'Template missing or ambiguous',frames:[]};if(matches.length===1){const template=matches[0];result=(()=>{\ntry {\nconst parse=(v,label)=>{const p=typeof v==='string'?JSON.parse(v):v;if(!p||typeof p!=='object'||Array.isArray(p))throw Error(label+' must be a JSON object');return p;};\nconst metadata=parse(template.Dependencies,'Template Dependencies');\nconst deps=parse(job.Dependencies,'Queue Dependencies');\nconst graph=parse(template.API,'Template API');\nif(!Object.keys(graph).length||Object.values(graph).some(n=>!n||typeof n.class_type!=='string'||!n.inputs))throw Error('Unconfigured template graph');\nif(metadata.version!==1||deps.version!==1||!Array.isArray(metadata.inputs)||!Array.isArray(deps.inputs))throw Error('Unsupported Dependencies version or inputs');\nif(metadata.inputs.length!==deps.inputs.length)throw Error('Required dependency roles do not match template');\nconst seen=new Set();const selected=[];const params=parse(job.Params||'{}','Params');\nconst byId=new Map(rows.map(r=>[r.id,r]));\nfunction visit(r,path){if(path.has(r.id))throw Error('Dependency cycle');const d=parse(r.Dependencies,'Ancestor Dependencies');if(d.version!==1||!Array.isArray(d.inputs))throw Error('Invalid ancestor dependency metadata');const next=new Set([...path,r.id]);for(const edge of d.inputs){if(!Number.isSafeInteger(edge.rowId)||edge.rowId<=0)throw Error('Invalid ancestor ID');const parent=byId.get(edge.rowId);if(!parent)throw Error('Missing prerequisite row '+edge.rowId);visit(parent,next);}}\nvisit(job,new Set());\nfor(const input of metadata.inputs){\n if(typeof input.role!=='string'||!input.role||seen.has(input.role))throw Error('Invalid or duplicate template role');seen.add(input.role);\n const target=input.target;if(!target||graph[target.node]?.class_type!=='LoadImage'||target.input!=='image'||!(target.input in graph[target.node].inputs))throw Error('Unvalidated image binding '+input.role);\n const matches=deps.inputs.filter(d=>d.role===input.role);if(matches.length!==1)throw Error('Missing/duplicate prerequisite role '+input.role);\n const edge=matches[0];if(!Number.isSafeInteger(edge.rowId)||edge.rowId<=0||edge.rowId===job.id)throw Error('Invalid prerequisite row ID');\n const p=byId.get(edge.rowId);if(!p)throw Error('Missing prerequisite row '+edge.rowId);\n const pp=parse(p.Params||'{}','Parent Params');if(String(p.JobID)!==String(job.JobID)||pp.scene_id!==params.scene_id||pp.frame_role!==input.role||p.type!==input.producerType)throw Error('Prerequisite ownership/type/scene/role mismatch '+edge.rowId);\n if(p.Completed!==true){if(p.LastError)throw Error('Prerequisite '+p.id+' failed: '+p.LastError);return {status:'waiting',reason:'Waiting for prerequisite '+p.id,frames:[]};}\n const u=String(p.URL||'');const match=/^http:\\/\\/(10\\.0\\.0\\.157:8188|comfyui:8188|127\\.0\\.0\\.1:8188|localhost:8188)\\/view\\?[^#]+$/.test(u);if(!match||!/(?:\\?|&)filename=[^&]+/.test(u)||!/(?:\\.png|\\.jpe?g|\\.webp)(?:&|$)/i.test(u))throw Error('Invalid image output URL '+p.id);\n selected.push({...p,_dependencyRole:input.role});\n}\nreturn {status:'ready',reason:'',frames:selected};\n} catch(e){return {status:'failed',reason:e.message,frames:[]};}\n\n})();}const manual=$('Normalize Bypass Context').isExecuted;const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'}).format(new Date()));if(!manual&&hour>=7&&hour<22)result={status:'waiting',reason:'Nighttime window closed',frames:[]};if(!['Text to image','Image to video','FLF to video'].includes(job.type))result={status:'failed',reason:'Unsupported template injection mapping; configure and validate before generation',frames:[]};if(!manual){const start=Date.parse($('Schedule Trigger').first().json.timestamp);if(!Number.isFinite(start)||Date.now()-start>=1500000)result={status:'waiting',reason:'Scheduled batch claim budget exhausted; carry over to next tick',frames:[]};}const live=rows.find(r=>r.id===job.id);if(!live||live.Completed===true||live.Working===true)result={status:'waiting',reason:'Row no longer pending',frames:[]};return [{json:{...job,_dependency:result},pairedItem:$input.all().map((_,item)=>({item}))}];"
+      }
+    },
+    {
+      "id": "cbad99a8-0fe0-4d56-a320-cab1ae11a40a",
+      "name": "Dependencies ready before claim?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4d62162c-ced7-4be4-b94d-a5d8bc5321c3",
+              "leftValue": "={{ $json._dependency.status === \"ready\" }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a2dcd22a-f074-475c-a94c-aae06cfcb62c",
+      "name": "Record dependency readiness",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "continueOnFail": true,
+      "onError": "continueErrorOutput",
+      "position": [
+        2016,
+        224
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "xKckTZI3ZU5HqIpZ"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $json.id }}"
+            },
+            {
+              "keyName": "Working",
+              "condition": "isFalse"
+            },
+            {
+              "keyName": "Completed",
+              "condition": "isFalse"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Params": "={{ JSON.stringify({...JSON.parse($json.Params || \"{}\"),dependencyStatus:$json._dependency.status,dependencyReason:$json._dependency.reason}) }}",
+            "LastError": "={{ $json._dependency.status === \"failed\" ? $json._dependency.reason : ($json.LastError || \"\") }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Working",
+              "displayName": "Working",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "prompt",
+              "displayName": "prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ref",
+              "displayName": "ref",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "JobID",
+              "displayName": "JobID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Params",
+              "displayName": "Params",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ExecutionID",
+              "displayName": "ExecutionID",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "AttemptCount",
+              "displayName": "AttemptCount",
+              "type": "number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LastError",
+              "displayName": "LastError",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "RequestKey",
+              "displayName": "RequestKey",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "48713bb3-87b8-4cfd-9f61-acbfa23f5601",
+      "name": "Restore validated dependency context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{json:$('Resolve exact dependencies before claim').item.json,pairedItem:$input.all().map((_,item)=>({item}))}];"
+      }
+    },
+    {
+      "id": "774b8d83-227a-428f-8f2f-56ff110a7494",
+      "name": "Read active Runner owners",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "vxItbJ4B8uYBtqJ3",
+          "mode": "list"
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "bfe024f8-6b67-4f8c-a0ac-d622fc3e5c9c",
+      "name": "Scheduled owner and night gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'}).format(new Date()));if(hour>=7&&hour<22)return [];if($input.all().some(i=>String(i.json.workflow)===String($workflow.id)&&i.json.status==='Working'))return [];return [{json:{night:true},pairedItem:$input.all().map((_,item)=>({item}))}];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook run": {
+      "main": [
+        [
+          {
+            "node": "Normalize Bypass Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)1": {
+      "main": [
+        [
+          {
+            "node": "Exact row: reject active lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Working": {
+      "main": [
+        [
+          {
+            "node": "Get template",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get template": {
+      "main": [
+        [
+          {
+            "node": "Template found?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs frames?": {
+      "main": [
+        [
+          {
+            "node": "Get last 2 T2I frames",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Inject fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inject fields": {
+      "main": [
+        [
+          {
+            "node": "POST ComfyUI /prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST ComfyUI /prompt": {
+      "main": [
+        [
+          {
+            "node": "Store Prompt Info",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll /history": {
+      "main": [
+        [
+          {
+            "node": "Validate History",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is ComfyUI done?": {
+      "main": [
+        [
+          {
+            "node": "Parse output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Time Saved1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Time Saved1": {
+      "main": [
+        [
+          {
+            "node": "Poll /history",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get last 2 T2I frames": {
+      "main": [
+        [
+          {
+            "node": "Check frames ready",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET frame /view": {
+      "main": [
+        [
+          {
+            "node": "POST upload /image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST upload /image": {
+      "main": [
+        [
+          {
+            "node": "Collect frame names",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect frame names": {
+      "main": [
+        [
+          {
+            "node": "Inject fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse output": {
+      "main": [
+        [
+          {
+            "node": "Mark completed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark completed": {
+      "main": [
+        [
+          {
+            "node": "Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Working": {
+      "main": [
+        [
+          {
+            "node": "Clear Running ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Running ID": {
+      "main": [
+        [
+          {
+            "node": "Capture Acquired Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Running ID": {
+      "main": [
+        [
+          {
+            "node": "Continue Loop?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Prompt Info": {
+      "main": [
+        [
+          {
+            "node": "Poll /history",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)2": {
+      "main": [
+        [
+          {
+            "node": "Canonical scheduled queue gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Current Job": {
+      "main": [
+        [
+          {
+            "node": "Read fresh dependency queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check frames ready": {
+      "main": [
+        [
+          {
+            "node": "Source ready?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Source ready?": {
+      "main": [
+        [
+          {
+            "node": "GET frame /view",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip - Clear Working": {
+      "main": [
+        [
+          {
+            "node": "Clear Running ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Capture Current Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Finish",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Continue Loop?": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Template found?": {
+      "main": [
+        [
+          {
+            "node": "Needs frames?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read active Runner owners",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate History": {
+      "main": [
+        [
+          {
+            "node": "Record Poll Heartbeat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exact row: reject active lock": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Bypass Context": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Internal Context": {
+      "main": [
+        [
+          {
+            "node": "Set Running ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Acquired Lock": {
+      "main": [
+        [
+          {
+            "node": "Set Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Canonical scheduled queue gate": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Poll Heartbeat": {
+      "main": [
+        [
+          {
+            "node": "Restore Poll History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Poll History": {
+      "main": [
+        [
+          {
+            "node": "Is ComfyUI done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finish": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook1": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read fresh dependency queue": {
+      "main": [
+        [
+          {
+            "node": "Read fresh dependency templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read fresh dependency templates": {
+      "main": [
+        [
+          {
+            "node": "Resolve exact dependencies before claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve exact dependencies before claim": {
+      "main": [
+        [
+          {
+            "node": "Record dependency readiness",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dependencies ready before claim?": {
+      "main": [
+        [
+          {
+            "node": "Capture Internal Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Continue Loop?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record dependency readiness": {
+      "main": [
+        [
+          {
+            "node": "Restore validated dependency context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore validated dependency context": {
+      "main": [
+        [
+          {
+            "node": "Dependencies ready before claim?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read active Runner owners": {
+      "main": [
+        [
+          {
+            "node": "Scheduled owner and night gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scheduled owner and night gate": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "buw89dDrqgXnuCDz",
+    "executionTimeout": 3600,
+    "timezone": "America/New_York"
+  },
+  "id": "MZK3Pv01FHqZbooz",
+  "active": false
+}

@@ -1,15 +1,4 @@
 {
-  "observedAtUTC": "2026-10-08T06:10:46.950721+00:00",
-  "readOnly": false,
-  "productionMutationPerformed": false,
-  "requestedSourceLabels": [
-    "ReSearch",
-    "Script",
-    "Scenes",
-    "Review",
-    "VideoReviwe",
-    "Uploaded"
-  ],
   "stageTypes": [
     {
       "sourceLabel": "ReSearch",
@@ -17,22 +6,16 @@
       "configured": true,
       "assignment": {
         "TypeIn": [
-          "Research",
-          "ReSearch",
-          "research",
           "Ideas",
-          "ideas"
+          "ReSearch",
+          "Research"
         ]
       },
       "aliases": [
-        "Research",
-        "ReSearch",
-        "research",
-        "Ideas",
-        "ideas"
+        "Ideas"
       ],
-      "aliasScope": "Scheduled lookup accepts explicit canonical and legacy Type values; writes canonical only",
-      "wireType": "Research",
+      "aliasScope": "UI matching only; scheduled readers use exact source wire values",
+      "wireType": "Ideas",
       "dispatch": {
         "method": "GET",
         "path": "/webhook/Research",
@@ -44,7 +27,7 @@
         "guard": "Working !== true; never pre-lock"
       },
       "completion": {
-        "Type": "Script",
+        "Type": "script",
         "Status": "Idea",
         "Working": false,
         "artifact": "Script"
@@ -53,7 +36,7 @@
         "workflowId": "x4AirppgK2nvJGuf",
         "workflowName": "Research",
         "active": true,
-        "activeVersionId": "86e59376-acd6-4656-a39c-ed5f3d70e420",
+        "activeVersionId": "c597abf7-f7a1-429c-ad7d-6039dc04c769",
         "nodes": [
           {
             "id": "7dbf2048-8c38-4311-8509-a919f3b33574",
@@ -72,8 +55,7 @@
             "name": "Get row(s)1"
           }
         ]
-      },
-      "scheduledGuard": "Completed === false AND Working === false AND positive integer id AND Type allowlist; native allConditions pending filter, Code stage gate alwaysOutputData; empty output cannot reach mutation"
+      }
     },
     {
       "sourceLabel": "Script",
@@ -81,16 +63,16 @@
       "configured": true,
       "assignment": {
         "TypeIn": [
-          "Script",
-          "script"
+          "script",
+          "Script"
         ]
       },
       "aliases": [
-        "Script",
-        "script"
+        "script",
+        "Script"
       ],
-      "aliasScope": "Scheduled lookup accepts explicit canonical and legacy Type values; writes canonical only",
-      "wireType": "Script",
+      "aliasScope": "UI matching only; scheduled readers use exact source wire values",
+      "wireType": "script",
       "dispatch": {
         "method": "GET",
         "path": "/webhook/Production",
@@ -102,7 +84,7 @@
         "guard": "Working !== true; never pre-lock"
       },
       "completion": {
-        "Type": "Scenes",
+        "Type": "scene",
         "Status": "Scripted",
         "Completed": false,
         "Working": false,
@@ -112,7 +94,7 @@
         "workflowId": "TWMnQqnEwD7qTfbp",
         "workflowName": "Scene Production",
         "active": true,
-        "activeVersionId": "f1f4a0f1-b41f-4a14-a58d-0dd8bbdf7653",
+        "activeVersionId": "ecd61d2d-192b-4349-aa5b-f1711bb02b5e",
         "nodes": [
           {
             "id": "6d20d979-1fa1-43c5-a607-0dd75dbc2f73",
@@ -135,8 +117,7 @@
             "name": "Webhook"
           }
         ]
-      },
-      "scheduledGuard": "Completed === false AND Working === false AND positive integer id AND Type allowlist; native allConditions pending filter, Code stage gate alwaysOutputData; empty output cannot reach mutation"
+      }
     },
     {
       "sourceLabel": "Scenes",
@@ -144,20 +125,15 @@
       "configured": true,
       "assignment": {
         "TypeIn": [
-          "Scenes",
-          "scenes",
-          "Scene",
-          "scene"
+          "scene",
+          "Scenes"
         ]
       },
       "aliases": [
-        "Scenes",
-        "scenes",
-        "Scene",
         "scene"
       ],
-      "aliasScope": "Scheduled lookup accepts explicit canonical and legacy Type values; writes canonical only",
-      "wireType": "Scenes",
+      "aliasScope": "UI matching only; scheduled readers use exact source wire values",
+      "wireType": "scene",
       "dispatch": {
         "method": "GET",
         "path": "/webhook/Dispatcher",
@@ -169,8 +145,8 @@
         "guard": "Working !== true; never pre-lock"
       },
       "completion": {
-        "Type": "Review",
-        "Status": "Queued",
+        "Type": "Script",
+        "Status": "Qued",
         "Working": false,
         "artifact": "ComfyUI queue jobs"
       },
@@ -178,7 +154,7 @@
         "workflowId": "M9SnVr1xBYNDwJDF",
         "workflowName": "Shorts Dispatcher",
         "active": true,
-        "activeVersionId": "36258b08-7a51-40f5-9422-b891eddf37b8",
+        "activeVersionId": "acb94a0a-0686-4955-b438-bc80a064778a",
         "nodes": [
           {
             "id": "44cf44c2-3699-4a66-b68c-ff0e677682e5",
@@ -201,8 +177,7 @@
             "name": "Webhook"
           }
         ]
-      },
-      "scheduledGuard": "Completed === false AND Working === false AND positive integer id AND Type allowlist; native allConditions pending filter, Code stage gate alwaysOutputData; empty output cannot reach mutation"
+      }
     },
     {
       "sourceLabel": "Review",
@@ -225,7 +200,7 @@
         "reason": "string",
         "expectedSnapshot": "exact previously listed snapshot for decisions"
       },
-      "readiness": "nonempty linked queue; every job Completed===true, Working!==true, valid URL; Status Queued or legacy Qued; no status-to-Type stage reassignment",
+      "readiness": "nonempty linked queue; every job Completed===true, Working!==true, URL valid http(s); production Status===Qued",
       "completion": "Gate State pending/approved/rejected; no assembly transition",
       "artifacts": [
         "ComfyUI.URL",
@@ -258,8 +233,7 @@
             "id": "4be573c1-165b-40d0-b366-86e5f3babf60",
             "name": "Manual Review Input"
           }
-        ],
-        "versionId": "f5fbd990-af8e-4ffb-92d9-9514ec75557e"
+        ]
       }
     },
     {
@@ -296,30 +270,6 @@
       "reason": "No configured production final assembly/final-video approval/upload handoff, state contract or transport found. Resources.MP4 exists but null; not an approval or upload state."
     }
   ],
-  "stageAssignments": [
-    {
-      "id": 11,
-      "sourceType": "Script",
-      "sourceStatus": "Qued",
-      "stage": "Script"
-    },
-    {
-      "id": 12,
-      "sourceType": "Script",
-      "sourceStatus": "Qued",
-      "stage": "Script"
-    }
-  ],
-  "stageCounts": {
-    "Research": 0,
-    "Script": 2,
-    "Scenes": 0,
-    "Review": 0,
-    "Video Review": 0,
-    "Uploaded": 0,
-    "Unknown/Unassigned": 0
-  },
-  "unknownVisible": true,
   "apiTemplateTypes": [
     {
       "rowId": 4,
@@ -1824,504 +1774,5 @@
       "promptEnhanceEffective": null,
       "notes": "Direct CLIPTextEncode.text injection disconnects prompt-enhancement chain. Text to image negative is ConditioningZeroOut, no negativePrompt control."
     }
-  ],
-  "queueTypeCounts": {
-    "Text to image": 11,
-    "Image to video": 16,
-    "FLF to video": 9,
-    "": 2,
-    "image_to_video": 1,
-    "text_to_image": 2,
-    "flf_to_video": 1
-  },
-  "jobReadiness": [
-    {
-      "JobID": "11",
-      "jobs": 21,
-      "outputsReady": 21,
-      "readyForManualReview": true,
-      "persistedGateRows": []
-    },
-    {
-      "JobID": "12",
-      "jobs": 21,
-      "outputsReady": 15,
-      "readyForManualReview": false,
-      "persistedGateRows": []
-    }
-  ],
-  "schema": {
-    "running_job": {
-      "id": "vxItbJ4B8uYBtqJ3",
-      "name": "running_job",
-      "columns": [
-        {
-          "id": "kKZLidesIneeotVV",
-          "name": "rowId",
-          "type": "number",
-          "index": 1,
-          "createdAt": "2026-08-31T02:55:08.293Z",
-          "updatedAt": "2026-09-13T20:42:08.000Z"
-        },
-        {
-          "id": "naIUDG9cVD2KAwEe",
-          "name": "status",
-          "type": "string",
-          "index": 2,
-          "createdAt": "2026-08-31T02:55:08.293Z",
-          "updatedAt": "2026-09-13T20:42:08.000Z"
-        },
-        {
-          "id": "Rp1nekURMuDPn61d",
-          "name": "workflow",
-          "type": "string",
-          "index": 0,
-          "createdAt": "2026-09-13T20:41:51.786Z",
-          "updatedAt": "2026-09-13T20:42:08.000Z"
-        }
-      ],
-      "projectId": "5mWwFhx8vRh8RSu0",
-      "createdAt": "2026-08-31T02:55:08.291Z",
-      "updatedAt": "2026-10-08T06:05:24.553Z",
-      "sizeBytes": 4096
-    },
-    "ComfyUI": {
-      "id": "xKckTZI3ZU5HqIpZ",
-      "name": "ComfyUI",
-      "columns": [
-        {
-          "id": "SsHKt9G3hqi8WGrj",
-          "name": "Completed",
-          "type": "boolean",
-          "index": 0,
-          "createdAt": "2026-08-29T15:16:53.152Z",
-          "updatedAt": "2026-08-29T15:46:00.000Z"
-        },
-        {
-          "id": "tKhiq7M9IAX4pAxC",
-          "name": "JobID",
-          "type": "string",
-          "index": 6,
-          "createdAt": "2026-09-12T17:22:52.035Z",
-          "updatedAt": "2026-09-12T17:22:52.035Z"
-        },
-        {
-          "id": "WL2hFcZPmFpMA2Pj",
-          "name": "Params",
-          "type": "string",
-          "index": 7,
-          "createdAt": "2026-09-13T19:12:12.352Z",
-          "updatedAt": "2026-09-13T19:12:12.352Z"
-        },
-        {
-          "id": "a15mEdq4FvXsKkbe",
-          "name": "URL",
-          "type": "string",
-          "index": 4,
-          "createdAt": "2026-08-29T15:46:39.243Z",
-          "updatedAt": "2026-08-30T21:24:36.000Z"
-        },
-        {
-          "id": "ugyUVx7OJ7rqT0hm",
-          "name": "Working",
-          "type": "boolean",
-          "index": 1,
-          "createdAt": "2026-08-30T06:30:58.765Z",
-          "updatedAt": "2026-08-30T07:02:20.000Z"
-        },
-        {
-          "id": "upkvC5EuGktThflL",
-          "name": "prompt",
-          "type": "string",
-          "index": 3,
-          "createdAt": "2026-08-29T14:38:29.188Z",
-          "updatedAt": "2026-08-30T07:02:20.000Z"
-        },
-        {
-          "id": "vuNUMbJU2sv6MMe3",
-          "name": "ref",
-          "type": "string",
-          "index": 5,
-          "createdAt": "2026-09-12T08:32:48.124Z",
-          "updatedAt": "2026-09-12T08:32:48.124Z"
-        },
-        {
-          "id": "EeAFSycJV0ANPWzu",
-          "name": "type",
-          "type": "string",
-          "index": 2,
-          "createdAt": "2026-08-29T14:38:29.188Z",
-          "updatedAt": "2026-08-30T07:02:20.000Z"
-        }
-      ],
-      "projectId": "5mWwFhx8vRh8RSu0",
-      "createdAt": "2026-08-29T14:38:29.187Z",
-      "updatedAt": "2026-10-08T06:05:24.544Z",
-      "sizeBytes": 81920
-    },
-    "Shorts_Production": {
-      "id": "vN5vMR56WpEsdLMn",
-      "name": "Shorts_Production",
-      "columns": [
-        {
-          "id": "osEd3uvLGKf3V0rp",
-          "name": "Completed",
-          "type": "boolean",
-          "index": 2,
-          "createdAt": "2026-08-31T18:08:56.771Z",
-          "updatedAt": "2026-08-31T18:08:56.771Z"
-        },
-        {
-          "id": "9OWFq1CubedPuew0",
-          "name": "File",
-          "type": "string",
-          "index": 3,
-          "createdAt": "2026-08-31T18:08:56.771Z",
-          "updatedAt": "2026-09-12T17:23:37.000Z"
-        },
-        {
-          "id": "Mbtxx0YpDlAgGlub",
-          "name": "Ideas",
-          "type": "string",
-          "index": 4,
-          "createdAt": "2026-09-15T08:55:55.471Z",
-          "updatedAt": "2026-09-15T08:56:12.000Z"
-        },
-        {
-          "id": "rmF0rLrJvFQZoiiZ",
-          "name": "Reffrence",
-          "type": "string",
-          "index": 1,
-          "createdAt": "2026-08-31T18:08:56.771Z",
-          "updatedAt": "2026-08-31T18:08:56.771Z"
-        },
-        {
-          "id": "tA64Sjlp1EVYykhN",
-          "name": "Scenes",
-          "type": "string",
-          "index": 6,
-          "createdAt": "2026-08-31T18:08:56.771Z",
-          "updatedAt": "2026-09-15T08:56:12.000Z"
-        },
-        {
-          "id": "Ioa8aYFSXlbeIxU6",
-          "name": "Script",
-          "type": "string",
-          "index": 5,
-          "createdAt": "2026-08-31T18:08:56.771Z",
-          "updatedAt": "2026-09-15T08:56:12.000Z"
-        },
-        {
-          "id": "MXJdzD5RZFS48oej",
-          "name": "Status",
-          "type": "string",
-          "index": 7,
-          "createdAt": "2026-08-31T18:08:56.771Z",
-          "updatedAt": "2026-09-15T08:56:12.000Z"
-        },
-        {
-          "id": "qsmJrjCsXS2ORDen",
-          "name": "Type",
-          "type": "string",
-          "index": 0,
-          "createdAt": "2026-08-31T18:08:56.771Z",
-          "updatedAt": "2026-08-31T18:08:56.771Z"
-        },
-        {
-          "id": "7K090Jd2Zn64HyTV",
-          "name": "Working",
-          "type": "boolean",
-          "index": 8,
-          "createdAt": "2026-08-31T18:08:56.771Z",
-          "updatedAt": "2026-09-15T08:56:12.000Z"
-        }
-      ],
-      "projectId": "5mWwFhx8vRh8RSu0",
-      "createdAt": "2026-08-31T18:08:56.769Z",
-      "updatedAt": "2026-10-08T05:55:54.539Z",
-      "sizeBytes": 36864
-    },
-    "Pipeline_Review_Gate": {
-      "id": "5xZbQOeVq0mh9cJu",
-      "name": "Pipeline_Review_Gate",
-      "columns": [
-        {
-          "id": "udnBIfbrOF5WmQKb",
-          "name": "JobID",
-          "type": "string",
-          "index": 0,
-          "createdAt": "2026-10-07T07:43:06.123Z",
-          "updatedAt": "2026-10-07T07:43:06.123Z"
-        },
-        {
-          "id": "7YPOYfKoUi3dKVcP",
-          "name": "Outputs",
-          "type": "string",
-          "index": 3,
-          "createdAt": "2026-10-07T07:43:06.123Z",
-          "updatedAt": "2026-10-07T07:43:06.123Z"
-        },
-        {
-          "id": "MhJb0XH2VHtwIA6V",
-          "name": "Reason",
-          "type": "string",
-          "index": 5,
-          "createdAt": "2026-10-07T07:43:06.123Z",
-          "updatedAt": "2026-10-07T07:43:06.123Z"
-        },
-        {
-          "id": "ytVDszxs2NDoiWJl",
-          "name": "ReviewedAt",
-          "type": "string",
-          "index": 4,
-          "createdAt": "2026-10-07T07:43:06.123Z",
-          "updatedAt": "2026-10-07T07:43:06.123Z"
-        },
-        {
-          "id": "a49LTrXaLeyQ82TN",
-          "name": "Snapshot",
-          "type": "string",
-          "index": 2,
-          "createdAt": "2026-10-07T07:43:06.123Z",
-          "updatedAt": "2026-10-07T07:43:06.123Z"
-        },
-        {
-          "id": "O7B2TylD79K289sz",
-          "name": "State",
-          "type": "string",
-          "index": 1,
-          "createdAt": "2026-10-07T07:43:06.123Z",
-          "updatedAt": "2026-10-07T07:43:06.123Z"
-        }
-      ],
-      "projectId": "5mWwFhx8vRh8RSu0",
-      "createdAt": "2026-10-07T07:43:06.122Z",
-      "updatedAt": "2026-10-07T07:59:46.469Z",
-      "sizeBytes": 4096
-    },
-    "ComfyUI_Templates": {
-      "id": "haulC2FnGWqHb0no",
-      "name": "ComfyUI_Templates",
-      "columns": [
-        {
-          "id": "SqUopZUFqG6Ubjn9",
-          "name": "API",
-          "type": "string",
-          "index": 1,
-          "createdAt": "2026-08-30T00:48:34.287Z",
-          "updatedAt": "2026-08-30T00:48:34.287Z"
-        },
-        {
-          "id": "qBiKzXF0SfTYjJrW",
-          "name": "type",
-          "type": "string",
-          "index": 0,
-          "createdAt": "2026-08-30T00:48:34.287Z",
-          "updatedAt": "2026-08-30T00:48:34.287Z"
-        }
-      ],
-      "projectId": "5mWwFhx8vRh8RSu0",
-      "createdAt": "2026-08-30T00:48:34.286Z",
-      "updatedAt": "2026-10-07T07:24:40.602Z",
-      "sizeBytes": 32768
-    },
-    "Resources": {
-      "id": "Uwo0BjoQTJkHnU5Y",
-      "name": "Resources",
-      "columns": [
-        {
-          "id": "8FPHZXTsoEy1sFJs",
-          "name": "Files",
-          "type": "string",
-          "index": 7,
-          "createdAt": "2026-09-20T20:34:23.345Z",
-          "updatedAt": "2026-09-20T20:34:23.345Z"
-        },
-        {
-          "id": "XxQCHAWya4wW0UgX",
-          "name": "JobID",
-          "type": "string",
-          "index": 0,
-          "createdAt": "2026-09-19T05:53:54.667Z",
-          "updatedAt": "2026-09-19T05:53:54.667Z"
-        },
-        {
-          "id": "2nv3qs3NmcGI03cv",
-          "name": "Jobs",
-          "type": "boolean",
-          "index": 4,
-          "createdAt": "2026-09-19T05:53:54.667Z",
-          "updatedAt": "2026-09-19T05:53:54.667Z"
-        },
-        {
-          "id": "KeGUvODnvw0xP1jh",
-          "name": "MP4",
-          "type": "string",
-          "index": 6,
-          "createdAt": "2026-09-19T05:53:54.667Z",
-          "updatedAt": "2026-09-19T05:53:54.667Z"
-        },
-        {
-          "id": "fOUKYt1n0gwYLoTJ",
-          "name": "Research",
-          "type": "boolean",
-          "index": 2,
-          "createdAt": "2026-09-19T05:53:54.667Z",
-          "updatedAt": "2026-09-19T05:53:54.667Z"
-        },
-        {
-          "id": "KCOZZXTz04tweCR7",
-          "name": "Review",
-          "type": "boolean",
-          "index": 5,
-          "createdAt": "2026-09-19T05:53:54.667Z",
-          "updatedAt": "2026-09-19T05:53:54.667Z"
-        },
-        {
-          "id": "eSZDsTvLuKL4C2Ik",
-          "name": "Scenes",
-          "type": "boolean",
-          "index": 3,
-          "createdAt": "2026-09-19T05:53:54.667Z",
-          "updatedAt": "2026-09-19T05:53:54.667Z"
-        },
-        {
-          "id": "O42WRnvNexWAabLg",
-          "name": "Test",
-          "type": "boolean",
-          "index": 1,
-          "createdAt": "2026-09-19T05:53:54.667Z",
-          "updatedAt": "2026-09-19T05:53:54.667Z"
-        }
-      ],
-      "projectId": "5mWwFhx8vRh8RSu0",
-      "createdAt": "2026-09-19T05:53:54.666Z",
-      "updatedAt": "2026-09-20T20:34:23.353Z",
-      "sizeBytes": 4096
-    }
-  },
-  "rowCounts": {
-    "running_job": 2,
-    "ComfyUI": 42,
-    "Shorts_Production": 2,
-    "Pipeline_Review_Gate": 1,
-    "ComfyUI_Templates": 4,
-    "Resources": 1
-  },
-  "pagination": {
-    "workflowPages": [
-      28
-    ],
-    "tablePages": [
-      15
-    ],
-    "rowPages": {
-      "running_job": [
-        2
-      ],
-      "ComfyUI": [
-        42
-      ],
-      "Shorts_Production": [
-        2
-      ],
-      "Pipeline_Review_Gate": [
-        1
-      ],
-      "ComfyUI_Templates": [
-        4
-      ],
-      "Resources": [
-        1
-      ]
-    },
-    "verificationShortsLimit1": [
-      1,
-      1
-    ]
-  },
-  "runnerDispatch": {
-    "method": "POST",
-    "path": "/webhook/yt-Test",
-    "body": {
-      "Id": "<positive safe decimal ComfyUI row id>"
-    },
-    "doNotSet": [
-      "ALL",
-      "Working"
-    ],
-    "workflowId": "MZK3Pv01FHqZbooz"
-  },
-  "workflowInventoryFile": "inventory.json",
-  "sourceDefinitionsFile": "workflows.json",
-  "tableSnapshotFile": "table-snapshot.json",
-  "normalizationMigrationRequiredTogether": [
-    "Research exact Ideas reader and script writer",
-    "Scene Production exact script reader, case-insensitive Normalize Script Row validator and scene Pass writer",
-    "Dispatcher exact scene reader/IF, Finish Row Type Script Status Qued writer",
-    "Review exact Qued validator",
-    "Runner exact type template lookup, Capture Current Job aliases, Needs frames? and FIELD_MAPS",
-    "ComfyUI_Templates.type and ComfyUI.type; no API column exists in queue; never write virtual API into queue"
-  ],
-  "unconfirmedLegacyAliases": [
-    {
-      "token": "ScriptQued",
-      "status": "Not present in current rows or workflow definitions; not enabled as alias without explicit historic evidence"
-    }
-  ],
-  "missingRequirements": [
-    "Final assembler linked to freshly revalidated approved output snapshot",
-    "durable final video URL and final-video approval snapshot/state",
-    "upload destination/platform/channel plus credentials and explicit authorization",
-    "persisted upload result video ID/URL/time/platform/status and failure retry contract"
-  ],
-  "warnings": [
-    "Research draft/published definition contains Respond to Webhook while Webhook responseMode=onReceived; structurally inconsistent per n8n response strategy, generation not invoked to verify",
-    "Resources flags are not linked review authorization; current MP4 null",
-    "Gate row JobID IDK is orphan/non-numeric, not a production approval",
-    "All snapshots are separate read calls, not a transactional snapshot; concurrent jobs can change counts"
-  ],
-  "implementationScope": "Display and browser lookup only; stored production rows and graphs unchanged.",
-  "jobsClassification": "Shorts_Production only, Type only; Status never determines Jobs stage; ComfyUI queue stays Home.",
-  "workflowDefinitionsUpdated": true,
-  "verification": {
-    "readOnlyProbes": [
-      {
-        "workflow": "Research",
-        "cloneId": "F2WXx2eK2BW3sIas",
-        "executionId": "57183",
-        "httpStatus": 200,
-        "selectedIds": [
-          11
-        ],
-        "status": "success"
-      },
-      {
-        "workflow": "Scene Production",
-        "cloneId": "7Jc1bQkDDpkll5YY",
-        "executionId": "57184",
-        "httpStatus": 200,
-        "selectedIds": [
-          11
-        ],
-        "status": "success"
-      },
-      {
-        "workflow": "Shorts Dispatcher",
-        "cloneId": "JA9TJLCHmroahPmX",
-        "executionId": "57185",
-        "httpStatus": 200,
-        "selectedIds": [
-          11
-        ],
-        "status": "success"
-      }
-    ],
-    "rowsUnchanged": [
-      11,
-      12
-    ],
-    "generationRun": false,
-    "approvalRun": false
-  }
+  ]
 }

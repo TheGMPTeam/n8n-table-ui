@@ -1,0 +1,2 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
+test('updater describes installation without GitHub login or operator opt-in copy',()=>{const html=fs.readFileSync('index.html','utf8');assert.match(html,/Check main\/beta and install available Web UI updates/);assert.doesNotMatch(html,/Public GitHub updates need no GitHub login|Web apply must be explicitly enabled/);});

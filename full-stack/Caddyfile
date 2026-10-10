@@ -1,0 +1,13 @@
+# Optional trusted-LAN gateway. Not an Internet authentication boundary.
+# No private hostnames, certificates, API keys or operator auth config bundled.
+:8081 {
+    handle_path /n8n/* {
+        reverse_proxy n8n:5678
+    }
+    handle_path /media-api/* {
+        reverse_proxy ffmpeg-api:8765
+    }
+    handle {
+        reverse_proxy n8n-table-ui:3458
+    }
+}

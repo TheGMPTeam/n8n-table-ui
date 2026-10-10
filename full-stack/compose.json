@@ -1,0 +1,583 @@
+{
+  "name": "n8n-table-ui-beta",
+  "services": {
+    "caddy-proxy": {
+      "restart": "unless-stopped",
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "TZ": "UTC",
+        "UMASK": "002"
+      },
+      "extra_hosts": [
+        "host.docker.internal=host-gateway"
+      ],
+      "image": "caddy:2-alpine",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./Caddyfile",
+          "target": "/etc/caddy/Caddyfile",
+          "read_only": true,
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/caddy",
+          "target": "/data",
+          "bind": {}
+        }
+      ],
+      "ports": [
+        {
+          "mode": "ingress",
+          "target": 8081,
+          "published": "8081",
+          "protocol": "tcp",
+          "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
+        },
+        {
+          "mode": "ingress",
+          "target": 8443,
+          "published": "8443",
+          "protocol": "tcp",
+          "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
+        }
+      ]
+    },
+    "comfyui": {
+      "deploy": {
+        "resources": {
+          "reservations": {
+            "devices": [
+              {
+                "capabilities": [
+                  "gpu"
+                ],
+                "driver": "nvidia",
+                "device_ids": [
+                  "${COMFYUI_5060_TI_UUID:?Select the RTX 5060 Ti UUID explicitly}"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "restart": "unless-stopped",
+      "command": null,
+      "entrypoint": [
+        "/bin/bash",
+        "-c",
+        "umask 000 && bash /runner-scripts/entrypoint.sh"
+      ],
+      "environment": {
+        "CLI_ARGS": "--disable-xformers",
+        "CORS_UNSAFE": "true",
+        "HF_TOKEN": "${HF_TOKEN}",
+        "HF_XET_HIGH_PERFORMANCE": "1",
+        "HOWARD_ENABLE_LOGGING": "false",
+        "UMASK": "000"
+      },
+      "image": "yanwk/comfyui-boot:cu130-megapak-pt211",
+      "init": true,
+      "pull_policy": "daily",
+      "runtime": "nvidia",
+      "security_opt": [
+        "label=disable",
+        "seccomp=unconfined"
+      ],
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./data/comfyui/storage-cache/dot-cache",
+          "target": "/root/.cache",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/comfyui/storage-cache/dot-config",
+          "target": "/root/.config",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/comfyui/storage-nodes/dot-local",
+          "target": "/root/.local",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/comfyui/storage-nodes/custom_nodes",
+          "target": "/root/ComfyUI/custom_nodes",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/comfyui/storage-models/models",
+          "target": "/root/ComfyUI/models",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/comfyui/storage-models/hf-hub",
+          "target": "/root/.cache/huggingface/hub",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/comfyui/storage-models/torch-hub",
+          "target": "/root/.cache/torch/hub",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/comfyui/storage-user/input",
+          "target": "/root/ComfyUI/input",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/comfyui/storage-user/output",
+          "target": "/root/ComfyUI/output",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/comfyui/storage-user/user-profile",
+          "target": "/root/ComfyUI/user",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/comfyui/storage-user/user-scripts",
+          "target": "/root/user-scripts",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/comfyui/storage-user/login",
+          "target": "/root/ComfyUI/login",
+          "bind": {}
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:8188"
+        ],
+        "timeout": "10s",
+        "interval": "30s",
+        "retries": 3,
+        "start_period": "1m0s"
+      },
+      "ports": [
+        {
+          "mode": "ingress",
+          "target": 8188,
+          "published": "8188",
+          "protocol": "tcp",
+          "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
+        }
+      ]
+    },
+    "ffmpeg-api": {
+      "restart": "unless-stopped",
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "COMFYUI_TOKEN_FILE": "${COMFYUI_TOKEN_FILE:-/run/secrets/comfyui-token}",
+        "POCKET_TTS_URL": "http://pockettts:49112",
+        "TZ": "UTC",
+        "UMASK": "002",
+        "POCKET_NATIVE_VOICE_IDS": "${POCKET_NATIVE_VOICE_IDS:-}"
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./data/ffmpeg-api/uploads",
+          "target": "/uploads",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/pockettts/voice-cache/ffmpeg-references",
+          "target": "/pocket-voice-cache/ffmpeg-references",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/comfyui/storage-user/login/PASSWORD",
+          "target": "/run/secrets/comfyui-token",
+          "read_only": true,
+          "bind": {}
+        }
+      ],
+      "image": "${FFMPEG_IMAGE:?Set FFMPEG_IMAGE to your existing compatible FFmpeg API image}",
+      "pull_policy": "never",
+      "ports": [
+        {
+          "mode": "ingress",
+          "target": 8765,
+          "published": "8765",
+          "protocol": "tcp",
+          "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
+        }
+      ]
+    },
+    "llm-eval-suite": {
+      "restart": "unless-stopped",
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "TZ": "Etk/Indiana",
+        "UMASK": "002"
+      },
+      "image": "ghcr.io/thecodacus/llm-eval-suite:latest",
+      "pull_policy": "daily",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./data/llm-eval",
+          "target": "/data",
+          "bind": {}
+        }
+      ],
+      "ports": [
+        {
+          "mode": "ingress",
+          "target": 8080,
+          "published": "9090",
+          "protocol": "tcp",
+          "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
+        }
+      ]
+    },
+    "n8n": {
+      "restart": "unless-stopped",
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "GENERIC_TIMEZONE": "UTC",
+        "N8N_ENCRYPTION_KEY": "${N8N_ENCRYPTION_KEY}",
+        "N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS": "false",
+        "N8N_HOST": "${N8N_HOSTNAME:-localhost}",
+        "N8N_PROTOCOL": "http",
+        "N8N_SECURE_COOKIE": "false",
+        "N8N_WEBHOOK_URL": "http://${N8N_HOSTNAME:-localhost}:5678/",
+        "TZ": "UTC",
+        "UMASK": "002"
+      },
+      "extra_hosts": [
+        "host.docker.internal=host-gateway"
+      ],
+      "image": "n8nio/n8n:latest",
+      "pull_policy": "daily",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./data/n8n",
+          "target": "/home/node/.n8n",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/n8n/data",
+          "target": "/data",
+          "read_only": true,
+          "bind": {}
+        }
+      ],
+      "depends_on": {
+        "comfyui": {
+          "condition": "service_started",
+          "required": true
+        },
+        "ollama": {
+          "condition": "service_started",
+          "required": true
+        }
+      },
+      "ports": [
+        {
+          "mode": "ingress",
+          "target": 5678,
+          "published": "5678",
+          "protocol": "tcp",
+          "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
+        }
+      ]
+    },
+    "ollama": {
+      "deploy": {
+        "resources": {
+          "reservations": {
+            "devices": [
+              {
+                "capabilities": [
+                  "gpu"
+                ],
+                "driver": "nvidia",
+                "device_ids": [
+                  "${OLLAMA_GPU_UUID:?Select Ollama GPU explicitly}"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "restart": "unless-stopped",
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "OLLAMA_FLASH_ATTENTION": "1",
+        "OLLAMA_HOST": "0.0.0.0",
+        "UMASK": "002"
+      },
+      "image": "ollama/ollama:latest",
+      "pull_policy": "daily",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./data/ollama",
+          "target": "/root/.ollama",
+          "bind": {}
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "/usr/bin/ollama",
+          "list"
+        ],
+        "timeout": "10s",
+        "interval": "30s",
+        "retries": 3,
+        "start_period": "1m0s"
+      },
+      "ports": [
+        {
+          "mode": "ingress",
+          "target": 11434,
+          "published": "11434",
+          "protocol": "tcp",
+          "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
+        }
+      ]
+    },
+    "pockettts": {
+      "deploy": {
+        "resources": {
+          "limits": {
+            "cpus": 8,
+            "memory": "4294967296"
+          },
+          "reservations": {
+            "memory": "2147483648"
+          }
+        }
+      },
+      "restart": "unless-stopped",
+      "cpus": 8,
+      "command": [
+        "python",
+        "/app/cpu_startup.py"
+      ],
+      "entrypoint": null,
+      "environment": {
+        "HF_TOKEN": "${HF_TOKEN}",
+        "MKL_NUM_THREADS": "4",
+        "OMP_NUM_THREADS": "4",
+        "POCKET_TTS_HOST": "0.0.0.0",
+        "POCKET_TTS_INTEROP_THREADS": "1",
+        "POCKET_TTS_LANGUAGE": "english",
+        "POCKET_TTS_LOG_DIR": "/app/logs",
+        "POCKET_TTS_LOG_LEVEL": "INFO",
+        "POCKET_TTS_PORT": "49112",
+        "POCKET_TTS_QUANTIZE": "false",
+        "POCKET_TTS_STREAM_DEFAULT": "true",
+        "POCKET_TTS_TORCH_THREADS": "4",
+        "POCKET_TTS_VOICES_DIR": "/app/voices",
+        "POCKET_TTS_VOICE_CACHE_DIR": "/app/voice_cache"
+      },
+      "pull_policy": "never",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./data/pockettts/voices",
+          "target": "/app/voices",
+          "read_only": true,
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/pockettts/logs",
+          "target": "/app/logs",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/pockettts/voice-cache",
+          "target": "/app/voice_cache",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/pockettts/huggingface-cache",
+          "target": "/home/pockettts/.cache/huggingface",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./pockettts/cpu_startup.py",
+          "target": "/app/cpu_startup.py",
+          "read_only": true,
+          "bind": {}
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:49112/health')"
+        ],
+        "timeout": "10s",
+        "interval": "30s",
+        "retries": 3,
+        "start_period": "2m0s"
+      },
+      "ports": [
+        {
+          "mode": "ingress",
+          "target": 49112,
+          "published": "49112",
+          "protocol": "tcp",
+          "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
+        }
+      ],
+      "build": {
+        "context": "./pockettts",
+        "dockerfile": "Dockerfile"
+      }
+    },
+    "searxng": {
+      "restart": "unless-stopped",
+      "cap_add": [
+        "CHOWN",
+        "SETGID",
+        "SETUID"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "SEARXNG_BASE_URL": "http://10.0.0.157:8080/",
+        "UMASK": "002"
+      },
+      "image": "docker.io/searxng/searxng:latest",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-file": "1",
+          "max-size": "1m"
+        }
+      },
+      "pull_policy": "daily",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./data/searxng/ect",
+          "target": "/etc/searxng",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/searxng/Cache",
+          "target": "/var/cache/searxng",
+          "bind": {}
+        }
+      ],
+      "ports": [
+        {
+          "mode": "ingress",
+          "target": 8080,
+          "published": "8080",
+          "protocol": "tcp",
+          "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
+        }
+      ]
+    },
+    "n8n-table-ui": {
+      "restart": "unless-stopped",
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "COMFYUI_HOST": "${COMFYUI_PUBLIC_HOST:?Set a browser-reachable trusted-LAN ComfyUI hostname}",
+        "COMFYUI_PORT": "8188",
+        "COMFYUI_TOKEN_FILE": "${COMFYUI_TOKEN_FILE:-/run/secrets/comfyui-token}",
+        "DATA_DIR": "/app/.data",
+        "N8N_HOST": "n8n",
+        "N8N_PORT": "5678",
+        "NODE_ENV": "production",
+        "UPDATE_CONTROL_SOCKET": "/run/ui-updater/control.sock",
+        "N8N_API_KEY": "${N8N_API_KEY}",
+        "REVIEW_WEBHOOK_SECRET": "${REVIEW_WEBHOOK_SECRET}",
+        "OLLAMA_BASE_URL": "http://ollama:11434",
+        "HOME_RUNNER_WORKFLOW_ID": "${HOME_RUNNER_WORKFLOW_ID:-MZK3Pv01FHqZbooz}",
+        "REVIEW_UI_ORIGINS": "${REVIEW_UI_ORIGINS:-http://localhost:3458,http://127.0.0.1:3458}",
+        "N8N_SETUP_PROJECT_ID": "${N8N_SETUP_PROJECT_ID:-}"
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./data/comfyui/storage-user/login/PASSWORD",
+          "target": "/run/secrets/comfyui-token",
+          "read_only": true,
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "./data/n8n-table-ui/.data",
+          "target": "/app/.data",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "../index.html",
+          "target": "/app/index.html",
+          "read_only": true,
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "../proxy-server.cjs",
+          "target": "/app/proxy-server.cjs",
+          "read_only": true,
+          "bind": {}
+        }
+      ],
+      "build": {
+        "context": "..",
+        "dockerfile": "Dockerfile",
+        "args": {
+          "GIT_BRANCH": "beta",
+          "VERSION": "0.1.0-beta-full-stack",
+          "GIT_COMMIT": "${UI_BUILD_COMMIT:-unknown}"
+        }
+      },
+      "ports": [
+        {
+          "mode": "ingress",
+          "host_ip": "${LAN_BIND_IP:-127.0.0.1}",
+          "target": 3458,
+          "published": "3458",
+          "protocol": "tcp"
+        }
+      ]
+    }
+  }
+}

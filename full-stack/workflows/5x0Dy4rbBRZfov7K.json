@@ -1,0 +1,767 @@
+{
+  "name": "Data Table CRUD",
+  "nodes": [
+    {
+      "id": "57aef33e-e7d0-4a5f-af6c-9d529e046dea",
+      "name": "Webhook create",
+      "webhookId": "00bd136d-c7a7-4a61-bcc3-cd5bb9e18d7d",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -352,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yt-create",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "b42f003a-0d3e-4873-be3c-cef200a45690",
+      "name": "Webhook write",
+      "webhookId": "fe47be31-4110-4c1c-93c0-0c23e1c541c8",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -352,
+        192
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yt-wright",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "bfc96253-ec24-48e7-a551-f3a6bbc01485",
+      "name": "Webhook update",
+      "webhookId": "db666457-08b9-4a0c-bde4-f434f4c1f777",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -352,
+        384
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yt-update",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "6e01a2bb-2d9e-43d8-b88e-7c558d5cc584",
+      "name": "Webhook get",
+      "webhookId": "4d7b004b-bf6c-460d-9546-3b803a50b8b5",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -352,
+        768
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yt-get",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "f8dde1ab-d41c-44e7-ba0a-b46bd48895c1",
+      "name": "Webhook remove",
+      "webhookId": "f3bb0d35-4e3a-488c-95cd-674df8d2fb6b",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -352,
+        960
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yt-remove",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "8056a570-4a61-4539-838d-31cd6c7080f1",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -352,
+        1152
+      ],
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{ \"operation\": \"get\", \"id\": \"\", \"row\": {}, \"match\": {} }"
+      }
+    },
+    {
+      "id": "d098916d-203e-4cc9-80ea-ade65a6f7e36",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        576
+      ],
+      "parameters": {
+        "jsCode": "// Normalize both entry paths (webhook body-wrapped, or direct from Tool Workflow trigger) into one consistent shape, and validate before anything downstream runs.\nconst raw = $json.body || $json;\nconst triggerSource = $json.body ? 'webhook' : 'workflow';\ntry {\nconst operation = String(raw.operation || '').toLowerCase();\nconst validOps = ['create', 'write', 'update', 'get', 'remove'];\n// Review state is writable only through the authenticated native Review gate.\nif (String(raw.id) === '5xZbQOeVq0mh9cJu' && operation !== 'get') { const e=new Error('Review state requires authenticated Review transport'); e.statusCode=403; throw e; }\n\nif (!validOps.includes(operation)) {\n  throw new Error(`Invalid operation \"${raw.operation}\". Must be one of: ${validOps.join(', ')}`);\n}\nif (operation !== 'create' && !raw.id) {\n  throw new Error(`Missing required \"id\" (data table ID) for operation \"${operation}\"`);\n}\nif (['write', 'update', 'create'].includes(operation) && !raw.row) {\n  throw new Error(`Missing required \"row\" for operation \"${operation}\"`);\n}\nif (operation === 'update' && (!raw.row || typeof raw.row !== 'object' || Array.isArray(raw.row) || Object.keys(raw.row).length === 0 || Object.values(raw.row).every(v => v === undefined))) {\n  throw new Error('For \"update\", row must be a non-empty object of data columns');\n}\nif (operation === 'update' && (!raw.match || raw.match.id === undefined || raw.match.id === null)) {\n  throw new Error('Missing required \"match.id\" for update operation');\n}\nif (operation === 'write' && !Array.isArray(raw.row?.data)) {\n  throw new Error('For \"write\", row.data must be an array of row objects, e.g. { \"data\": [{...}] }');\n}\nif (operation === 'create' && (!raw.row?.name || !Array.isArray(raw.row?.columns))) {\n  throw new Error('For \"create\", row must include \"name\" and a \"columns\" array');\n}\n\nif (raw.limit !== undefined && (!Number.isInteger(raw.limit) || raw.limit < 1 || raw.limit > 250)) throw new Error('limit must be an integer from 1 to 250');\nif (raw.cursor !== undefined && typeof raw.cursor !== 'string') throw new Error('cursor must be a string');\nreturn [{\n  json: {\n    limit: raw.limit || 100,\n    cursor: raw.cursor || \"\",\n    operation,\n    id: raw.id || null,\n    row: raw.row || null,\n    match: raw.match || null,\n    _triggerSource: triggerSource\n  }\n}];\n} catch (e) {\n if (triggerSource !== \"webhook\") throw e;\n return [{json:{_validationError:true,error:\"invalid_request\",message:e.message,statusCode:e.statusCode===403?403:400}}];\n}"
+      }
+    },
+    {
+      "id": "0715e23d-18cd-4937-9174-ae24549d5f21",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        320,
+        528
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cond-create",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "create",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cond-write",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "write",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cond-update",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cond-get",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "get",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cond-remove",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "remove",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "da1630d1-f929-4e3b-9e1b-b6e84504c096",
+      "name": "HTTP Create Table",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        768,
+        192
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://n8n:5678/api/v1/data-tables",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { name: $json.row.name, columns: $json.row.columns, ...($json.row.projectId ? { projectId: $json.row.projectId } : {}) } }}",
+        "options": {}
+      },
+      "credentials": {
+        "n8nApi": {
+          "id": "pGnySYqCqyJo5BZ8",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "id": "305d1bc5-abb3-4280-be3f-68464280b6e7",
+      "name": "HTTP Write Rows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        768,
+        384
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://n8n:5678/api/v1/data-tables/{{ $json.id }}/rows",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { data: $json.row.data } }}",
+        "options": {}
+      },
+      "credentials": {
+        "n8nApi": {
+          "id": "pGnySYqCqyJo5BZ8",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "id": "5cbc2a53-3990-4a6f-bd47-f7c5a03788b4",
+      "name": "Prep Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        576
+      ],
+      "parameters": {
+        "jsCode": "const row = $json.row || {};\nconst out = {};\nfor (const [k, v] of Object.entries(row)) {\n  out[k] = v;\n}\nreturn [{ json: out }];"
+      }
+    },
+    {
+      "id": "7c7b67e2-0f99-4bd6-9751-1afee7ea56d8",
+      "name": "Update row (dataTable)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        768,
+        576
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "={{ $('Normalize Input').item.json.id }}",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Normalize Input').item.json.match.id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "Completed": false,
+            "Working": false
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reffrence",
+              "displayName": "Reffrence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "File",
+              "displayName": "File",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Script",
+              "displayName": "Script",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Scenes",
+              "displayName": "Scenes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Working",
+              "displayName": "Working",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e83e42b8-c8c8-464d-9465-bfd2402be080",
+      "name": "HTTP Get Rows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        768,
+        768
+      ],
+      "parameters": {
+        "url": "={{ \"http://n8n:5678/api/v1/data-tables/\" + encodeURIComponent($json.id) + \"/rows?limit=\" + $json.limit + ($json.cursor ? \"&cursor=\" + encodeURIComponent($json.cursor) : \"\") }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "options": {}
+      },
+      "credentials": {
+        "n8nApi": {
+          "id": "pGnySYqCqyJo5BZ8",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "id": "45929f96-b4cf-4c95-9b69-7311e13490be",
+      "name": "HTTP Remove Table",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        768,
+        960
+      ],
+      "parameters": {
+        "method": "DELETE",
+        "url": "=http://n8n:5678/api/v1/data-tables/{{ $json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "options": {}
+      },
+      "credentials": {
+        "n8nApi": {
+          "id": "pGnySYqCqyJo5BZ8",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "id": "eba47833-aae7-463a-ad65-594dded00dc2",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1152,
+        576
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $items().map(item => item.json) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "06eec397-f02c-46cf-94ee-042c4d3efbce",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1184,
+        336
+      ],
+      "parameters": {
+        "content": "## Data Table CRUD\n\nNormalizes and routes **data table operations** \u2014 used by the Shorts Dispatcher agent as a tool and by webhooks for direct API access.\n\n### Entry points\n\n- **Webhooks** \u2014 `yt-create`, `yt-wright`, `yt-update`, `yt-get`, `yt-remove` (direct API calls)\n- **Execute Workflow Trigger** \u2014 called by the Shorts Dispatcher agent as a tool (agent tool mode)\n\n### How it works\n\n1. **Normalize input** \u2014 the `Normalize Input` code node handles both entry paths:\n   - Webhook: data comes under `$json.body`\n   - Agent tool: data comes directly as `$json`\n   Extracts `operation`, validates it, checks required fields per operation type.\n\n2. **Validate** \u2014 throws if:\n   - `operation` is missing or not one of: `create`, `write`, `update`, `get`, `remove`\n   - `id` is missing for non-create operations\n   - `row` is missing for write/update/create\n   - `match.id` is missing for update\n   - `row.data` is not an array for write\n\n3. **Route via Switch** \u2014 dispatches to the correct operation:\n   - **create** \u2014 `POST /api/v1/data-tables` (create a new table)\n   - **write** \u2014 `POST /api/v1/data-tables/<id>/rows` (insert rows)\n   - **update** \u2014 native dataTable update node (update existing rows by match)\n   - **get** \u2014 `GET /api/v1/data-tables/<id>/rows` (read rows)\n   - **remove** \u2014 `DELETE /api/v1/data-tables/<id>` (delete a table)\n\n4. **Respond** \u2014 all paths return through a single `Respond to Webhook` node\n\n### Used by\n\nThe Shorts Dispatcher agent calls this as a tool to:\n- Lock/unlock Shorts_Production rows (`update` with `Working`)\n- Save enriched Scenes JSON (`update` with `Scenes`)\n- Queue ComfyUI Jobs rows (`write` to ComfyUI Jobs table)\n- Mark rows as queued (`update` with `Status`)",
+        "height": 540,
+        "width": 720,
+        "color": 4
+      }
+    },
+    {
+      "id": "b23e3e67-7548-4635-bde3-5796e180ce64",
+      "name": "Input Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        96,
+        576
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f979e0dd-ee68-4eb8-a565-3202e07fe5a0",
+              "leftValue": "={{ $json._validationError === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9e0aec30-78d3-4464-b711-1f3508f3eadb",
+      "name": "Respond Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        320,
+        832
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error, message: $json.message } }}",
+        "options": {
+          "responseCode": "={{ $json.statusCode || 400 }}"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook create": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook write": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook update": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook get": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook remove": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Input Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "HTTP Create Table",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Write Rows",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prep Update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Get Rows",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Remove Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Create Table": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Write Rows": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Update": {
+      "main": [
+        [
+          {
+            "node": "Update row (dataTable)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row (dataTable)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Get Rows": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Remove Table": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Valid?": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "buw89dDrqgXnuCDz"
+  },
+  "id": "5x0Dy4rbBRZfov7K",
+  "active": false
+}

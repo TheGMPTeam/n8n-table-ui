@@ -1,0 +1,411 @@
+{
+  "workflows": [
+    {
+      "sourceId": "5x0Dy4rbBRZfov7K",
+      "name": "Data Table CRUD",
+      "publishedSnapshot": true,
+      "dependencies": [
+        "buw89dDrqgXnuCDz"
+      ],
+      "file": "workflows/5x0Dy4rbBRZfov7K.json",
+      "sourceVersionId": "be86d8b7-a460-42e2-8142-612385d44801"
+    },
+    {
+      "sourceId": "FHfySQklUCmatW2B",
+      "name": "ComfyUI Job Submitter",
+      "publishedSnapshot": false,
+      "dependencies": [],
+      "file": "workflows/FHfySQklUCmatW2B.json",
+      "sourceVersionId": "461f392c-547f-4b4c-ba86-35881033944a"
+    },
+    {
+      "sourceId": "KMtoCzHcKMiTKNvZ",
+      "name": "Review \u2014 Manual Approval Gate",
+      "publishedSnapshot": true,
+      "dependencies": [
+        "buw89dDrqgXnuCDz"
+      ],
+      "file": "workflows/KMtoCzHcKMiTKNvZ.json",
+      "sourceVersionId": "e3ee5249-bdd2-455c-b952-0e5522974ac0"
+    },
+    {
+      "sourceId": "M9SnVr1xBYNDwJDF",
+      "name": "Shorts Dispatcher",
+      "publishedSnapshot": true,
+      "dependencies": [
+        "5x0Dy4rbBRZfov7K",
+        "OxJfxFqOABCWu6Q6",
+        "buw89dDrqgXnuCDz"
+      ],
+      "file": "workflows/M9SnVr1xBYNDwJDF.json",
+      "sourceVersionId": "59017d92-ccd6-4fc0-af2f-304723c19c40"
+    },
+    {
+      "sourceId": "MZK3Pv01FHqZbooz",
+      "name": "ComfyUI Runner",
+      "publishedSnapshot": true,
+      "dependencies": [
+        "buw89dDrqgXnuCDz"
+      ],
+      "file": "workflows/MZK3Pv01FHqZbooz.json",
+      "sourceVersionId": "17ea821f-588b-4db8-aa12-78183ef60a26"
+    },
+    {
+      "sourceId": "OxJfxFqOABCWu6Q6",
+      "name": "Write Jobs Loop",
+      "publishedSnapshot": true,
+      "dependencies": [
+        "buw89dDrqgXnuCDz"
+      ],
+      "file": "workflows/OxJfxFqOABCWu6Q6.json",
+      "sourceVersionId": "1f55e98c-0e4e-4f48-bb02-d090522c5c61"
+    },
+    {
+      "sourceId": "TWMnQqnEwD7qTfbp",
+      "name": "Scene Production",
+      "publishedSnapshot": true,
+      "dependencies": [
+        "5x0Dy4rbBRZfov7K",
+        "buw89dDrqgXnuCDz"
+      ],
+      "file": "workflows/TWMnQqnEwD7qTfbp.json",
+      "sourceVersionId": "acef6f95-fb0a-400f-b9c5-730c400231e5"
+    },
+    {
+      "sourceId": "buw89dDrqgXnuCDz",
+      "name": "ComfyUI Error Reset",
+      "publishedSnapshot": true,
+      "dependencies": [],
+      "file": "workflows/buw89dDrqgXnuCDz.json",
+      "sourceVersionId": "f780d478-c8f3-4213-9db2-3062d6163adc"
+    },
+    {
+      "sourceId": "eJNBtP1X2CuF9EdU",
+      "name": "FFmpeg API - All HTTP Calls",
+      "publishedSnapshot": false,
+      "dependencies": [],
+      "file": "workflows/eJNBtP1X2CuF9EdU.json",
+      "sourceVersionId": "24426414-e4a3-483a-a122-803a3bba3516"
+    },
+    {
+      "sourceId": "j3ewCQU4TL0p4XDJ",
+      "name": "Morning Production Brief",
+      "publishedSnapshot": true,
+      "dependencies": [],
+      "file": "workflows/j3ewCQU4TL0p4XDJ.json",
+      "sourceVersionId": "c6439457-1eea-4ee2-bbd0-419f1f3acab7"
+    },
+    {
+      "sourceId": "x4AirppgK2nvJGuf",
+      "name": "Research",
+      "publishedSnapshot": true,
+      "dependencies": [
+        "buw89dDrqgXnuCDz"
+      ],
+      "file": "workflows/x4AirppgK2nvJGuf.json",
+      "sourceVersionId": "60004225-cbfa-41c5-964a-49138ec55e45"
+    }
+  ],
+  "tables": [
+    {
+      "sourceId": "vxItbJ4B8uYBtqJ3",
+      "name": "running_job",
+      "columns": [
+        {
+          "name": "HeartbeatAt",
+          "type": "string"
+        },
+        {
+          "name": "LeaseUntil",
+          "type": "string"
+        },
+        {
+          "name": "executionId",
+          "type": "string"
+        },
+        {
+          "name": "rowId",
+          "type": "number"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "workflow",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "sourceId": "xKckTZI3ZU5HqIpZ",
+      "name": "ComfyUI",
+      "columns": [
+        {
+          "name": "AttemptCount",
+          "type": "number"
+        },
+        {
+          "name": "Completed",
+          "type": "boolean"
+        },
+        {
+          "name": "Dependencies",
+          "type": "string"
+        },
+        {
+          "name": "ExecutionID",
+          "type": "string"
+        },
+        {
+          "name": "JobID",
+          "type": "string"
+        },
+        {
+          "name": "LastError",
+          "type": "string"
+        },
+        {
+          "name": "Params",
+          "type": "string"
+        },
+        {
+          "name": "RequestKey",
+          "type": "string"
+        },
+        {
+          "name": "URL",
+          "type": "string"
+        },
+        {
+          "name": "Working",
+          "type": "boolean"
+        },
+        {
+          "name": "prompt",
+          "type": "string"
+        },
+        {
+          "name": "ref",
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "sourceId": "5xZbQOeVq0mh9cJu",
+      "name": "Pipeline_Review_Gate",
+      "columns": [
+        {
+          "name": "ApprovedBy",
+          "type": "string"
+        },
+        {
+          "name": "JobID",
+          "type": "string"
+        },
+        {
+          "name": "Outputs",
+          "type": "string"
+        },
+        {
+          "name": "Reason",
+          "type": "string"
+        },
+        {
+          "name": "ReviewedAt",
+          "type": "string"
+        },
+        {
+          "name": "Snapshot",
+          "type": "string"
+        },
+        {
+          "name": "State",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "sourceId": "fnc0q1Ok83zHVUM8",
+      "name": "Pipeline_Status_History",
+      "columns": [
+        {
+          "name": "CapturedAt",
+          "type": "string"
+        },
+        {
+          "name": "ScanID",
+          "type": "string"
+        },
+        {
+          "name": "Snapshot",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "sourceId": "vN5vMR56WpEsdLMn",
+      "name": "Shorts_Production",
+      "columns": [
+        {
+          "name": "AttemptCount",
+          "type": "number"
+        },
+        {
+          "name": "Completed",
+          "type": "boolean"
+        },
+        {
+          "name": "ExecutionID",
+          "type": "string"
+        },
+        {
+          "name": "File",
+          "type": "string"
+        },
+        {
+          "name": "Ideas",
+          "type": "string"
+        },
+        {
+          "name": "LastError",
+          "type": "string"
+        },
+        {
+          "name": "Reffrence",
+          "type": "string"
+        },
+        {
+          "name": "RequestKey",
+          "type": "string"
+        },
+        {
+          "name": "Scenes",
+          "type": "string"
+        },
+        {
+          "name": "Script",
+          "type": "string"
+        },
+        {
+          "name": "Status",
+          "type": "string"
+        },
+        {
+          "name": "Type",
+          "type": "string"
+        },
+        {
+          "name": "Working",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "sourceId": "MgzHSOR57oYxcmZq",
+      "name": "AI_Run_Metrics",
+      "columns": [
+        {
+          "name": "DurationMs",
+          "type": "number"
+        },
+        {
+          "name": "Error",
+          "type": "string"
+        },
+        {
+          "name": "ExecutionID",
+          "type": "string"
+        },
+        {
+          "name": "JobID",
+          "type": "string"
+        },
+        {
+          "name": "Task",
+          "type": "string"
+        },
+        {
+          "name": "ValidOutput",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "sourceId": "haulC2FnGWqHb0no",
+      "name": "ComfyUI_Templates",
+      "columns": [
+        {
+          "name": "API",
+          "type": "string"
+        },
+        {
+          "name": "Dependencies",
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "credentials": [
+    {
+      "sourceId": "pGnySYqCqyJo5BZ8",
+      "type": "n8nApi",
+      "name": "n8n account"
+    },
+    {
+      "sourceId": "gWLqYpJrxVFyfTxl",
+      "type": "httpHeaderAuth",
+      "name": "Review UI private transport"
+    },
+    {
+      "sourceId": "ccswhcTlaOVDAY9f",
+      "type": "ollamaApi",
+      "name": "Ollama account"
+    },
+    {
+      "sourceId": "DzRhWnp2AoLPfs38",
+      "type": "httpHeaderAuth",
+      "name": "ComfyUI-Login Bearer (restricted hosts)"
+    },
+    {
+      "sourceId": "uAYrMVyn7mtbEGuP",
+      "type": "httpHeaderAuth",
+      "name": "Hermes Monitor REST"
+    },
+    {
+      "sourceId": "TmIhlelQU77wgSYP",
+      "type": "searxngApi",
+      "name": "SearXNG account"
+    }
+  ],
+  "workflowCount": 11,
+  "tableCount": 7,
+  "templateCount": 4,
+  "paths": [
+    "/api/v1/workflows/MZK3Pv01FHqZbooz",
+    "/view?",
+    "/webhook/Dispatcher",
+    "/webhook/Production",
+    "/webhook/Research",
+    "/webhook/yt-Test",
+    "Dispatcher",
+    "Production",
+    "Research",
+    "review-private-v1",
+    "yt-Test",
+    "yt-create",
+    "yt-get",
+    "yt-remove",
+    "yt-update",
+    "yt-wright"
+  ],
+  "excluded": "Personal Fiverr, unrelated workflows and scoped diagnostic probes; all production rows and credential values"
+}

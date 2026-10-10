@@ -1,0 +1,814 @@
+{
+  "name": "Morning Production Brief",
+  "nodes": [
+    {
+      "id": "Every-30-Minutes",
+      "name": "07:00 New York",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -5904,
+        -336
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "Workflows",
+      "name": "Workflows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -5680,
+        -336
+      ],
+      "parameters": {
+        "url": "http://10.0.0.157:5678/api/v1/workflows?limit=250",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "name": "cursor",
+                    "value": "={{ $response.body.nextCursor || \"\" }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextCursor }}",
+              "requestInterval": 50
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uAYrMVyn7mtbEGuP",
+          "name": "Hermes Monitor REST"
+        }
+      }
+    },
+    {
+      "id": "Workflow-Pages",
+      "name": "Workflow Pages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5456,
+        -336
+      ],
+      "parameters": {
+        "jsCode": "return [{json:{pages:$input.all().length}}];"
+      }
+    },
+    {
+      "id": "Tables",
+      "name": "Tables",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -5232,
+        -336
+      ],
+      "parameters": {
+        "url": "http://10.0.0.157:5678/api/v1/data-tables?limit=250",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "name": "cursor",
+                    "value": "={{ $response.body.nextCursor || \"\" }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextCursor }}",
+              "requestInterval": 50
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uAYrMVyn7mtbEGuP",
+          "name": "Hermes Monitor REST"
+        }
+      }
+    },
+    {
+      "id": "Table-Items",
+      "name": "Table Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5008,
+        -336
+      ],
+      "parameters": {
+        "jsCode": "return $input.all().flatMap(i=>i.json.data||[]).filter(t=>['Shorts_Production','ComfyUI','Pipeline_Status_History'].includes(t.name)).map(json=>({json}));"
+      }
+    },
+    {
+      "id": "Loop-Tables",
+      "name": "Loop Tables",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -4784,
+        -336
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "Rows",
+      "name": "Rows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4560,
+        -336
+      ],
+      "parameters": {
+        "url": "=http://10.0.0.157:5678/api/v1/data-tables/{{ $json.id }}/rows?limit=250",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "name": "cursor",
+                    "value": "={{ $response.body.nextCursor || \"\" }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextCursor }}",
+              "requestInterval": 50
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uAYrMVyn7mtbEGuP",
+          "name": "Hermes Monitor REST"
+        }
+      }
+    },
+    {
+      "id": "Table-Summary",
+      "name": "Table Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4336,
+        -336
+      ],
+      "parameters": {
+        "jsCode": "const stable = v => JSON.stringify(v===undefined?null:v, function(k,x){return x && typeof x==='object' && !Array.isArray(x)?Object.fromEntries(Object.keys(x).sort().map(k=>[k,x[k]])):x;});\n// Deterministic 128-bit content fingerprint; no external modules or raw values retained.\nconst hash = v => {const text=stable(v), h=[0x811c9dc5,0x9e3779b9,0x85ebca6b,0xc2b2ae35];for(let i=0;i<text.length;i++)for(let j=0;j<4;j++){h[j]=Math.imul(h[j]^text.charCodeAt(i),[16777619,2246822519,3266489917,668265263][j]);h[j]^=h[j]>>>13;}return h.map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');};\nconst t=$('Loop Tables').first().json, pages=$input.all();\nif(!pages.length||pages.at(-1).json.nextCursor)throw Error('Incomplete row pagination');\nconst rows=pages.flatMap(i=>i.json.data||[]);\nif(new Set(rows.map(r=>String(r.id))).size!==rows.length)throw Error('Duplicate row IDs');\nconst columns=(t.columns||[]).map(c=>({id:c.id,name:c.name,type:c.type,index:c.index,required:c.required??false})).sort((a,b)=>(a.index??0)-(b.index??0)||String(a.id).localeCompare(String(b.id)));\nconst states=rows.map(r=>{const fields={};for(const k of Object.keys(r).sort()){if(!['id','createdAt','updatedAt'].includes(k))fields[k]=hash(r[k]);}return {id:String(r.id),fields,hash:hash(fields)};}).sort((a,b)=>a.id.localeCompare(b.id));\n\nconst counts={running:0,completed:0,waiting:0,review:0,errors:0,unknown:0};\nconst eligible=['Shorts_Production','ComfyUI'].includes(t.name) && ['Completed','Working'].every(k=>columns.some(c=>c.name===k&&c.type==='boolean'));\nconst classify=r=>{\n if(r.Completed===true)return 'completed';\n if(r.Working===true)return 'running';\n const status=String(r.Status??r.status??'').trim().toLowerCase();\n if(String(r.LastError??'').trim()||['failed','error'].includes(status))return 'errors';\n const type=String(r.Type??r.type??'').toLowerCase().replace(/[ _-]/g,'');\n if(['review','videoreview'].includes(type)||['pending review','awaiting review','review'].includes(status))return 'review';\n if(r.Completed===false&&r.Working===false)return 'waiting';\n return 'unknown';\n};\nif(eligible)for(const r of rows)counts[classify(r)]++;\n\nreturn [{json:{history:t.name===\"Pipeline_Status_History\"?rows.map(r=>({CapturedAt:r.CapturedAt,Snapshot:r.Snapshot,ScanID:r.ScanID})):undefined,jobCounts:eligible?counts:null,id:t.id,name:t.name,rowCount:rows.length,schema:hash(columns),rows:states,complete:true}}];\n\n"
+      }
+    },
+    {
+      "id": "Aggregate",
+      "name": "Aggregate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4336,
+        -528
+      ],
+      "parameters": {
+        "jsCode": "const tables=$('Loop Tables').all().map(i=>i.json).filter(t=>t.jobCounts||t.name==='Pipeline_Status_History');\nconst source=$('Table Summary').all();\n// Loop output contains all completed per-table summaries.\nconst summaries=$('Loop Tables').all().map(i=>i.json);\nconst current=summaries.filter(t=>t.jobCounts).map(t=>({id:t.id,name:t.name,counts:t.jobCounts,rows:t.rows}));\nif(current.length!==2)throw Error('Missing verified production summaries');\nconst hist=summaries.find(t=>t.name==='Pipeline_Status_History')?.history||[];\nconst now=$now.setZone('America/New_York'),today=now.startOf('day'),yesterday=today.minus({days:1}),overnight=today.minus({days:1}).set({hour:22}),nightEnd=today.set({hour:7});\nconst executions=[...new Map($input.all().flatMap(i=>i.json.data||[]).map(e=>[String(e.id),e])).values()];\nconst prod=[\"x4AirppgK2nvJGuf\", \"TWMnQqnEwD7qTfbp\", \"M9SnVr1xBYNDwJDF\", \"MZK3Pv01FHqZbooz\"];const runs=executions.filter(e=>prod.includes(e.workflowId)&&e.stoppedAt);\nconst count=(a,b)=>{const r=runs.filter(e=>Date.parse(e.stoppedAt)>=a.toMillis()&&Date.parse(e.stoppedAt)<b.toMillis());return {workflowRunsSucceeded:r.filter(e=>e.status==='success').length,workflowRunsFailed:r.filter(e=>['error','crashed'].includes(e.status)).length,meaning:'Execution outcomes only; not proof of jobs completed'};};\nconst workflows=$('Workflows').all().flatMap(i=>i.json.data||[]).filter(w=>prod.includes(w.id));\nconst schedule=workflows.map(w=>({name:w.name,active:w.active===true,timezone:w.settings?.timezone||'not exposed',triggers:(w.nodes||[]).filter(n=>n.type==='n8n-nodes-base.scheduleTrigger').map(n=>n.parameters)}));\nconst previous=hist.filter(r=>r.CapturedAt&&Date.parse(r.CapturedAt)<today.toMillis()).sort((a,b)=>Date.parse(b.CapturedAt)-Date.parse(a.CapturedAt))[0];\nconst snapshot={asOf:now.toISO(),current,previousSnapshotAt:previous?.CapturedAt||null};\nconst message=JSON.stringify({asOf:now.toISO(),test:!$('07:00 New York').isExecuted,yesterday:count(yesterday,today),overnight:count(overnight,nightEnd<now?nightEnd:now),current:current.map(({name,counts})=>({name,counts})),coverage:previous?'Daily prior snapshot available; exact overnight queue transitions cannot be reconstructed.':'First daily snapshot: no prior daily comparison. Retained execution metadata only; no invented history.',executionCoverage:'Read newest execution pages through 48-hour boundary; retention may limit history.',verifiedProductionSchedules:schedule,proposedTimeline:'Research 07:00; Scene 08:00; Dispatch 09:00; generation 22:00\u201307:00 America/New_York. Treat as proposal unless verified schedules agree.'});\nreturn [{json:{CapturedAt:now.toISO(),Snapshot:JSON.stringify(snapshot),ScanID:String($execution.id),message,escapedBody:message.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}}];"
+      }
+    },
+    {
+      "id": "Payload",
+      "name": "Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2304,
+        -528
+      ],
+      "parameters": {
+        "jsCode": "const p=$('Validate Prepared Brief').first().json;return [{json:{event:'n8n.morning-brief',event_type:'n8n.morning-brief',prepared_brief:p.prepared_brief,message:p.prepared_brief,ai_slots:p.ai_slots,template_version:3,source_context:p.source_context}}];"
+      }
+    },
+    {
+      "id": "Deliver",
+      "name": "Deliver",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2080,
+        -528
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://operator-supplied-hermes-receiver.invalid/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-GitLab-Event",
+              "value": "n8n.morning-brief"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "disabled": true
+    },
+    {
+      "id": "Validate-Delivery",
+      "name": "Validate Delivery",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1856,
+        -528
+      ],
+      "parameters": {
+        "jsCode": "const r=$input.first().json;if(![200,202].includes(r.statusCode)||!r.body||['ignored','error'].includes(r.body.status))throw Error('Agent route rejected request');return [{json:{receipt:r.body,acknowledged:true,agentDeliveryVerified:false,scanId:$('Aggregate').first().json.ScanID}}];"
+      },
+      "disabled": true
+    },
+    {
+      "id": "3231e87f-de35-4cb5-a05b-3e7fdcf03adb",
+      "name": "Production Executions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4560,
+        -528
+      ],
+      "parameters": {
+        "url": "http://10.0.0.157:5678/api/v1/executions?limit=100",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "name": "cursor",
+                    "value": "={{ $response.body.nextCursor || \"\" }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextCursor || ($response.body.data.length > 0 && $response.body.data.every(e => Date.parse(e.startedAt) < Date.now()-48*3600000)) }}",
+              "requestInterval": 50
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uAYrMVyn7mtbEGuP",
+          "name": "Hermes Monitor REST"
+        }
+      }
+    },
+    {
+      "id": "1d72e139-43d9-4fd0-966a-757ef7df2f63",
+      "name": "Save Daily Snapshot",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -4112,
+        -528
+      ],
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "fnc0q1Ok83zHVUM8"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "CapturedAt": "={{ $json.CapturedAt }}",
+            "Snapshot": "={{ $json.Snapshot }}",
+            "ScanID": "={{ $json.ScanID }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "CapturedAt",
+              "displayName": "CapturedAt",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Snapshot",
+              "displayName": "Snapshot",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ScanID",
+              "displayName": "ScanID",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "90de466f-7a9d-4da6-9249-f3c3a802d1a0",
+      "name": "Restore Brief",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -3888,
+        -528
+      ],
+      "parameters": {
+        "jsCode": "return [{json:$('Aggregate').first().json}];"
+      }
+    },
+    {
+      "id": "74b00003-5033-468a-ba8f-1d376e4d4bd9",
+      "name": "Live Weather 08021",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput",
+      "position": [
+        -3664,
+        -528
+      ],
+      "parameters": {
+        "url": "https://api.open-meteo.com/v1/forecast?latitude=39.8042&longitude=-74.9858&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=1",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "a1dcf691-7fb8-49e5-a489-52eed5ab9e73",
+      "name": "Full Brief Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3440,
+        -528
+      ],
+      "parameters": {
+        "jsCode": "const a=$('Aggregate').first().json; const raw=$input.first().json; const now=$now.setZone('America/New_York'); let weather={status:'unavailable',zip:'08021',source:'Open-Meteo',fetched_at:now.toISO()};try{const c=raw.current,d=raw.daily;const t=DateTime.fromISO(c.time,{zone:'America/New_York'});if(!t.isValid||![c.temperature_2m,c.weather_code,d.temperature_2m_max[0],d.temperature_2m_min[0],d.precipitation_probability_max[0]].every(Number.isFinite))throw Error('invalid weather');if(Math.abs(now.toMillis()-t.toMillis())>7200000||d.time[0]!==now.toISODate())throw Error('stale');weather={...weather,status:'available',valid_at:c.time,temperature_f:c.temperature_2m,weather_code:c.weather_code,high_f:d.temperature_2m_max[0],low_f:d.temperature_2m_min[0],precipitation_chance_percent:d.precipitation_probability_max[0],temperature_kind:'modelled current conditions'};}catch(e){} const brief_history=$('Loop Tables').all().flatMap(i=>i.json.history || []).map(h=>{try{const s=JSON.parse(h.Snapshot);return {CapturedAt:h.CapturedAt,ScanID:h.ScanID,current:s.current.map(t=>({name:t.name,counts:t.counts}))};}catch(e){return {CapturedAt:h.CapturedAt,coverage:'Historical snapshot unavailable'};}});\n\nconst p=JSON.parse(a.message);\nconst clock=DateTime.fromISO(now.toISO(),{zone:'America/New_York'});\nconst greeting=`Good ${clock.hour<12?'morning':clock.hour<17?'afternoon':'evening'}, sir. It is ${clock.toFormat('h:mm a')} on ${clock.toFormat('cccc, LLLL d, yyyy')}.`;\nconst map={0:'Clear',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',48:'Fog',51:'Drizzle',53:'Drizzle',55:'Drizzle',56:'Freezing drizzle',57:'Freezing drizzle',61:'Rain',63:'Rain',65:'Rain',66:'Freezing rain',67:'Freezing rain',71:'Snow',73:'Snow',75:'Snow',77:'Snow grains',80:'Showers',81:'Showers',82:'Showers',85:'Snow showers',86:'Snow showers',95:'Thunderstorms',96:'Thunderstorms with hail',99:'Thunderstorms with hail'};\nconst weather_line=weather.status==='available'?`${map[weather.weather_code]||'Conditions unavailable'} in ZIP 08021. Currently ${weather.temperature_f} degrees Fahrenheit, with a high of ${weather.high_f} and a low of ${weather.low_f}. Today's maximum rain probability is ${weather.precipitation_chance_percent} percent.`:'Weather unavailable.';\nconst number=(v)=>Number.isInteger(v)&&v>=0?String(v):'unavailable';\nconst production_lines=p.current.map(t=>{const c=t.counts||{};return (t.name==='ComfyUI'?`Generation assets: ${number(c.completed)} completed.`:`Production jobs: ${number(c.completed)} completed.`)+` Running: ${number(c.running)}. Waiting: ${number(c.waiting)}. Review: ${number(c.review)}. Current errors: ${number(c.errors)}.`+(c.unknown?` Unclassified: ${number(c.unknown)}.`:'');}).join(' ');\nconst history_line=`Yesterday: ${number(p.yesterday.workflowRunsSucceeded)} successful retained workflow runs, ${number(p.yesterday.workflowRunsFailed)} failed. Overnight: ${number(p.overnight.workflowRunsSucceeded)} successful retained workflow runs, ${number(p.overnight.workflowRunsFailed)} failed. These are retained runs, not unique jobs.`;\nconst full_template=\"{greeting}\\nHere's the latest. Let's see what the machines have been up to while we were otherwise occupied.\\n{AI_MORNING_OBSERVATION}\\n\\nWEATHER \\u2014 08021\\n{weather_line}\\n{AI_WEATHER_COMMENTARY}\\n\\nSYSTEMS STATUS\\nNow, on to the systems.\\n[[LIVE_CORE_STATUS]]\\n{AI_SYSTEMS_ANALYSIS} {AI_SYSTEMS_WIT}\\n\\nPRODUCTION AUTOMATION\\n{production_lines}\\n{history_line}\\n{AI_PRODUCTION_ANALYSIS} {AI_BOTTLENECK_ASSESSMENT} {AI_QUALITY_ASSESSMENT}\\n\\nINTELLIGENCE OPPORTUNITIES\\nOpportunity: {AI_TOP_OPPORTUNITY}\\nRevenue: {AI_REVENUE_INSIGHT}\\nEfficiency: {AI_EFFICIENCY_IDEA}\\nCreative: {AI_CREATIVE_IDEA}\\nRisk: {AI_TOP_RISK}\\nThese are recommendations, sir, not guaranteed results.\\n\\nTODAY'S PRIORITIES\\nFirst: {AI_PRIORITY_ONE}\\nSecond: {AI_PRIORITY_TWO}\\nThird: {AI_PRIORITY_THREE}\\n{AI_PRIORITY_RATIONALE}\\nDefer: {AI_DEFERRED_TASK}\\n\\nJARVIS ASSESSMENT\\n{AI_DAILY_ASSESSMENT} {AI_MOTIVATIONAL_LINE} {AI_CLOSING_JOKE}\\nAdvisory only. No approvals, job changes, repairs, purchases or dispatch without confirmed authorization.\\nThat's the situation, sir. Shall we make today productive, or merely give the appearance of it?\";\nconst slot_keys=[\"AI_MORNING_OBSERVATION\", \"AI_WEATHER_COMMENTARY\", \"AI_SYSTEMS_ANALYSIS\", \"AI_SYSTEMS_WIT\", \"AI_PRODUCTION_ANALYSIS\", \"AI_BOTTLENECK_ASSESSMENT\", \"AI_QUALITY_ASSESSMENT\", \"AI_TOP_OPPORTUNITY\", \"AI_REVENUE_INSIGHT\", \"AI_EFFICIENCY_IDEA\", \"AI_CREATIVE_IDEA\", \"AI_TOP_RISK\", \"AI_PRIORITY_ONE\", \"AI_PRIORITY_TWO\", \"AI_PRIORITY_THREE\", \"AI_PRIORITY_RATIONALE\", \"AI_DEFERRED_TASK\", \"AI_DAILY_ASSESSMENT\", \"AI_MOTIVATIONAL_LINE\", \"AI_CLOSING_JOKE\"];\nreturn [{json:{brief_history,production:p,aggregate:a,local_time:now.toISO(),weather,weather_line,production_lines,history_line,greeting,full_template,slot_keys,systems_status:'Host core telemetry is collected after native drafting. You have NOT measured core health, active models, CPU, RAM, disk, GPUs, tasks or failed services. Systems commentary must be conditional advice only, never a current health assertion.',measurement_coverage:{production:p.checked_at||null,weather:weather.fetched_at,core:'late host collection'},template_version:3}}];\n"
+      }
+    },
+    {
+      "id": "d50b9ca6-3024-4b7e-bb91-89640eb18b30",
+      "name": "Local Morning AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -3152,
+        -528
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Fill every AI commentary slot of the full user template as the JSON object defined by the structured parser. Do not return a brief field or copy placeholder identifiers. First call Morning Search once, but treat returned snippets as unverified; do not assert news. Each slot: one natural sentence, ideally 5\u201310 words, at most 110 characters. Use no numerals, percentages, money amounts, new factual claims, revenue guarantees or invented production results. Analyses may infer priorities from measured production/weather/history; quality is not inspected, and completed assets are not proof of quality. Systems analysis must explicitly be conditional advice because host telemetry arrives later. Recommendations only, no action or approval. Context: {{ JSON.stringify({production:$json.production,history:$json.brief_history,local_time:$json.local_time,weather:$json.weather,systems_status:$json.systems_status}) }}\nFull latest template (all factual fields rendered deterministically, not by you):\n{{ $json.full_template }}\nSTRICT FORMAT EXAMPLE (use this concise advisory style; revise only when justified): {\"AI_MORNING_OBSERVATION\": \"The review queue deserves attention before fresh production.\", \"AI_WEATHER_COMMENTARY\": \"Consider the forecast before planning outdoor work.\", \"AI_SYSTEMS_ANALYSIS\": \"If telemetry identifies a fault, inspect it before dispatch.\", \"AI_SYSTEMS_WIT\": \"Even machines appreciate a measured verdict.\", \"AI_PRODUCTION_ANALYSIS\": \"Review pending work before creating more backlog.\", \"AI_BOTTLENECK_ASSESSMENT\": \"Waiting items may be the next dependency to inspect.\", \"AI_QUALITY_ASSESSMENT\": \"Completed assets still require a human quality check.\", \"AI_TOP_OPPORTUNITY\": \"Review existing assets for reusable production ideas.\", \"AI_REVENUE_INSIGHT\": \"Validate demand before expecting revenue from finished content.\", \"AI_EFFICIENCY_IDEA\": \"Consider batching manual reviews to reduce context switching.\", \"AI_CREATIVE_IDEA\": \"Consider a reusable visual style for the next concept.\", \"AI_TOP_RISK\": \"Unreviewed outputs may delay safe downstream progress.\", \"AI_PRIORITY_ONE\": \"Review pending production items without approving automatically.\", \"AI_PRIORITY_TWO\": \"Inspect the waiting item and its prerequisites.\", \"AI_PRIORITY_THREE\": \"Check retained failures for unresolved causes.\", \"AI_PRIORITY_RATIONALE\": \"Remove uncertainty before committing more compute.\", \"AI_DEFERRED_TASK\": \"Defer new production until the current review is understood.\", \"AI_DAILY_ASSESSMENT\": \"Existing output provides material for careful review.\", \"AI_MOTIVATIONAL_LINE\": \"A considered next step beats an impressive queue.\", \"AI_CLOSING_JOKE\": \"Coffee remains the only dependency with a human scheduler.\"}\nDo NOT repeat any measurements in commentary: facts are displayed separately. In AI_WEATHER_COMMENTARY recommend checking outdoor plans only, no weather conditions or temperatures. Never assert a schedule is running or on plan. No extra output wrapper of your own; the parser tool handles its output wrapper.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are the native local JARVIS commentary drafter. Return all twenty explicit AI_* string keys required by the parser, concise and grounded. Never invent measured facts, news, appointments, quality inspection, revenue or current core health. Core telemetry is unavailable to you and inserted later. Systems analysis is conditional advice, not a health claim. Call the fixed read-only Morning Search tool once. No actions, dispatches, approvals or repairs.",
+          "maxIterations": 4,
+          "returnIntermediateSteps": false,
+          "enableStreaming": false
+        }
+      }
+    },
+    {
+      "id": "afb3f2f4-6386-4899-98c2-95583376b8fb",
+      "name": "Small Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -3208,
+        -296
+      ],
+      "parameters": {
+        "model": "granite4.2:latest",
+        "options": {
+          "think": false,
+          "temperature": 0,
+          "numCtx": 32768,
+          "format": "default"
+        }
+      },
+      "credentials": {
+        "ollamaApi": {
+          "id": "ccswhcTlaOVDAY9f",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "id": "c2615858-243c-46c9-ad02-216641865cf6",
+      "name": "Morning Search",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        -3080,
+        -296
+      ],
+      "parameters": {
+        "toolDescription": "Read-only web search. News, Youtube, Trending.",
+        "url": "http://10.0.0.157:8080/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $fromAI('query', 'A search query including current date for AI automation news', 'string') }}"
+            },
+            {
+              "name": "format",
+              "value": "json"
+            },
+            {
+              "name": "time_range",
+              "value": "week"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "d8e0b66c-8a8e-49e6-92a7-99293e02f82b",
+      "name": "Validate Prepared Brief",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2528,
+        -528
+      ],
+      "parameters": {
+        "jsCode": "let o=$json.output;if(typeof o==='string')o=JSON.parse(o.trim().replace(/^```(?:json)?\\s*|\\s*```$/g,''));\nconst c=$('Full Brief Context').first().json;\nif(!c||!c.production||!c.weather||!c.full_template||!Array.isArray(c.slot_keys))throw Error('Missing measured template context');\nif(!o||typeof o!=='object'||Array.isArray(o)||Object.keys(o).length!==c.slot_keys.length)throw Error('Invalid AI slot schema');\nfor(const k of c.slot_keys){const v=o[k];if(typeof v!=='string'||!v.trim()||v.length>110||/[\\r\\n{}\\[\\]<>\\d%$]/.test(v)||/AI_|https?:|guarantee|\\b(?:online|offline|healthy|loaded|operational)\\b/i.test(v))throw Error('Unsafe commentary slot '+k);}\nconst fields={...o,greeting:c.greeting,weather_line:c.weather_line,production_lines:c.production_lines,history_line:c.history_line};\nconst b=c.full_template.replace(/\\{([A-Za-z_]+)\\}/g,(_,k)=>{if(typeof fields[k]!=='string')throw Error('Unresolved slot '+k);return fields[k].trim();});\nif(/\\{[^}]*\\}|AI_[A-Z_]+/.test(b)||(b.match(/\\[\\[LIVE_CORE_STATUS\\]\\]/g)||[]).length!==1)throw Error('Unresolved template');\nif(b.length>2900)throw Error('Full template too long for late telemetry and speech');\nreturn [{json:{prepared_brief:b,ai_slots:o,source_context:c}}];"
+      }
+    },
+    {
+      "id": "606d3449-bf1c-459f-a578-3e2585f15133",
+      "name": "Morning Structured Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -2952,
+        -296
+      ],
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\": \"object\", \"properties\": {\"AI_MORNING_OBSERVATION\": {\"type\": \"string\"}, \"AI_WEATHER_COMMENTARY\": {\"type\": \"string\"}, \"AI_SYSTEMS_ANALYSIS\": {\"type\": \"string\"}, \"AI_SYSTEMS_WIT\": {\"type\": \"string\"}, \"AI_PRODUCTION_ANALYSIS\": {\"type\": \"string\"}, \"AI_BOTTLENECK_ASSESSMENT\": {\"type\": \"string\"}, \"AI_QUALITY_ASSESSMENT\": {\"type\": \"string\"}, \"AI_TOP_OPPORTUNITY\": {\"type\": \"string\"}, \"AI_REVENUE_INSIGHT\": {\"type\": \"string\"}, \"AI_EFFICIENCY_IDEA\": {\"type\": \"string\"}, \"AI_CREATIVE_IDEA\": {\"type\": \"string\"}, \"AI_TOP_RISK\": {\"type\": \"string\"}, \"AI_PRIORITY_ONE\": {\"type\": \"string\"}, \"AI_PRIORITY_TWO\": {\"type\": \"string\"}, \"AI_PRIORITY_THREE\": {\"type\": \"string\"}, \"AI_PRIORITY_RATIONALE\": {\"type\": \"string\"}, \"AI_DEFERRED_TASK\": {\"type\": \"string\"}, \"AI_DAILY_ASSESSMENT\": {\"type\": \"string\"}, \"AI_MOTIVATIONAL_LINE\": {\"type\": \"string\"}, \"AI_CLOSING_JOKE\": {\"type\": \"string\"}}, \"required\": [\"AI_MORNING_OBSERVATION\", \"AI_WEATHER_COMMENTARY\", \"AI_SYSTEMS_ANALYSIS\", \"AI_SYSTEMS_WIT\", \"AI_PRODUCTION_ANALYSIS\", \"AI_BOTTLENECK_ASSESSMENT\", \"AI_QUALITY_ASSESSMENT\", \"AI_TOP_OPPORTUNITY\", \"AI_REVENUE_INSIGHT\", \"AI_EFFICIENCY_IDEA\", \"AI_CREATIVE_IDEA\", \"AI_TOP_RISK\", \"AI_PRIORITY_ONE\", \"AI_PRIORITY_TWO\", \"AI_PRIORITY_THREE\", \"AI_PRIORITY_RATIONALE\", \"AI_DEFERRED_TASK\", \"AI_DAILY_ASSESSMENT\", \"AI_MOTIVATIONAL_LINE\", \"AI_CLOSING_JOKE\"], \"additionalProperties\": false}"
+      }
+    },
+    {
+      "id": "688f336c-f265-4c74-b2f9-ed58ee274caf",
+      "name": "Time Saved",
+      "type": "n8n-nodes-base.timeSaved",
+      "typeVersion": 1,
+      "position": [
+        -4112,
+        -256
+      ],
+      "parameters": {
+        "mode": "perItem"
+      }
+    },
+    {
+      "id": "1f3e8997-3f26-463b-b264-6105a7636982",
+      "name": "Time Saved1",
+      "type": "n8n-nodes-base.timeSaved",
+      "typeVersion": 1,
+      "position": [
+        -2752,
+        -528
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Workflows": {
+      "main": [
+        [
+          {
+            "node": "Workflow Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Pages": {
+      "main": [
+        [
+          {
+            "node": "Tables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tables": {
+      "main": [
+        [
+          {
+            "node": "Table Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Table Items": {
+      "main": [
+        [
+          {
+            "node": "Loop Tables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Tables": {
+      "main": [
+        [
+          {
+            "node": "Production Executions",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rows": {
+      "main": [
+        [
+          {
+            "node": "Table Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Table Summary": {
+      "main": [
+        [
+          {
+            "node": "Time Saved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Save Daily Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Payload": {
+      "main": [
+        [
+          {
+            "node": "Deliver",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deliver": {
+      "main": [
+        [
+          {
+            "node": "Validate Delivery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "07:00 New York": {
+      "main": [
+        [
+          {
+            "node": "Workflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Production Executions": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Daily Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Restore Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Brief": {
+      "main": [
+        [
+          {
+            "node": "Live Weather 08021",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Live Weather 08021": {
+      "main": [
+        [
+          {
+            "node": "Full Brief Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Full Brief Context": {
+      "main": [
+        [
+          {
+            "node": "Local Morning AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Small Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Local Morning AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Morning Search": {
+      "ai_tool": [
+        [
+          {
+            "node": "Local Morning AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Morning Structured Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Local Morning AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Local Morning AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Time Saved1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Prepared Brief": {
+      "main": [
+        [
+          {
+            "node": "Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Time Saved": {
+      "main": [
+        [
+          {
+            "node": "Loop Tables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Time Saved1": {
+      "main": [
+        [
+          {
+            "node": "Validate Prepared Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timezone": "America/New_York",
+    "binaryMode": "separate",
+    "timeSavedMode": "dynamic",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "id": "j3ewCQU4TL0p4XDJ",
+  "active": false
+}

@@ -1,0 +1,1423 @@
+{
+  "name": "Scene Production",
+  "nodes": [
+    {
+      "id": "894bcdb1-83ab-4c4e-b708-15e640f6581c",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -3248,
+        224
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 8 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "6d20d979-1fa1-43c5-a607-0dd75dbc2f73",
+      "name": "Get Script Row",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "alwaysOutputData": true,
+      "position": [
+        -3024,
+        224
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "vN5vMR56WpEsdLMn",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "Completed",
+              "condition": "isFalse"
+            },
+            {
+              "keyName": "Working",
+              "condition": "isFalse"
+            }
+          ]
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "55d499fd-26ef-4beb-b877-d8b6166fba98",
+      "name": "Normalize Script Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2128,
+        -48
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst row=$json;\nconst rowId=row.id??row.ID??row.rowId??row._id;\nconst reference=row.Reffrence??row.Reference??row.reffrence??\"\";\nconst script=String(row.Script??\"\").trim();\nif(rowId===undefined||rowId===null||rowId===\"\") throw new Error(\"No Data Table row id returned.\");\nif(!$('Normalize Bypass Context').isExecuted && String(row.Type??\"\").toLowerCase()!==\"script\") throw new Error(`Expected Type=Script, received ${row.Type}`);\nif(!script) throw new Error(\"Script column is empty.\");\nreturn [{json:{...row,_sceneProduction:{rowId,reference,script}}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "ac4cb429-b73b-446c-8ae4-5e4bca70c2d8",
+      "name": "Lock Row \u2014 Working=true",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -1232,
+        -48
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "vN5vMR56WpEsdLMn",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Working": true,
+            "ExecutionID": "={{ String($execution.id) }}",
+            "AttemptCount": "={{ (() => { const n = Number($('Capture Acquired Lock').item.json.AttemptCount); return (Number.isFinite(n) && n >= 0 ? n : 0) + 1; })() }}",
+            "LastError": "",
+            "RequestKey": "={{ String($workflow.id) + ':' + 'vN5vMR56WpEsdLMn' + ':' + String($('Capture Acquired Lock').item.json._context.currentId) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reffrence",
+              "displayName": "Reffrence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "File",
+              "displayName": "File",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Script",
+              "displayName": "Script",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Scenes",
+              "displayName": "Scenes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Working",
+              "displayName": "Working",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ExecutionID",
+              "displayName": "ExecutionID",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "AttemptCount",
+              "displayName": "AttemptCount",
+              "type": "number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LastError",
+              "displayName": "LastError",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "RequestKey",
+              "displayName": "RequestKey",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "fb0b8ef5-788b-4af1-8fa0-b22035b34036",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -2352,
+        -48
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "160bf3e7-41a4-41f4-9701-10330dd9ec57",
+      "name": "Scene Builder",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        -624,
+        -48
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Idea = {{ $json.Ideas }}\n\nScript = {{ $json.Script }}",
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "messages": {
+          "messageValues": [
+            {
+              "type": "SystemMessagePromptTemplate",
+              "message": "Convert the supplied YouTube Short script into production scenes. Return only the JSON object specified by the connected structured output parser, with project, format youtube_short, aspect_ratio 9:16, and scenes. Derive project from the supplied script title, not an unrelated example.\nEach scene requires scene_id, duration, type, scene, visual, prompt, voiceover, on_screen_text, sound, dialogue, sound_effects, music. Use the field type (not generation_type), exactly text_to_image, image_to_video, or flf_to_video. Do not use image or video as type values. No extra fields, Markdown, or explanation.\nPreserve the script's story, wording, order, and timing. Return exactly one output scene per source scene in source order. IDs are SCENE_01, SCENE_02, and so on. duration is the cumulative START-END timeline in seconds: start at zero and preserve each source duration_seconds exactly. Cover total_duration_seconds. Copy each source voiceover exactly, without shortening, paraphrasing, or invented narration.\nRead the scene to select type; when unspecified alternate text_to_image then image_to_video, repeat. Images are visual assets only: sound=\"\", sound_effects=[], music=\"\". Video prompts describe meaningful motion and can be designed for FLF/I2V. Videos include appropriate realistic sound effects/ambience when applicable, grounded in the supplied sound_design; avoid unnecessary music. Preserve visual continuity between images and following video.\ndialogue contains only exact source character lines, as an array of strings; no source dialogue means []. on_screen_text contains source overlays and mirrored dialogue captions, joined into a string. Keep narration in voiceover, not dialogue. Do not invent narration, dialogue, story events, or factual claims. Visual prompt elaboration may describe composition, light, and motion without changing the story. Do not make separate scenes for sound, dialogue, narration, or text.\nCRITICAL: For EACH text_to_image scene all three audio fields are exactly sound:\"\", sound_effects:[], music:\"\", even when the source has sound_design. Source sound_design applies only to video scenes. Check this before returning."
+            }
+          ]
+        },
+        "batching": {
+          "batchSize": 1,
+          "delayBetweenBatches": 0
+        }
+      }
+    },
+    {
+      "id": "de85b4f6-4629-4e91-8894-a7eed0c68386",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -784,
+        192
+      ],
+      "parameters": {
+        "model": "qwen3.8:latest",
+        "options": {
+          "think": false,
+          "keepAlive": "5m",
+          "numCtx": 8192,
+          "numPredict": 4096,
+          "format": "default"
+        }
+      },
+      "credentials": {
+        "ollamaApi": {
+          "id": "ccswhcTlaOVDAY9f",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "id": "cf87e2fc-7d53-43f6-9ecb-09256d781c4e",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "retryOnFail": true,
+      "position": [
+        -272,
+        192
+      ],
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"required\":[\"project\",\"format\",\"aspect_ratio\",\"scenes\"],\"properties\":{\"project\":{\"type\":\"string\"},\"format\":{\"const\":\"youtube_short\"},\"aspect_ratio\":{\"const\":\"9:16\"},\"scenes\":{\"type\":\"array\",\"minItems\":1,\"items\":{\"anyOf\":[{\"type\":\"object\",\"required\":[\"scene_id\",\"duration\",\"type\",\"scene\",\"visual\",\"prompt\",\"voiceover\",\"on_screen_text\",\"sound\",\"dialogue\",\"sound_effects\",\"music\"],\"properties\":{\"scene_id\":{\"type\":\"string\"},\"duration\":{\"type\":\"string\",\"pattern\":\"^\\\\d+(?:\\\\.\\\\d+)?-\\\\d+(?:\\\\.\\\\d+)?$\"},\"type\":{\"const\":\"text_to_image\"},\"scene\":{\"type\":\"string\"},\"visual\":{\"type\":\"string\"},\"prompt\":{\"type\":\"string\"},\"voiceover\":{\"type\":\"string\"},\"on_screen_text\":{\"type\":\"string\"},\"sound\":{\"const\":\"\"},\"dialogue\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"sound_effects\":{\"type\":\"array\",\"maxItems\":0,\"items\":{\"type\":\"string\"}},\"music\":{\"const\":\"\"}},\"additionalProperties\":false},{\"type\":\"object\",\"required\":[\"scene_id\",\"duration\",\"type\",\"scene\",\"visual\",\"prompt\",\"voiceover\",\"on_screen_text\",\"sound\",\"dialogue\",\"sound_effects\",\"music\"],\"properties\":{\"scene_id\":{\"type\":\"string\"},\"duration\":{\"type\":\"string\",\"pattern\":\"^\\\\d+(?:\\\\.\\\\d+)?-\\\\d+(?:\\\\.\\\\d+)?$\"},\"type\":{\"type\":\"string\",\"enum\":[\"image_to_video\",\"flf_to_video\"]},\"scene\":{\"type\":\"string\"},\"visual\":{\"type\":\"string\"},\"prompt\":{\"type\":\"string\"},\"voiceover\":{\"type\":\"string\"},\"on_screen_text\":{\"type\":\"string\"},\"sound\":{\"type\":\"string\"},\"dialogue\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"sound_effects\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"music\":{\"type\":\"string\"}},\"additionalProperties\":false}]}}},\"additionalProperties\":false}"
+      }
+    },
+    {
+      "id": "02205bdd-d979-4e5c-b818-182b2c3e8a02",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2576,
+        128
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fd5bbb79-599e-4446-b278-5a99f0c031da",
+              "leftValue": "={{ $json.isEmpty() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e28342bf-33a5-42f9-bc75-dd1004fb93fa",
+      "name": "Call 'Data Table CRUD'",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "onError": "continueErrorOutput",
+      "position": [
+        608,
+        -48
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "5x0Dy4rbBRZfov7K",
+          "mode": "list"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "operation": "update",
+            "id": "vN5vMR56WpEsdLMn",
+            "match": "={{ { id: $('Loop Over Items').item.json.id } }}",
+            "row": "={{ (() => { const value = $json.output; let parsed; try { parsed = typeof value === \"string\" ? JSON.parse(value) : value; } catch (e) { throw new Error(\"Scene Production: output must be valid JSON containing scenes\"); } if (!parsed || !Array.isArray(parsed.scenes) || parsed.scenes.length === 0) throw new Error(\"Scene Production: output.scenes must be a non-empty array\"); return { Scenes: JSON.stringify(parsed.scenes) }; })() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "operation",
+              "displayName": "operation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "row",
+              "displayName": "row",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "match",
+              "displayName": "match",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "d83d27bb-cdb9-4f6b-9049-553817cb599c",
+      "name": "Insert row",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -1680,
+        -48
+      ],
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "vxItbJ4B8uYBtqJ3",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $json._context.workflowId }}",
+            "rowId": "={{ $json._context.currentId }}",
+            "status": "Working",
+            "executionId": "={{ $execution.id }}",
+            "HeartbeatAt": "={{ $now.toISO() }}",
+            "LeaseUntil": "={{ $now.plus({ seconds: 3600 }).toISO() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "rowId",
+              "displayName": "rowId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "executionId",
+              "displayName": "executionId",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "HeartbeatAt",
+              "displayName": "HeartbeatAt",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LeaseUntil",
+              "displayName": "LeaseUntil",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "38d425b4-e6fc-442c-938c-9b123e79ba60",
+      "name": "Ollama Chat Model1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        192
+      ],
+      "parameters": {
+        "model": "muse-glimmer:30b-q4_K_M-dflash",
+        "options": {
+          "think": false,
+          "keepAlive": "5m",
+          "numCtx": 8192,
+          "numPredict": 4096,
+          "format": "default"
+        }
+      },
+      "credentials": {
+        "ollamaApi": {
+          "id": "ccswhcTlaOVDAY9f",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "id": "f858d813-08f3-4dd9-a112-4a5b7247b240",
+      "name": "Delete row(s)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "alwaysOutputData": true,
+      "position": [
+        1056,
+        48
+      ],
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "value": "vxItbJ4B8uYBtqJ3",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.lockId }}"
+            },
+            {
+              "keyName": "workflow",
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.workflowId }}"
+            },
+            {
+              "keyName": "rowId",
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "0e710041-f443-47a2-9cae-b5abb077fda0",
+      "name": "Retry",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        832,
+        48
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "vN5vMR56WpEsdLMn",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Completed": false,
+            "Working": false,
+            "Type": "={{ $('Lock Row \u2014 Working=true').item.json.Type }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reffrence",
+              "displayName": "Reffrence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "File",
+              "displayName": "File",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Script",
+              "displayName": "Script",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Scenes",
+              "displayName": "Scenes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Working",
+              "displayName": "Working",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c970959f-4973-4357-a6e6-7d0d3ba8990a",
+      "name": "Pass",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        832,
+        -144
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "vN5vMR56WpEsdLMn",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Completed": false,
+            "Working": false,
+            "Type": "Scenes",
+            "Status": "Scripted"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reffrence",
+              "displayName": "Reffrence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "File",
+              "displayName": "File",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Script",
+              "displayName": "Script",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Scenes",
+              "displayName": "Scenes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Working",
+              "displayName": "Working",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "0e8d30a8-b9c5-48aa-9a9d-d8ce774a489f",
+      "name": "Get Script Row1",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "alwaysOutputData": true,
+      "position": [
+        -3024,
+        32
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "vN5vMR56WpEsdLMn",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $json.currentId }}"
+            }
+          ]
+        },
+        "limit": 1
+      }
+    },
+    {
+      "id": "99d23d0e-180b-44b9-aeb8-4c9774af19cc",
+      "name": "Exact row: reject active lock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2800,
+        32
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nreturn $input.all().filter(item => Number.isSafeInteger(item.json.id) && item.json.id > 0 && item.json.Working !== true);\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "24471e34-c305-48e0-a08d-c288fc1794db",
+      "name": "Canonical scheduled stage gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "alwaysOutputData": true,
+      "position": [
+        -2800,
+        224
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst allowed = new Set([\"Script\", \"script\"]);\nreturn $input.all().flatMap((item, index) => { const r = item.json; return r && Number.isSafeInteger(r.id) && r.id > 0 && allowed.has(r.Type) && r.Completed === false && r.Working === false ? [{json:r, pairedItem:{item:index}}] : []; });\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "21ad5df0-fa2c-4ca2-8b7f-2db4a8b1cbb0",
+      "name": "Normalize Bypass Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3248,
+        32
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst raw={...($json.query||{}),...($json.body||{})};if(![true,'true'].includes(raw.ByPass))throw new Error('invalid_request: ByPass true required');const values=[raw.Id,raw.Row,raw.RowID].filter(v=>v!==undefined);const s=String(values[0]??'');if(!/^[1-9][0-9]*$/.test(s)||!Number.isSafeInteger(Number(s))||values.some(v=>String(v)!==s))throw new Error('invalid_request: Id must be one positive safe decimal row ID');if(raw.ByPass!==undefined && ![true,'true'].includes(raw.ByPass))throw new Error('invalid_request: ByPass must be true');return [{json:{workflowId:String($workflow.id),currentId:Number(s),lockId:null,source:'webhook',ByPass:true}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "b5221bc5-31ca-4cec-8a88-5e590d9f8906",
+      "name": "Capture Internal Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1904,
+        -48
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst row=$json;if(!Number.isSafeInteger(row.id)||row.id<=0)throw new Error('Invalid selected row');const source=$('Normalize Bypass Context').isExecuted?'webhook':'schedule';if(source==='webhook'&&row.id!==$('Normalize Bypass Context').first().json.currentId)throw new Error('Selected row mismatch');return [{json:{...row,_context:{workflowId:String($workflow.id),currentId:row.id,lockId:null,source,executionId:String($execution.id)}}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "fb12ed77-602e-49f7-8f86-574a99e042af",
+      "name": "Capture Acquired Lock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1456,
+        -48
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst row=$('Capture Internal Context').item.json;const c=row._context;const lock=$json;if(!Number.isSafeInteger(lock.id)||lock.id<=0||String(lock.workflow)!==c.workflowId||lock.rowId!==c.currentId||String(lock.executionId)!==c.executionId)throw new Error('Acquired lock ownership mismatch');return [{json:{...row,_context:{...c,lockId:lock.id}}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "d9b99f5a-bef8-4250-b009-07d883850db0",
+      "name": "Webhook POST Bypass",
+      "webhookId": "b3bf00b7-51dd-4e99-b912-85a1fbc2f67f",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -3472,
+        32
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "Production",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "648845b4-0635-4e6a-8226-d3195d328392",
+      "name": "Finish",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -2128,
+        -240
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "d15375fa-6f27-4bc7-b44c-9654851d84ff",
+      "name": "Start AI Timing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1008,
+        -48
+      ],
+      "parameters": {
+        "jsCode": "return $input.all().map((item,index)=>{\n const row=item.json;let src;try{src=typeof row.Script==='string'?JSON.parse(row.Script):row.Script;}catch(e){throw new Error('Scene Production: Script must be valid JSON');}\n if(!src||typeof src!=='object'||!Array.isArray(src.scenes)||!src.scenes.length||typeof src.full_voiceover!=='string'||!src.full_voiceover.trim())throw new Error('Scene Production: complete script scenes and full_voiceover required');\n if(typeof src.total_duration_seconds!=='number'||!Number.isFinite(src.total_duration_seconds)||src.total_duration_seconds<=0)throw new Error('Scene Production: total_duration_seconds must be positive');\n let total=0;src.scenes.forEach((s,i)=>{\n  if(!s||typeof s!=='object'||(s.scene_id!==i+1&&s.scene_id!=='SCENE_'+String(i+1).padStart(2,'0')))throw new Error('Scene Production: source scene IDs must be sequential');\n  if(typeof s.duration_seconds!=='number'||!Number.isFinite(s.duration_seconds)||s.duration_seconds<=0)throw new Error('Scene Production: scene '+(i+1)+' duration_seconds must be positive');\n  if(typeof s.voiceover!=='string'||!s.voiceover.trim())throw new Error('Scene Production: source scene '+(i+1)+' narration required');\n  if(s.dialogue!==undefined&&(!Array.isArray(s.dialogue)||s.dialogue.some(v=>typeof v!=='string')))throw new Error('Scene Production: source dialogue must be exact string lines');\n  total+=s.duration_seconds;\n });\n if(Math.abs(total-src.total_duration_seconds)>1e-9)throw new Error('Scene Production: source durations do not cover total_duration_seconds');\n const normalize=s=>s.replace(/\\s+/g,' ').trim();\n if(normalize(src.full_voiceover)!==normalize(src.scenes.map(s=>s.voiceover).join(' ')))throw new Error('Scene Production: source scenes do not cover full narration');\n return {json:{...row,_aiStartedAt:Date.now()},pairedItem:{item:index}};\n});"
+      }
+    },
+    {
+      "id": "4e58ed2f-0e0b-488f-8794-472579c313f7",
+      "name": "Capture AI Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        -48
+      ],
+      "parameters": {
+        "jsCode": "const sample={\"project\": \"AI That Can Build Its Own Workflow\", \"format\": \"youtube_short\", \"aspect_ratio\": \"9:16\", \"scenes\": [{\"scene_id\": \"SCENE_01\", \"duration\": \"0-3\", \"type\": \"image\", \"scene\": \"...\", \"visual\": \"...\", \"prompt\": \"...\", \"voiceover\": \"...\", \"on_screen_text\": \"...\", \"sound\": \"...\"}]};\nfunction check(value,shape,path){\n if(Array.isArray(shape)){if(!Array.isArray(value))throw new Error(path+' must be an array');if(shape.length&&value.length===0&&path.endsWith('scenes'))throw new Error(path+' must not be empty');if(shape.length)for(let i=0;i<value.length;i++)check(value[i],shape[0],path+'['+i+']');return;}\n if(shape&&typeof shape==='object'){if(!value||typeof value!=='object'||Array.isArray(value))throw new Error(path+' must be an object');for(const k of Object.keys(shape)){if(!Object.prototype.hasOwnProperty.call(value,k))throw new Error(path+'.'+k+' required; no synthesized defaults');check(value[k],shape[k],path+'.'+k);}return;}\n if(typeof value!==typeof shape||(typeof value==='number'&&!Number.isFinite(value)))throw new Error(path+' has invalid type');\n}\nreturn $input.all().map((item,index)=>{\n const start=$('Start AI Timing').item.json._aiStartedAt;\n let valid=true,error='';try{check(item.json.output,sample,'output');\n const o=item.json.output;let src=$('Start AI Timing').item.json.Script;if(typeof src==='string')src=JSON.parse(src);\n if(!src||!Array.isArray(src.scenes)||!src.full_voiceover)throw new Error('Complete source script object required for coverage validation');\n if(o.format!=='youtube_short'||o.aspect_ratio!=='9:16'||o.scenes.length!==src.scenes.length)throw new Error('Full script scene/format coverage mismatch');\n let cursor=0;for(let i=0;i<o.scenes.length;i++){const c=o.scenes[i],s=src.scenes[i];if(c.scene_id!=='SCENE_'+String(i+1).padStart(2,'0'))throw new Error('Scene IDs/order invalid');if(c.voiceover!==s.voiceover)throw new Error('Source narration was changed');const m=/^\\s*(\\d+(?:\\.\\d+)?)\\s*-\\s*(\\d+(?:\\.\\d+)?)\\s*$/.exec(String(c.duration));if(!m||Number(m[1])!==cursor||Number(m[2])-Number(m[1])!==s.duration_seconds||Number(m[2])<=Number(m[1]))throw new Error('Source scene timing changed');cursor=Number(m[2]);if(!['text_to_image','image_to_video','flf_to_video'].includes(c.generation_type??c.type))throw new Error('Unsupported scene generation type');}\n if(cursor!==src.total_duration_seconds)throw new Error('Scene timing does not cover full script');\n\nif(new Set(Object.keys(o)).size!==4 || Object.keys(o).some(k=>!['project','format','aspect_ratio','scenes'].includes(k)))throw new Error('Unexpected scene output top-level fields');\nfor(let i=0;i<o.scenes.length;i++){\n const c=o.scenes[i],s=src.scenes[i];\n const keys=['scene_id','duration','type','scene','visual','prompt','voiceover','on_screen_text','sound','dialogue','sound_effects','music'];\n if(keys.some(k=>!Object.prototype.hasOwnProperty.call(c,k))||Object.keys(c).some(k=>!keys.includes(k)))throw new Error('Scene '+c.scene_id+' fields differ from contract');\n if(!Array.isArray(c.dialogue)||c.dialogue.some(v=>typeof v!=='string')||JSON.stringify(c.dialogue)!==JSON.stringify(s.dialogue??[]))throw new Error('Scene '+c.scene_id+' source dialogue was changed');\n if(!Array.isArray(c.sound_effects)||c.sound_effects.some(v=>typeof v!=='string')||typeof c.music!=='string')throw new Error('Invalid scene audio fields');\n if(c.type==='text_to_image'&&(c.sound!==''||c.sound_effects.length||c.music!==''))throw new Error('Image scene '+c.scene_id+' must have no audio');\n if(Array.isArray(s.on_screen_text)&&s.on_screen_text.some(t=>!c.on_screen_text.includes(t)))throw new Error('Source overlay text was omitted');\n if(c.dialogue.some(t=>!c.on_screen_text.includes(t)))throw new Error('Dialogue captions were omitted');\n}\n\nif(item.json.output.full_voiceover!==undefined&&!item.json.output.full_voiceover.trim())throw new Error('full_voiceover is empty');}catch(e){valid=false;error=e.message;}\n const row=$('Capture Acquired Lock').item.json;\n return {json:{...item.json,_aiMetric:{JobID:String(row.JobID??row._context.currentId),Task:String($workflow.name),ExecutionID:String($execution.id),DurationMs:Math.max(0,Date.now()-start),ValidOutput:valid,Error:error}},pairedItem:{item:index}};\n});"
+      }
+    },
+    {
+      "id": "82056b9f-40c1-4ca1-be40-405fbe890241",
+      "name": "Append AI Run Metric",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "onError": "continueRegularOutput",
+      "position": [
+        160,
+        -48
+      ],
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "MgzHSOR57oYxcmZq"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "JobID": "={{ $json._aiMetric.JobID }}",
+            "Task": "={{ $json._aiMetric.Task }}",
+            "ExecutionID": "={{ $json._aiMetric.ExecutionID }}",
+            "DurationMs": "={{ $json._aiMetric.DurationMs }}",
+            "ValidOutput": "={{ $json._aiMetric.ValidOutput }}",
+            "Error": "={{ $json._aiMetric.Error }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "JobID",
+              "displayName": "JobID",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Task",
+              "displayName": "Task",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ExecutionID",
+              "displayName": "ExecutionID",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "DurationMs",
+              "displayName": "DurationMs",
+              "type": "number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ValidOutput",
+              "displayName": "ValidOutput",
+              "type": "boolean",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Error",
+              "displayName": "Error",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "41f14e58-846d-42b5-9037-e4c4bf545846",
+      "name": "Validate AI Event and Continue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        -48
+      ],
+      "parameters": {
+        "jsCode": "if($json.error)console.warn('AI metrics append failed: '+String($json.error.message||$json.error));const captured=$('Capture AI Event').item.json;if(!captured._aiMetric.ValidOutput)throw new Error('Invalid AI output: '+captured._aiMetric.Error);return [{json:captured,pairedItem:{item:0}}];"
+      }
+    },
+    {
+      "id": "31d95224-b236-4e21-9357-ffa4e0a246ab",
+      "name": "Normalize Scene Builder Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -408,
+        -48
+      ],
+      "parameters": {
+        "jsCode": "return $input.all().map((item,index)=>{const output=item.json.output??item.json;if(!output||typeof output!=='object'||!Array.isArray(output.scenes))throw new Error('Scene Builder returned no structured scene object');return {json:{output},pairedItem:{item:index}};});"
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Script Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Script Row": {
+      "main": [
+        [
+          {
+            "node": "Canonical scheduled stage gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Script Row": {
+      "main": [
+        [
+          {
+            "node": "Capture Internal Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lock Row \u2014 Working=true": {
+      "main": [
+        [
+          {
+            "node": "Start AI Timing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Finish",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normalize Script Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Scene Builder",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Scene Builder",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'Data Table CRUD'": {
+      "main": [
+        [
+          {
+            "node": "Pass",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert row": {
+      "main": [
+        [
+          {
+            "node": "Capture Acquired Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Scene Builder",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Delete row(s)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retry": {
+      "main": [
+        [
+          {
+            "node": "Delete row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pass": {
+      "main": [
+        [
+          {
+            "node": "Delete row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Script Row1": {
+      "main": [
+        [
+          {
+            "node": "Exact row: reject active lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exact row: reject active lock": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Canonical scheduled stage gate": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Bypass Context": {
+      "main": [
+        [
+          {
+            "node": "Get Script Row1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Internal Context": {
+      "main": [
+        [
+          {
+            "node": "Insert row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Acquired Lock": {
+      "main": [
+        [
+          {
+            "node": "Lock Row \u2014 Working=true",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook POST Bypass": {
+      "main": [
+        [
+          {
+            "node": "Normalize Bypass Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start AI Timing": {
+      "main": [
+        [
+          {
+            "node": "Scene Builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture AI Event": {
+      "main": [
+        [
+          {
+            "node": "Append AI Run Metric",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append AI Run Metric": {
+      "main": [
+        [
+          {
+            "node": "Validate AI Event and Continue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate AI Event and Continue": {
+      "main": [
+        [
+          {
+            "node": "Call 'Data Table CRUD'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scene Builder": {
+      "main": [
+        [
+          {
+            "node": "Normalize Scene Builder Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Scene Builder Output": {
+      "main": [
+        [
+          {
+            "node": "Capture AI Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "buw89dDrqgXnuCDz",
+    "executionTimeout": 3600,
+    "timezone": "America/New_York"
+  },
+  "id": "TWMnQqnEwD7qTfbp",
+  "active": false
+}

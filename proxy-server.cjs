@@ -97,6 +97,73 @@ function proxyReq(res, host, port, pathname, search, method, body, incoming) {
   p.end();
 }
 
+// Trusted-LAN Review and schema-only setup; secrets stay server-side.
+const setupHandler = require('./setup-bootstrap.cjs').createSetupHandler({dataDir:DATA_DIR,n8nHost:N8N_HOST,n8nPort:N8N_PORT,key:N8N_API_KEY});
+const REVIEW_MODULE = fs.existsSync(path.join(DATA_DIR, 'review-backend.cjs')) ? path.join(DATA_DIR, 'review-backend.cjs') : path.join(__dirname, 'review-backend.cjs');
+const reviewHandler = fs.existsSync(REVIEW_MODULE) ? require(REVIEW_MODULE).createReviewHandler({dataDir:DATA_DIR,n8nHost:N8N_HOST,n8nPort:N8N_PORT,comfyHost:COMFYUI_HOST,comfyPort:COMFYUI_PORT,tokenFile:COMFYUI_TOKEN_FILE}) : null;
+const REVIEW_BACKEND_HASH = reviewHandler ? crypto.createHash('sha256').update(fs.readFileSync(REVIEW_MODULE)).digest('hex') : null;
+const OLLAMA_SETTINGS_MODULE = path.join(path.dirname(REVIEW_MODULE),'ollama-settings.cjs');
+const OLLAMA_SETTINGS_HASH = fs.existsSync(OLLAMA_SETTINGS_MODULE) ? crypto.createHash('sha256').update(fs.readFileSync(OLLAMA_SETTINGS_MODULE)).digest('hex') : null;
+
+// BEGIN HOME NEXT RUN
+// Same cron engine/version as installed n8n. Runtime dependencies are in the existing .data bind.
+function calculateHomeNextRun(workflow, now = new Date()) {
+  const published = workflow.activeVersion;
+  if (workflow.name !== 'ComfyUI Runner') throw Error('Unexpected workflow');
+  if (!workflow.active) return {status:'paused'};
+  if (!published || !Array.isArray(published.nodes)) throw Error('Published schedule unavailable');
+  const triggers = published.nodes.filter(n => n.type === 'n8n-nodes-base.scheduleTrigger' && !n.disabled);
+  if (!triggers.length) return {status:'paused'};
+  const timezone = published.settings?.timezone || workflow.settings?.timezone;
+  if (!timezone) throw Error('Explicit schedule timezone required');
+  const gate = published.nodes.find(n => n.name === 'Scheduled owner and night gate' && !n.disabled);
+  const code = gate?.parameters?.jsCode || '';
+  // Recognize the current native eligibility contract; changed/unsupported logic fails closed.
+  const match = code.match(/timeZone:'([^']+)'[\s\S]*?if\(hour>=(\d+)&&hour<(\d+)\)return \[\];/);
+  if (!match) throw Error('Unrecognized nighttime eligibility');
+  const closedStart = Number(match[2]), closedEnd = Number(match[3]);
+  if (closedStart > 23 || closedEnd > 24 || closedStart >= closedEnd) throw Error('Invalid eligibility window');
+  const formatter = new Intl.DateTimeFormat('en-US',{timeZone:match[1],hour:'numeric',hourCycle:'h23'});
+  const {CronTime} = fs.existsSync(path.join(DATA_DIR,'home-next-run-runtime/node_modules/cron')) ? require(path.join(DATA_DIR,'home-next-run-runtime/node_modules/cron')) : require('./schedule-runtime/node_modules/cron');
+  let earliest = null;
+  for (const trigger of triggers) {
+    const rules = trigger.parameters?.rule?.interval;
+    if (!Array.isArray(rules) || !rules.length) throw Error('Missing schedule rules');
+    for (const rule of rules) {
+      if (rule.field !== 'cronExpression' || typeof rule.expression !== 'string') throw Error('Unsupported native interval');
+      const cron = new CronTime(rule.expression, timezone);
+      let cursor = now;
+      let candidate = null;
+      for (let i=0;i<20000;i++) {
+        const next = cron.getNextDateFrom(cursor,timezone).toJSDate();
+        if (next.getTime() - now.getTime() > 370*86400000) break;
+        const hour = Number(formatter.format(next));
+        if (!(hour >= closedStart && hour < closedEnd)) { candidate=next; break; }
+        cursor=next;
+      }
+      if (!candidate) throw Error('No eligible timer found');
+      if (!earliest || candidate < earliest) earliest=candidate;
+    }
+  }
+  return {status:'scheduled',nextRun:earliest.toISOString(),timezone,checkedAt:now.toISOString()};
+}
+function readHomeRunnerSchedule() {
+  return new Promise((resolve,reject) => {
+    if (!N8N_API_KEY) return reject(Error('Schedule credential unavailable'));
+    // Fixed read-only resource. Browser cannot supply workflow IDs, paths or credentials.
+    const workflowId=process.env.HOME_RUNNER_WORKFLOW_ID||'MZK3Pv01FHqZbooz';
+    if(!/^[A-Za-z0-9_-]+$/.test(workflowId))return reject(Error('Invalid operator-managed Runner workflow ID'));
+    const upstream=http.get({hostname:N8N_HOST,port:N8N_PORT,path:'/api/v1/workflows/'+workflowId,headers:{'X-N8N-API-KEY':N8N_API_KEY}}, response => {
+      let text='';
+      response.on('data',chunk=>{text+=chunk;if(text.length>4*1024*1024)upstream.destroy(Error('Response too large'));});
+      response.on('end',()=>{try {if(response.statusCode!==200)throw Error('Schedule read failed');resolve(calculateHomeNextRun(JSON.parse(text)));}catch(e){reject(e);}});
+    });
+    upstream.setTimeout(10000,()=>upstream.destroy(Error('Schedule read timeout')));
+    upstream.on('error',reject);
+  });
+}
+// END HOME NEXT RUN
+
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://localhost');
   const pathname = u.pathname;
@@ -121,45 +188,22 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   const buf = Buffer.concat(body, bodyBytes);
+  if (await setupHandler(req, res, pathname, buf)) return;
+  if (reviewHandler && await reviewHandler(req, res, pathname, buf)) return;
 
-  // Dedicated deletion transport: fixed loopback or protected Unix socket only.
-  // Browser credentials and helper HMAC keys never enter HTML or JS bundles.
-  if (pathname.startsWith('/home-delete/')) {
-    const reply = (status, data, extra={}) => {res.writeHead(status, {'Content-Type':'application/json','Cache-Control':'no-store',...extra});res.end(JSON.stringify(data));};
-    const capabilities = pathname === '/home-delete/capabilities' && method === 'GET';
-    const mutation = pathname === '/home-delete/delete' && method === 'POST';
-    const login=pathname==='/home-delete/login' && method==='GET';
-    if (!capabilities && !mutation && !login) return reply(404,{error:'unknown_route'});
-    const trustedTLS=process.env.HOME_DELETE_TRUSTED_PROXY_IP && req.socket.remoteAddress===process.env.HOME_DELETE_TRUSTED_PROXY_IP && req.headers['x-forwarded-proto']==='https' && /^https:\/\/[^/]+$/.test(process.env.HOME_DELETE_TLS_ORIGIN||'');
-    const origin=trustedTLS ? process.env.HOME_DELETE_TLS_ORIGIN : (req.socket.encrypted?'https://':'http://')+req.headers.host;
-    if (mutation && req.headers.origin !== origin) return reply(403,{error:'forbidden_origin'});
-    const privateFile = file => {
-      const fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);
-      try {const st=fs.fstatSync(fd);if (!st.isFile() || (st.mode & 0o077) || st.uid!==process.getuid()) throw Error('Private owned credential required');return fs.readFileSync(fd);}finally{fs.closeSync(fd);}
-    };
-    let secret, credential;
-    try {secret=privateFile(process.env.HOME_DELETE_SECRET_FILE);credential=privateFile(process.env.HOME_DELETE_BROWSER_AUTH_FILE).toString().trim();if(secret.length<32 || (!credential.startsWith('home-delete:') || credential.length<44))throw Error('Invalid credentials');}
-    catch {return capabilities ? reply(200,{available:false,reason:'Output deletion backend is not activated'}) : reply(503,{error:'delete_unavailable'});}
-    // Basic authentication must be protected by TLS or an SSH loopback tunnel.
-    const local = ['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
-    if (!local && !req.socket.encrypted && !trustedTLS) return capabilities ? reply(200,{available:false,reason:'Authenticated TLS or local tunnel required'}) : reply(403,{error:'secure_transport_required'});
-    const expected=Buffer.from('Basic '+Buffer.from(credential).toString('base64'));const actual=Buffer.from(req.headers.authorization||'');
-    if(actual.length!==expected.length || !crypto.timingSafeEqual(actual,expected)) return capabilities ? reply(200,{available:false,reason:'Authenticated deletion session required'}) : reply(401,{error:'authentication_required'},{'WWW-Authenticate':'Basic realm="Home deletion", charset="UTF-8"'});
-    if(login)return reply(200,{authenticated:true,message:'Return to Home and Refresh to check deletion capabilities.'});
-    if(buf.length>65536)return reply(413,{error:'payload_too_large'});
-    const target=capabilities?'/capabilities':'/delete';const stamp=String(Math.floor(Date.now()/1000));const nonce=crypto.randomBytes(16).toString('hex');
-    const signature=crypto.createHmac('sha256',secret).update([method,target,stamp,nonce,crypto.createHash('sha256').update(buf).digest('hex')].join('\n')).digest('hex');
-    const opts={method,path:target,headers:{'Content-Type':'application/json','Content-Length':buf.length,'X-Delete-Time':stamp,'X-Delete-Nonce':nonce,'X-Delete-Signature':signature}};
-    if(process.env.HOME_DELETE_CONTROL_SOCKET)opts.socketPath=process.env.HOME_DELETE_CONTROL_SOCKET;
-    else {opts.hostname='127.0.0.1';opts.port=3461;}
-    const helper=http.request(opts,upstream=>{res.writeHead(upstream.statusCode,{'Content-Type':'application/json','Cache-Control':'no-store'});upstream.pipe(res);});
-    helper.setTimeout(30000,()=>helper.destroy());helper.on('error',()=>{if(!res.headersSent)reply(capabilities?200:503,capabilities?{available:false,reason:'Deletion helper unavailable'}:{error:'delete_unavailable'});else res.end();});helper.end(buf);return;
+  if (pathname === '/schedule/home-next-run') {
+    res.setHeader('Content-Type','application/json');
+    res.setHeader('Cache-Control','no-store');
+    if (method !== 'GET' || u.search) {res.writeHead(400);res.end(JSON.stringify({status:'unavailable'}));return;}
+    try {res.end(JSON.stringify(await readHomeRunnerSchedule()));}
+    catch {res.writeHead(503);res.end(JSON.stringify({status:'unavailable'}));}
+    return;
   }
 
   if (pathname === '/updates/identity' && method === 'GET') {
     const file = fs.existsSync(HTML_OVERRIDE) ? HTML_OVERRIDE : path.join(__dirname, 'index.html');
     res.writeHead(200, {'Content-Type':'application/json','Cache-Control':'no-store'});
-    res.end(JSON.stringify({serverHash:RUNNING_SERVER_HASH,uiHash:crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}));
+    res.end(JSON.stringify({serverHash:RUNNING_SERVER_HASH,reviewBackendHash:REVIEW_BACKEND_HASH,ollamaSettingsHash:OLLAMA_SETTINGS_HASH,uiHash:crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}));
     return;
   }
 

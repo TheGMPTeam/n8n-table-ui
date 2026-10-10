@@ -1,0 +1,248 @@
+[
+  {
+    "sourceId": "vxItbJ4B8uYBtqJ3",
+    "name": "running_job",
+    "columns": [
+      {
+        "name": "HeartbeatAt",
+        "type": "string"
+      },
+      {
+        "name": "LeaseUntil",
+        "type": "string"
+      },
+      {
+        "name": "executionId",
+        "type": "string"
+      },
+      {
+        "name": "rowId",
+        "type": "number"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "name": "workflow",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "sourceId": "xKckTZI3ZU5HqIpZ",
+    "name": "ComfyUI",
+    "columns": [
+      {
+        "name": "AttemptCount",
+        "type": "number"
+      },
+      {
+        "name": "Completed",
+        "type": "boolean"
+      },
+      {
+        "name": "Dependencies",
+        "type": "string"
+      },
+      {
+        "name": "ExecutionID",
+        "type": "string"
+      },
+      {
+        "name": "JobID",
+        "type": "string"
+      },
+      {
+        "name": "LastError",
+        "type": "string"
+      },
+      {
+        "name": "Params",
+        "type": "string"
+      },
+      {
+        "name": "RequestKey",
+        "type": "string"
+      },
+      {
+        "name": "URL",
+        "type": "string"
+      },
+      {
+        "name": "Working",
+        "type": "boolean"
+      },
+      {
+        "name": "prompt",
+        "type": "string"
+      },
+      {
+        "name": "ref",
+        "type": "string"
+      },
+      {
+        "name": "type",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "sourceId": "5xZbQOeVq0mh9cJu",
+    "name": "Pipeline_Review_Gate",
+    "columns": [
+      {
+        "name": "ApprovedBy",
+        "type": "string"
+      },
+      {
+        "name": "JobID",
+        "type": "string"
+      },
+      {
+        "name": "Outputs",
+        "type": "string"
+      },
+      {
+        "name": "Reason",
+        "type": "string"
+      },
+      {
+        "name": "ReviewedAt",
+        "type": "string"
+      },
+      {
+        "name": "Snapshot",
+        "type": "string"
+      },
+      {
+        "name": "State",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "sourceId": "fnc0q1Ok83zHVUM8",
+    "name": "Pipeline_Status_History",
+    "columns": [
+      {
+        "name": "CapturedAt",
+        "type": "string"
+      },
+      {
+        "name": "ScanID",
+        "type": "string"
+      },
+      {
+        "name": "Snapshot",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "sourceId": "vN5vMR56WpEsdLMn",
+    "name": "Shorts_Production",
+    "columns": [
+      {
+        "name": "AttemptCount",
+        "type": "number"
+      },
+      {
+        "name": "Completed",
+        "type": "boolean"
+      },
+      {
+        "name": "ExecutionID",
+        "type": "string"
+      },
+      {
+        "name": "File",
+        "type": "string"
+      },
+      {
+        "name": "Ideas",
+        "type": "string"
+      },
+      {
+        "name": "LastError",
+        "type": "string"
+      },
+      {
+        "name": "Reffrence",
+        "type": "string"
+      },
+      {
+        "name": "RequestKey",
+        "type": "string"
+      },
+      {
+        "name": "Scenes",
+        "type": "string"
+      },
+      {
+        "name": "Script",
+        "type": "string"
+      },
+      {
+        "name": "Status",
+        "type": "string"
+      },
+      {
+        "name": "Type",
+        "type": "string"
+      },
+      {
+        "name": "Working",
+        "type": "boolean"
+      }
+    ]
+  },
+  {
+    "sourceId": "MgzHSOR57oYxcmZq",
+    "name": "AI_Run_Metrics",
+    "columns": [
+      {
+        "name": "DurationMs",
+        "type": "number"
+      },
+      {
+        "name": "Error",
+        "type": "string"
+      },
+      {
+        "name": "ExecutionID",
+        "type": "string"
+      },
+      {
+        "name": "JobID",
+        "type": "string"
+      },
+      {
+        "name": "Task",
+        "type": "string"
+      },
+      {
+        "name": "ValidOutput",
+        "type": "boolean"
+      }
+    ]
+  },
+  {
+    "sourceId": "haulC2FnGWqHb0no",
+    "name": "ComfyUI_Templates",
+    "columns": [
+      {
+        "name": "API",
+        "type": "string"
+      },
+      {
+        "name": "Dependencies",
+        "type": "string"
+      },
+      {
+        "name": "type",
+        "type": "string"
+      }
+    ]
+  }
+]

@@ -1,0 +1,4 @@
+const test=require('node:test'),assert=require('node:assert/strict');
+function helpers(){const {validBrowserId,identity}=require('./review-backend.cjs');return {validBrowserId,reviewIdentity:identity};}
+test('browser ID transfer accepts only bounded editor identifiers',()=>{const h=helpers();assert.equal(h.validBrowserId('12345678-abcd-1234-abcd-123456789abc'),true);for(const x of ['',null,'a'.repeat(257),'x\r\nCookie: bad','token.secret.jwt'])assert.equal(h.validBrowserId(x),false);});
+test('native role validation never trusts client role',()=>{const h=helpers();assert.equal(h.reviewIdentity({data:{id:'owner',role:'global:owner'}}).id,'owner');assert.equal(h.reviewIdentity({data:{id:'admin',role:'global:admin'}}).id,'admin');for(const r of ['global:member',null,{slug:'global:owner'}])assert.throws(()=>h.reviewIdentity({data:{id:'x',role:r}}));assert.throws(()=>h.reviewIdentity({id:'x',role:'global:owner'}));});

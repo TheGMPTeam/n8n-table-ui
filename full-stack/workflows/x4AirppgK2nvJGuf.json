@@ -1,0 +1,1428 @@
+{
+  "name": "Research",
+  "nodes": [
+    {
+      "id": "af39d44c-f1f6-4cf2-bafc-7d43d3d75f31",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "retryOnFail": true,
+      "position": [
+        -5744,
+        -752
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Idea = {{ $('Loop Over Items').item.json.Ideas }}",
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "# ROLE\n\nYou are a professional YouTube Shorts Script Creation AI \u2014 the **Script Creation Stage** in a multi-stage content pipeline. You are not the research, visual prompt, ComfyUI, or video-generation agent.\n\nYou receive research data, three candidate content ideas, audience info, and supporting facts. You produce **ONE original, production-ready Short script** in JSON.\n\n---\n\n# OBJECTIVE\n\nDon't just pick Idea 1, 2, or 3. Compare all three, then combine their strongest elements \u2014 hook, information, emotional/curiosity angle, story structure, takeaway \u2014 into a single coherent story. Cut anything weak, repetitive, or unsupported. The result must read as one intentional story, not three ideas stitched together.\n\nInternally score each idea on hook strength, curiosity, relevance, originality, story/visual potential, and factual support. Use this to pick the strongest overall direction \u2014 don't output the reasoning.\n\n---\n\n# FACTUAL ACCURACY\n\nTreat supplied research as the factual foundation. Never invent facts, stats, quotes, or sources. Never present speculation, predictions, or opinion as fact. If research conflicts, resolve it with the stronger evidence, or avoid centering the disputed claim. Prefer clear language over false precision.\n\n---\n\n# STRUCTURE & PACING (target 45\u201360s, 60s max)\n\nDefault flow: **HOOK \u2192 SETUP \u2192 MAIN CONTENT \u2192 PAYOFF \u2192 CTA** (roughly 0-3s / 3-8s / 8-35s / 35-50s / 50-60s). Swap in whatever structure (Mystery\u2192Reveal, Problem\u2192Solution, Before\u2192After, etc.) best fits the story \u2014 this is a default, not a rule.\n\n- **Hook (0-3s):** Strongest possible opening \u2014 unexpected fact, claim, or question. No greetings, no throat-clearing, no branding. Natural phrasing over forced patterns (\"What if...\", \"Nobody tells you...\", etc.).\n- **Setup (3-8s):** What's happening, why it matters, what question the video answers. Don't over-explain.\n- **Main content (8-35s):** The core value \u2014 surprising, understanding-changing, practical information from the research.\n- **Payoff (35-50s):** The reveal/conclusion that makes the hook worth it.\n- **CTA (50-60s):** Natural close that fits the content (follow, comment, ask a question) \u2014 not generic or aggressive.\n\nEvery section must either answer a question, raise a new one, reveal information, raise stakes, or move toward the payoff. No filler, repetition, or premature conclusions. Write natural spoken language \u2014 don't pad to hit a word count.\n\n`total_duration_seconds` must equal the sum of every scene's `duration_seconds` \u2014 compute it, don't estimate it.\n\n---\n\n# VOICEOVER\n\nConversational, concise, natural when spoken aloud. Write for the ear, not the page \u2014 simple sentences, punctuation for pacing. `full_voiceover` must match the scene breakdown exactly.\n\n---\n\n# SCENE BREAKDOWN\n\nEach scene = story direction only, never generation prompting. No Stable Diffusion/Flux/WAN/LTXV/ComfyUI prompts, camera or model parameters, LoRAs, seeds, or node configs \u2014 that's a later stage.\n\n- **Visual concept:** describe what happens in the story, not how to generate it. (\"A futuristic AI interface builds workflow nodes as the camera pushes in\" \u2014 not a rendering prompt.)\n- **On-screen text:** short reinforcing phrases only, never the full narration.\n- **Dialogue:** only if it improves the story; each line as a plain string `\"Speaker: line\"`; empty array if none. Don't invent characters just to use it.\n- **Sound design:** intentional per scene \u2014 music, impacts, ambience, whooshes, silence \u2014 supporting the voiceover, not competing with it.\n- **Continuity:** scenes connect logically; payoff ties back to setup; CTA follows naturally from payoff; recurring characters/objects/terms stay consistent.\n\n---\n\n# QUALITY CHECK (verify internally before output)\n\nHook creates curiosity; setup is fast; main content delivers real value; every section moves forward; payoff lands; CTA fits; voiceover sounds natural; length ~45-60s; every scene has a clear purpose and matches the voiceover; on-screen text is short; claims are research-backed; the script blends the three ideas into one coherent story; no generation prompts leaked in; `total_duration_seconds` = sum of scene durations.\n\n---\n\n# OUTPUT FORMAT\n\nReturn ONLY valid JSON matching this structure exactly \u2014 no extra/missing keys, no markdown, no commentary, no trailing commas, no undefined required fields. Use empty arrays/strings where there's nothing to say.\n\n```json\n{\n  \"title\": \"\",\n  \"alternate_titles\": [\"\", \"\", \"\"],\n  \"total_duration_seconds\": 0,\n  \"hook\": \"\",\n  \"setup\": \"\",\n  \"main_content\": \"\",\n  \"payoff\": \"\",\n  \"cta\": \"\",\n  \"full_voiceover\": \"\",\n  \"scenes\": [\n    {\n      \"scene_id\": 1,\n      \"duration_seconds\": 0,\n      \"script_section\": \"hook\",\n      \"what_happens\": \"\",\n      \"viewer_takeaway\": \"\",\n      \"visual_concept\": \"\",\n      \"voiceover\": \"\",\n      \"on_screen_text\": [],\n      \"dialogue\": [],\n      \"sound_design\": \"\",\n      \"transition\": \"\"\n    }\n  ]\n}\n```\n\n- `alternate_titles`: up to 3 strings.\n- `script_section`: exactly one of `hook`, `setup`, `main_content`, `payoff`, `cta`.\n- `dialogue`: plain `\"Speaker: line\"` strings.",
+          "passthroughBinaryImages": true,
+          "passthroughBinaryPdfs": true,
+          "autoSaveHighlightedData": false,
+          "enableStreaming": false
+        }
+      }
+    },
+    {
+      "id": "dc773cea-7813-4936-8bac-7c54f31a285e",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -5904,
+        -528
+      ],
+      "parameters": {
+        "model": "muse-glimmer:30b-q4_K_M-dflash",
+        "options": {
+          "think": true,
+          "numBatch": 512,
+          "format": "default"
+        }
+      },
+      "credentials": {
+        "ollamaApi": {
+          "id": "ccswhcTlaOVDAY9f",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "id": "f8143283-46a2-4245-9f3b-55eddfe2b605",
+      "name": "Ollama Chat Model1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -5776,
+        -528
+      ],
+      "parameters": {
+        "model": "qwen3.8:latest",
+        "options": {
+          "think": true,
+          "numBatch": 512,
+          "format": "default"
+        }
+      },
+      "credentials": {
+        "ollamaApi": {
+          "id": "ccswhcTlaOVDAY9f",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "id": "266bfe93-783c-474c-adfa-1711f3d2a5e8",
+      "name": "Think",
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1.1,
+      "position": [
+        -5648,
+        -528
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "e9e41bc4-29cb-4730-9a6a-24245b393639",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -8368,
+        -352
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 7 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "7dbf2048-8c38-4311-8509-a919f3b33574",
+      "name": "Get row(s)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "alwaysOutputData": true,
+      "position": [
+        -8144,
+        -352
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "vN5vMR56WpEsdLMn",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "Completed",
+              "condition": "isFalse"
+            },
+            {
+              "keyName": "Working",
+              "condition": "isFalse"
+            }
+          ]
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "70822f9b-91b3-49f5-b1dd-f2d062a07d07",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -7472,
+        -752
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "f7db7149-c1c6-4459-b381-0e7fdd7d6a08",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "retryOnFail": true,
+      "position": [
+        -5392,
+        -528
+      ],
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"title\": \"\",\n  \"alternate_titles\": [\"\", \"\", \"\"],\n  \"total_duration_seconds\": 0,\n  \"hook\": \"\",\n  \"setup\": \"\",\n  \"main_content\": \"\",\n  \"payoff\": \"\",\n  \"cta\": \"\",\n  \"full_voiceover\": \"\",\n  \"scenes\": [\n    {\n      \"scene_id\": 1,\n      \"duration_seconds\": 0,\n      \"script_section\": \"hook\",\n      \"what_happens\": \"\",\n      \"viewer_takeaway\": \"\",\n      \"visual_concept\": \"\",\n      \"voiceover\": \"\",\n      \"on_screen_text\": [],\n      \"dialogue\": [],\n      \"sound_design\": \"\",\n      \"transition\": \"\"\n    }\n  ]\n}"
+      }
+    },
+    {
+      "id": "0a8a72f4-1e65-4cb9-aa3e-5f86786f01de",
+      "name": "Update row(s)1",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "retryOnFail": true,
+      "onError": "continueErrorOutput",
+      "position": [
+        -4288,
+        -752
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "vN5vMR56WpEsdLMn",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Working": false,
+            "Script": "={{ $json.output.toJsonString() }}",
+            "Status": "Idea",
+            "Type": "Script"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reffrence",
+              "displayName": "Reffrence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "File",
+              "displayName": "File",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Ideas",
+              "displayName": "Ideas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Script",
+              "displayName": "Script",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Scenes",
+              "displayName": "Scenes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Working",
+              "displayName": "Working",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "fe54ae60-36ce-45f2-ab08-b4d7776aa096",
+      "name": "Code in JavaScript",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6352,
+        -752
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nfor (const item of $input.all()) {\n  item.json.LoopID= $input.first().json.id;\n}\nreturn $input.all();\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "af90871e-f24a-471b-b3c6-5685719432de",
+      "name": "Code in JavaScript1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4512,
+        -752
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nfor (const item of $input.all()) {\n  item.json.Script= JSON.stringify($input.first().json.output);\n}\nreturn $input.all();\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "4b35d1c4-64ae-43ee-b957-84063d0ccba4",
+      "name": "Get row(s)1",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -7920,
+        -752
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "vN5vMR56WpEsdLMn",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $json.currentId }}"
+            }
+          ]
+        },
+        "limit": 1
+      }
+    },
+    {
+      "id": "f1134707-5969-4d6c-a24f-0aa6f919e654",
+      "name": "If1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -7696,
+        -352
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d381a251-b75b-4e4d-b3c7-f364230f0fae",
+              "leftValue": "={{ $json.isEmpty()}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "2189780a-801c-478d-87d2-ebe0a7f9735a",
+      "name": "SearXNG",
+      "type": "n8n-nodes-searxng-tool.searxngTool",
+      "typeVersion": 1,
+      "position": [
+        -5520,
+        -528
+      ],
+      "parameters": {
+        "query": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Query', ``, 'string') }}",
+        "pageno": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Page_Number', ``, 'number') }}",
+        "safeSearch": "0",
+        "additionalOptions": {
+          "rawResponse": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Raw_Response', ``, 'boolean') }}"
+        }
+      },
+      "credentials": {
+        "searxngApi": {
+          "id": "TmIhlelQU77wgSYP",
+          "name": "SearXNG account"
+        }
+      }
+    },
+    {
+      "id": "be32a8d5-646d-4269-8a20-058a263edaf9",
+      "name": "Update row(s)2",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -6576,
+        -752
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "vN5vMR56WpEsdLMn",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Working": true,
+            "ExecutionID": "={{ String($execution.id) }}",
+            "AttemptCount": "={{ (() => { const n = Number($('Capture Acquired Lock').item.json.AttemptCount); return (Number.isFinite(n) && n >= 0 ? n : 0) + 1; })() }}",
+            "LastError": "",
+            "RequestKey": "={{ String($workflow.id) + ':' + 'vN5vMR56WpEsdLMn' + ':' + String($('Capture Acquired Lock').item.json._context.currentId) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Reffrence",
+              "displayName": "Reffrence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "File",
+              "displayName": "File",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Ideas",
+              "displayName": "Ideas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Script",
+              "displayName": "Script",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Scenes",
+              "displayName": "Scenes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Working",
+              "displayName": "Working",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ExecutionID",
+              "displayName": "ExecutionID",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "AttemptCount",
+              "displayName": "AttemptCount",
+              "type": "number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LastError",
+              "displayName": "LastError",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "RequestKey",
+              "displayName": "RequestKey",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "152d45ab-1a90-493f-9c1c-d16a89423aa0",
+      "name": "Insert row",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -7024,
+        -752
+      ],
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "vxItbJ4B8uYBtqJ3",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $json._context.workflowId }}",
+            "rowId": "={{ $json._context.currentId }}",
+            "status": "Working",
+            "executionId": "={{ $execution.id }}",
+            "HeartbeatAt": "={{ $now.toISO() }}",
+            "LeaseUntil": "={{ $now.plus({ seconds: 3600 }).toISO() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "rowId",
+              "displayName": "rowId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "executionId",
+              "displayName": "executionId",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "HeartbeatAt",
+              "displayName": "HeartbeatAt",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LeaseUntil",
+              "displayName": "LeaseUntil",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "23dcd3dc-bc25-4925-b138-9dd59bfc1400",
+      "name": "Delete row(s)1",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "alwaysOutputData": true,
+      "position": [
+        -3840,
+        -672
+      ],
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "value": "vxItbJ4B8uYBtqJ3",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.lockId }}"
+            },
+            {
+              "keyName": "workflow",
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.workflowId }}"
+            },
+            {
+              "keyName": "rowId",
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "0e91ce2d-65c2-4eaa-95ea-c8d6d540d5ed",
+      "name": "Update row (error unlock)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -4064,
+        -816
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "vN5vMR56WpEsdLMn",
+          "mode": "list"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Capture Acquired Lock').item.json._context.currentId }}"
+            },
+            {
+              "keyName": "ExecutionID",
+              "keyValue": "={{ String($execution.id) }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Working": false,
+            "Status": "Error",
+            "LastError": "={{ typeof $json.error === 'string' ? $json.error : ($json.error?.message || $json.message || $json.reason || 'Stage failed; inspect execution ' + String($execution.id)) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reffrence",
+              "displayName": "Reffrence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "File",
+              "displayName": "File",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Ideas",
+              "displayName": "Ideas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Script",
+              "displayName": "Script",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Scenes",
+              "displayName": "Scenes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Working",
+              "displayName": "Working",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LastError",
+              "displayName": "LastError",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "90ea4dbe-b716-4ce5-82ca-fcf4ffbb92c1",
+      "name": "Exact row: reject active lock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7696,
+        -752
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nreturn $input.all().filter(item => Number.isSafeInteger(item.json.id) && item.json.id > 0 && item.json.Working !== true);\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "44256d85-b668-4bde-b777-3fee2f892cef",
+      "name": "Canonical scheduled stage gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "alwaysOutputData": true,
+      "position": [
+        -7920,
+        -352
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst allowed = new Set([\"Research\", \"ReSearch\", \"research\", \"Ideas\", \"ideas\"]);\nreturn $input.all().flatMap((item, index) => { const r = item.json; return r && Number.isSafeInteger(r.id) && r.id > 0 && allowed.has(r.Type) && r.Completed === false && r.Working === false ? [{json:r, pairedItem:{item:index}}] : []; });\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "c7f1c1ba-4724-4642-9cb0-4fb35579d033",
+      "name": "Normalize Bypass Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -8144,
+        -752
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst raw={...($json.query||{}),...($json.body||{})};if(![true,'true'].includes(raw.ByPass))throw new Error('invalid_request: ByPass true required');const values=[raw.Id,raw.Row,raw.RowID].filter(v=>v!==undefined);const s=String(values[0]??'');if(!/^[1-9][0-9]*$/.test(s)||!Number.isSafeInteger(Number(s))||values.some(v=>String(v)!==s))throw new Error('invalid_request: Id must be one positive safe decimal row ID');if(raw.ByPass!==undefined && ![true,'true'].includes(raw.ByPass))throw new Error('invalid_request: ByPass must be true');return [{json:{workflowId:String($workflow.id),currentId:Number(s),lockId:null,source:'webhook',ByPass:true}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "47033f04-5d6f-4ceb-a1bc-dfd0262efc79",
+      "name": "Capture Internal Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7248,
+        -752
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst row=$json;if(!Number.isSafeInteger(row.id)||row.id<=0)throw new Error('Invalid selected row');const source=$('Normalize Bypass Context').isExecuted?'webhook':'schedule';if(source==='webhook'&&row.id!==$('Normalize Bypass Context').first().json.currentId)throw new Error('Selected row mismatch');return [{json:{...row,_context:{workflowId:String($workflow.id),currentId:row.id,lockId:null,source,executionId:String($execution.id)}}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "c20fbca5-4da2-4f16-b9e1-f0f6a1a9ec34",
+      "name": "Capture Acquired Lock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6800,
+        -752
+      ],
+      "parameters": {
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst row=$('Capture Internal Context').item.json;const c=row._context;const lock=$json;if(!Number.isSafeInteger(lock.id)||lock.id<=0||String(lock.workflow)!==c.workflowId||lock.rowId!==c.currentId||String(lock.executionId)!==c.executionId)throw new Error('Acquired lock ownership mismatch');return [{json:{...row,_context:{...c,lockId:lock.id}}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+      }
+    },
+    {
+      "id": "a4a4f2cb-f2a9-46f1-9e80-fec6fdaa5eaa",
+      "name": "Webhook POST Bypass",
+      "webhookId": "5d020531-1853-42f5-a457-6e7724bde261",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -8368,
+        -752
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "Research",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "244c93fb-8ffb-4219-b4f3-1703dacaafbd",
+      "name": "Finish",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -7248,
+        -944
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "1c9b9ccc-ba4d-43d7-aea4-75cc7ae39ef8",
+      "name": "Start AI Timing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6128,
+        -752
+      ],
+      "parameters": {
+        "jsCode": "return $input.all().map((i,index)=>({json:{...i.json,_aiStartedAt:Date.now()},pairedItem:{item:index}}));"
+      }
+    },
+    {
+      "id": "8a35bda4-de4c-4678-bd13-fd7be4e4e4d7",
+      "name": "Capture AI Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5184,
+        -752
+      ],
+      "parameters": {
+        "jsCode": "const sample={\"title\": \"\", \"alternate_titles\": [\"\", \"\", \"\"], \"total_duration_seconds\": 0, \"hook\": \"\", \"setup\": \"\", \"main_content\": \"\", \"payoff\": \"\", \"cta\": \"\", \"full_voiceover\": \"\", \"scenes\": [{\"scene_id\": 1, \"duration_seconds\": 0, \"script_section\": \"hook\", \"what_happens\": \"\", \"viewer_takeaway\": \"\", \"visual_concept\": \"\", \"voiceover\": \"\", \"on_screen_text\": [], \"dialogue\": [], \"sound_design\": \"\", \"transition\": \"\"}]};\nfunction check(value,shape,path){\n if(Array.isArray(shape)){if(!Array.isArray(value))throw new Error(path+' must be an array');if(shape.length&&value.length===0&&path.endsWith('scenes'))throw new Error(path+' must not be empty');if(shape.length)for(let i=0;i<value.length;i++)check(value[i],shape[0],path+'['+i+']');return;}\n if(shape&&typeof shape==='object'){if(!value||typeof value!=='object'||Array.isArray(value))throw new Error(path+' must be an object');for(const k of Object.keys(shape)){if(!Object.prototype.hasOwnProperty.call(value,k))throw new Error(path+'.'+k+' required; no synthesized defaults');check(value[k],shape[k],path+'.'+k);}return;}\n if(typeof value!==typeof shape||(typeof value==='number'&&!Number.isFinite(value)))throw new Error(path+' has invalid type');\n}\nreturn $input.all().map((item,index)=>{\n const start=$('Start AI Timing').item.json._aiStartedAt;\n let valid=true,error='';try{check(item.json.output,sample,'output');\n const s=item.json.output;\n if(!Array.isArray(s.scenes)||!s.scenes.length)throw new Error('Script scenes missing');\n let total=0;for(let i=0;i<s.scenes.length;i++){const c=s.scenes[i];if(c.scene_id!==i+1)throw new Error('Script scene IDs/order invalid');if(typeof c.duration_seconds!=='number'||!Number.isFinite(c.duration_seconds)||c.duration_seconds<=0)throw new Error('Script scene duration invalid');total+=c.duration_seconds;}\n const idea=String($('Loop Over Items').item.json.Ideas??'');\n const requested=idea.match(/\\b(\\d+(?:\\.\\d+)?)\\s*[- ]second\\b/i);\n const explicit=requested?Number(requested[1]):null;\n if(total!==s.total_duration_seconds||total>60||total<=0||(explicit!==null?total!==explicit:total<45))throw new Error('Script duration must match explicit requested seconds, otherwise 45-60s');\n if(s.scenes.map(c=>c.voiceover).join(' ').trim().split(/\\s+/).join(' ')!==s.full_voiceover.trim().split(/\\s+/).join(' '))throw new Error('full_voiceover does not match scene narration');\nif(item.json.output.full_voiceover!==undefined&&!item.json.output.full_voiceover.trim())throw new Error('full_voiceover is empty');}catch(e){valid=false;error=e.message;}\n const row=$('Capture Acquired Lock').item.json;\n return {json:{...item.json,_aiMetric:{JobID:String(row.JobID??row._context.currentId),Task:String($workflow.name),ExecutionID:String($execution.id),DurationMs:Math.max(0,Date.now()-start),ValidOutput:valid,Error:error}},pairedItem:{item:index}};\n});"
+      }
+    },
+    {
+      "id": "e4f3cacf-c113-4de5-b801-b986a817550a",
+      "name": "Append AI Run Metric",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "onError": "continueRegularOutput",
+      "position": [
+        -4960,
+        -752
+      ],
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "MgzHSOR57oYxcmZq"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "JobID": "={{ $json._aiMetric.JobID }}",
+            "Task": "={{ $json._aiMetric.Task }}",
+            "ExecutionID": "={{ $json._aiMetric.ExecutionID }}",
+            "DurationMs": "={{ $json._aiMetric.DurationMs }}",
+            "ValidOutput": "={{ $json._aiMetric.ValidOutput }}",
+            "Error": "={{ $json._aiMetric.Error }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "JobID",
+              "displayName": "JobID",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Task",
+              "displayName": "Task",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ExecutionID",
+              "displayName": "ExecutionID",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "DurationMs",
+              "displayName": "DurationMs",
+              "type": "number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ValidOutput",
+              "displayName": "ValidOutput",
+              "type": "boolean",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Error",
+              "displayName": "Error",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ae31209d-0696-45a3-ae8e-4bc16ee72bd0",
+      "name": "Validate AI Event and Continue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4736,
+        -752
+      ],
+      "parameters": {
+        "jsCode": "if($json.error)console.warn('AI metrics append failed: '+String($json.error.message||$json.error));const captured=$('Capture AI Event').item.json;if(!captured._aiMetric.ValidOutput)throw new Error('Invalid AI output: '+captured._aiMetric.Error);return [{json:captured,pairedItem:{item:0}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Think": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Capture AI Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)": {
+      "main": [
+        [
+          {
+            "node": "Canonical scheduled stage gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Finish",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture Internal Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row(s)1": {
+      "main": [
+        [
+          {
+            "node": "Delete row(s)1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update row (error unlock)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Start AI Timing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Update row(s)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)1": {
+      "main": [
+        [
+          {
+            "node": "Exact row: reject active lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SearXNG": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row(s)2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert row": {
+      "main": [
+        [
+          {
+            "node": "Capture Acquired Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete row(s)1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row (error unlock)": {
+      "main": [
+        [
+          {
+            "node": "Delete row(s)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exact row: reject active lock": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Canonical scheduled stage gate": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Bypass Context": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Internal Context": {
+      "main": [
+        [
+          {
+            "node": "Insert row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Acquired Lock": {
+      "main": [
+        [
+          {
+            "node": "Update row(s)2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook POST Bypass": {
+      "main": [
+        [
+          {
+            "node": "Normalize Bypass Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start AI Timing": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture AI Event": {
+      "main": [
+        [
+          {
+            "node": "Append AI Run Metric",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append AI Run Metric": {
+      "main": [
+        [
+          {
+            "node": "Validate AI Event and Continue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate AI Event and Continue": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "buw89dDrqgXnuCDz",
+    "executionTimeout": 3600,
+    "timezone": "America/New_York"
+  },
+  "id": "x4AirppgK2nvJGuf",
+  "active": false
+}

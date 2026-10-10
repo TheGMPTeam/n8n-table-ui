@@ -1,0 +1,17 @@
+{
+  "nodes": [
+    {
+      "id": "d098916d-203e-4cc9-80ea-ade65a6f7e36",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        576
+      ],
+      "parameters": {
+        "jsCode": "// Normalize both entry paths (webhook body-wrapped, or direct from Tool Workflow trigger) into one consistent shape, and validate before anything downstream runs.\nconst raw = $json.body || $json;\nconst triggerSource = $json.body ? 'webhook' : 'workflow';\ntry {\nconst operation = String(raw.operation || '').toLowerCase();\nconst validOps = ['create', 'write', 'update', 'get', 'remove'];\n// Review state is writable only through the authenticated native Review gate.\nif (String(raw.id) === '5xZbQOeVq0mh9cJu' && operation !== 'get') { const e=new Error('Review state requires authenticated Review transport'); e.statusCode=403; throw e; }\n\nif (!validOps.includes(operation)) {\n  throw new Error(`Invalid operation \"${raw.operation}\". Must be one of: ${validOps.join(', ')}`);\n}\nif (operation !== 'create' && !raw.id) {\n  throw new Error(`Missing required \"id\" (data table ID) for operation \"${operation}\"`);\n}\nif (['write', 'update', 'create'].includes(operation) && !raw.row) {\n  throw new Error(`Missing required \"row\" for operation \"${operation}\"`);\n}\nif (operation === 'update' && (!raw.row || typeof raw.row !== 'object' || Array.isArray(raw.row) || Object.keys(raw.row).length === 0 || Object.values(raw.row).every(v => v === undefined))) {\n  throw new Error('For \"update\", row must be a non-empty object of data columns');\n}\nif (operation === 'update' && (!raw.match || raw.match.id === undefined || raw.match.id === null)) {\n  throw new Error('Missing required \"match.id\" for update operation');\n}\nif (operation === 'write' && !Array.isArray(raw.row?.data)) {\n  throw new Error('For \"write\", row.data must be an array of row objects, e.g. { \"data\": [{...}] }');\n}\nif (operation === 'create' && (!raw.row?.name || !Array.isArray(raw.row?.columns))) {\n  throw new Error('For \"create\", row must include \"name\" and a \"columns\" array');\n}\n\nif (raw.limit !== undefined && (!Number.isInteger(raw.limit) || raw.limit < 1 || raw.limit > 250)) throw new Error('limit must be an integer from 1 to 250');\nif (raw.cursor !== undefined && typeof raw.cursor !== 'string') throw new Error('cursor must be a string');\nreturn [{\n  json: {\n    limit: raw.limit || 100,\n    cursor: raw.cursor || \"\",\n    operation,\n    id: raw.id || null,\n    row: raw.row || null,\n    match: raw.match || null,\n    _triggerSource: triggerSource\n  }\n}];\n} catch (e) {\n if (triggerSource !== \"webhook\") throw e;\n return [{json:{_validationError:true,error:\"invalid_request\",message:e.message,statusCode:e.statusCode===403?403:400}}];\n}"
+      }
+    }
+  ]
+}

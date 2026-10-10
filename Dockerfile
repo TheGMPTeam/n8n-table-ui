@@ -5,7 +5,10 @@ WORKDIR /app
 
 # Only the active components: proxy + UI. server.js / better-sqlite3 are the
 # legacy direct-SQLite path and are NOT included in this image.
-COPY proxy-server.cjs ./
+COPY proxy-server.cjs review-backend.cjs ollama-settings.cjs setup-bootstrap.cjs ./
+COPY full-stack/tables.json full-stack/templates.json full-stack/manifest.json ./full-stack/
+# Installed n8n schedule engine version, isolated from legacy SQLite dependencies.
+RUN npm install --prefix /app/schedule-runtime --omit=dev --ignore-scripts cron@4.4.0
 COPY index.html ./
 COPY webhook-workflow-template.json ./
 

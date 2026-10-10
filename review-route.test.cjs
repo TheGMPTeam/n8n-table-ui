@@ -1,0 +1,14 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),http=require('node:http'),{spawn}=require('node:child_process'),fs=require('node:fs'),path=require('node:path');
+test('review auth binds cookie browser ID identity origin expiry and single-use nonce (mock native)',async()=>{
+ const root=fs.mkdtempSync('/home/dad/.hermes/cache/scratch/review-route-');fs.writeFileSync(path.join(root,'review-secret'),'fixture-private-header');let calls=[];
+ const upstream=http.createServer(async(req,res)=>{let b='';for await(const c of req)b+=c;calls.push({url:req.url,headers:req.headers,body:b});res.setHeader('Content-Type','application/json');if(req.url==='/rest/login'){if(req.headers.cookie!=='n8n-auth=fixture-cookie'||req.headers['browser-id']!=='fixture-browser-id'){res.statusCode=401;return res.end('{}');}return res.end(JSON.stringify({data:{id:'verified-owner',role:'global:owner'}}));}res.end(JSON.stringify({ok:true}));});await new Promise(r=>upstream.listen(0,'127.0.0.1',r));const reserve=http.createServer();await new Promise(r=>reserve.listen(0,'127.0.0.1',r));const port=reserve.address().port;await new Promise(r=>reserve.close(r));const origin='http://127.0.0.1:'+port;
+ const child=spawn(process.execPath,['proxy-server.cjs'],{env:{...process.env,PORT:String(port),N8N_HOST:'127.0.0.1',N8N_PORT:String(upstream.address().port),REVIEW_UI_ORIGINS:origin,DATA_DIR:root},stdio:['ignore','pipe','pipe']});try{await new Promise((r,j)=>{child.stdout.on('data',d=>{if(String(d).includes('listening'))r()});child.on('exit',()=>j(Error('exit')));setTimeout(()=>j(Error('timeout')),5000).unref()});const send=(p,b,h={})=>fetch(origin+p,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',...h},body:JSON.stringify(b)});
+ assert.equal((await send('/review/session',{browserId:'fixture-browser-id'})).status,401);
+ assert.equal((await send('/review/session',{browserId:'fixture-browser-id'},{Origin:'http://evil'})).status,403);
+ const h={Cookie:'n8n-auth=fixture-cookie; other=never-forward','browser-id':'fixture-browser-id'};
+ let r=await send('/review/session',{},h);assert.equal(r.status,200);const s=await r.json();assert.equal(s.identity.id,'verified-owner');assert.match(s.nonce,/^[a-f0-9]{64}$/);
+ assert.equal((await send('/review/list',{JobID:'2',nonce:'wrong'},h)).status,403);
+ assert.equal((await send('/review/decision',{JobID:'2',action:'approve_asset',assetId:1,reason:'',nonce:s.nonce},h)).status,403);
+ assert.ok(calls.filter(x=>x.url==='/rest/login').every(x=>!x.headers['x-n8n-api-key']));assert.ok(calls.filter(x=>x.url==='/rest/login').every(x=>x.headers.cookie==='n8n-auth=fixture-cookie'||!x.headers.cookie));
+ }finally{child.kill();await new Promise(r=>child.once('exit',r));await new Promise(r=>upstream.close(r));fs.rmSync(root,{recursive:true,force:true});}
+});

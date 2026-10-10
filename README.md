@@ -1,345 +1,148 @@
-# n8n-table-ui
+# n8n-table-ui — beta
 
-## Local repaired-pipeline integration
+Trusted-LAN UI for n8n's native Data Tables and the Research → Script → Scenes → Review pipeline. **Beta publication is not deployment or production-readiness certification.** No final-video assembler or upload handoff is connected. Approval does not create a finished short.
 
-The local checkout is `/home/dad/Config/n8n-table-ui`. The UI-only deployment is
-`/home/dad/Config/docker-compose.n8n-table-ui.local.yml`, separate from the main
-n8n stack. It preserves the operator-configured **10.0.0.157:3458** LAN listener.
-This is not app authentication: restrict access to a trusted LAN.
+## Quick start
 
-```bash
+Use a separate host/directory for first installation; never import this bundle over an existing production stack.
+
+```sh
+git clone --branch beta https://github.com/TheGMPTeam/n8n-table-ui.git
+cd n8n-table-ui
 npm test
 npm run build
-docker compose -p table-ui -f /home/dad/Config/docker-compose.n8n-table-ui.local.yml up -d --build --no-deps n8n-table-ui
+# Supply your compatible external FFmpeg image before preflight:
+export FFMPEG_IMAGE=your-existing-compatible-ffmpeg-image:tag
+python3 full-stack/check_setup.py
+python3 full-stack/test_setup.py
 ```
 
-- CRUD browser requests use the same-origin `/webhook/yt-*` proxy. Only the
-  five explicit POST routes are forwarded; arbitrary REST/fallback and review
-  routes return 404. n8n administrator API keys are **not** forwarded to these
-  currently unauthenticated CRUD webhooks. Cross-origin writes return 403.
-- Push now invokes the existing exact-row workflow, **without setting Working
-  first** or cloning a queue job. Same-origin POST `/dispatch/research`, `/dispatch/scene`,
-  `/dispatch/dispatcher`, `/dispatch/runner` accept only `{ "rowId": "positive decimal" }`.
-  Fixed upstream transports are GET `Research?Row=…&ByPass=true`, GET
-  `Production?RowID=…&ByPass=true`, GET `Dispatcher?RowID=…&ByPass=true`, and POST
-  `yt-Test` with `{ "Id": "…" }`. Unknown stages, arbitrary URLs, extra fields,
-  bulk selectors and approval are rejected. No administrator key is forwarded.
-  **These execution routes remain unauthenticated on the existing trusted LAN**;
-  origin checks prevent cross-origin browser requests, not malicious LAN clients.
-  Do not expose port 3458 publicly; add authentication before wider access.
-  An accepted HTTP response does not establish generation completion.
-- Setup Step 4 creates its own unique two-column test table, writes only declared
-  fields, verifies write/update by reading back the same row, and removes only
-  the ID returned by this run's create, even after subsequent failures. Errors
-  display the failed stage and HTTP/body details; cleanup failures retain the
-  isolated ID for operator recovery. Finishing/skipping Setup does not claim
-  unrun checks passed.
-- Row loaders follow `nextCursor` using a page limit of 250. Structured n8n
-  validation errors are displayed as errors, even in a successful HTTP envelope.
-- Push dispatches the matched existing row; it does not clone an incomplete queue
-  job. Type aliases map to `Text to image`, `Image to video`, `FLF to video`.
-  Template APIs are previews only; the queue has no API column. Params JSON,
-  including `seed: 0`, explicit empty `negativePrompt`, and scene linkage, is
-  preserved. Invalid Params fail before the update request.
-- Review reads `Pipeline_Review_Gate` (`5xZbQOeVq0mh9cJu`) and displays current
-  job outputs/readiness plus pending/approved/rejected/stale state. Production
-  status must be the literal `Qued`, and every linked queue job must be completed,
-  not Working, with an HTTP(S) output URL. UI readiness is informational only.
-- Decisions remain in the **authenticated n8n editor** workflow
-  `KMtoCzHcKMiTKNvZ`: set explicit JobID/action in Review Request; execute `list`,
-  inspect Capture Output Snapshot, then execute `approve` or `reject`. The workflow
-  binds approval to the previously listed unchanged snapshot. UI approval buttons
-  are intentionally disabled: no authenticated app review transport exists yet.
-  The workflow is manual/inactive; this does not prevent authenticated editor use.
-- **No final-video assembly workflow is connected or implemented.** Approval
-  does not generate a final video. A future assembler must freshly revalidate the
-  approved snapshot and readiness server-side before starting.
-- ComfyUI image/video src and fallback/open links use the **original direct**
-  `http://10.0.0.157:8188/view?...` URL, not the UI media proxy. Filename,
-  subfolder, type, query encoding and omitted parameters are preserved exactly.
-  Log in to ComfyUI at the same host on port 8188 to obtain its session cookie.
-  Browser img/video elements cannot inject a bearer Authorization header;
-  no server token is added to browser URLs or bundles. Actual playback requires
-  reachable ComfyUI, valid output files and a session accepted by `/view`.
-- Preserve `.data/index.html` overrides: they take precedence over the checkout
-  bind mount. Compare them with the checkout before updating, back up and merge
-  operator changes, then verify served HTML bytes. Hand-managed version metadata
-  is retained, so its commit label is not proof of current asset identity.
+The nine-service setup is `full-stack/compose.json` (JSON is valid Compose input). It was derived programmatically from **all nine** services in the operator's main and UI-only Compose files. Pocket build source is bundled with its MIT license. **FFmpeg API source is deliberately excluded: this is not a self-contained FFmpeg build. Before preflight/start, obtain an existing compatible image or build one from your own separately authorized source outside this checkout, then set `FFMPEG_IMAGE` to that locally available tag.** The sample `ffmpeg-api:latest` is not published by this repository; Compose never pulls it and has no FFmpeg build context.
 
-The bundled setup import template is generic legacy onboarding, not the freshly
-repaired production workflow. Do not re-import it over an existing repaired CRUD
-workflow. Isolated CRUD smoke tests do not establish end-to-end generation.
-
-Web UI for n8n data tables — browse, edit, and manage rows in the data tables n8n buffers rows in (Postgres/MySQL/SQLite/ODBC).
-
-The UI talks to n8n exclusively through webhook endpoints. A small Node.js proxy serves the static UI and forwards `POST /webhook/yt-*` requests to n8n. Docker-only deployment on the server stack.
-
-- **Server-stack mode** — proxy runs as a Docker service on the same `automation` network as n8n, talking to it by service name (`n8n:5678`).
-- **Single compose drop-in** at `docker-compose.n8n-table-ui.yml`.
-- **Setup tab** — first-time setup wizard: (1) test proxy + n8n webhook connectivity, (2) configure table IDs by reading them back from n8n to verify they're live, (3) download the Data Table CRUD workflow template and import it into n8n, (4) run a smoke test. The wizard auto-switches to the Setup tab on load if n8n is not reachable or tables are missing.
-
-## Architecture
-
-```
-Browser (port 3458)
-  │
-  ▼
-n8n-table-ui proxy (Node.js, Docker)
-  ├── GET  /                    → serves index.html (static, no-store)
-  ├── GET  /config              → proxy env snapshot
-  ├── POST /webhook/yt-get      → n8n:5678/webhook/yt-get
-  ├── POST /webhook/yt-create   → n8n:5678/webhook/yt-create
-  ├── POST /webhook/yt-wright   → n8n:5678/webhook/yt-wright
-  ├── POST /webhook/yt-update   → n8n:5678/webhook/yt-update
-  ├── POST /webhook/yt-remove   → n8n:5678/webhook/yt-remove
-  └── (unknown routes)          → 404, never arbitrary n8n REST access
-                                    │
-                                    ▼
-                                 n8n (automation network)
-                                 ├── Webhook CRUD workflow (5 webhook triggers)
-                                 └── Data tables (created in n8n UI)
+```sh
+# First prerequisite, before running check_setup.py:
+export FFMPEG_IMAGE=your-existing-compatible-ffmpeg-image:tag
+docker image inspect "$FFMPEG_IMAGE" >/dev/null
+# Or, only with your own authorized external source:
+# docker build -t "$FFMPEG_IMAGE" /operator/authorized/external/ffmpeg-source
 ```
 
-**Key constraint:** The UI never uses n8n's REST API. It only knows about the 5 webhook paths. If the n8n webhook CRUD workflow is missing, the UI is non-functional.
+Preflight rejects missing/unavailable FFmpeg images rather than substituting a stub. Configure the same image in private `full-stack/.env`. Workflow HTTP calls to its compatible API are included; implementation code and generated source patches/archives are not.
 
-### Prerequisites
-
-#### n8n side (must exist before the UI works)
-
-1. **Webhook CRUD workflow** — one active n8n workflow named **Data Table CRUD** with these 5 webhook triggers:
-   - `POST /webhook/yt-get` — read rows from a table
-   - `POST /webhook/yt-create` — create a new table
-   - `POST /webhook/yt-wright` — write rows into a table
-   - `POST /webhook/yt-update` — update rows by match
-   - `POST /webhook/yt-remove` — delete a table
-
-   Each HTTP node in the workflow calls `http://n8n:5678/api/v1/data-tables` (or your n8n host) using an **n8n API credential**. Download the bundled template from the proxy at `GET /webhook-workflow-template.json` (or copy `webhook-workflow-template.json` from this repo) and import it via **n8n → Workflows → Import from File**, then activate it. After importing, open each HTTP node and confirm the credential field shows your n8n API credential — if it shows a red warning, re-select it from the dropdown.
-
-2. **Data tables** — created in the n8n UI (**Data Tables → Create**), not via webhook. The UI needs these table IDs recorded in its config:
-   - **ComfyUI Jobs** — generation queue (default ID: `xKckTZI3ZU5HqIpZ`)
-   - **Shorts_Production** — script + scene data (default ID: `vN5vMR56WpEsdLMn`)
-   - **ComfyUI_Templates** — ComfyUI workflow templates per type (default ID: `haulC2FnGWqHb0no`)
-   - **running_job** — job tracker
-
-   The setup wizard's **Configure your n8n data tables** step reads each table back via `yt-get` to verify the IDs are live — it does not create tables. Create the tables in n8n first, then paste their IDs into the wizard.
-
-3. **Authentication** — an n8n REST API key is not webhook authentication. The local UI does not forward an administrator API key. Keep the UI loopback-only until authenticated app access is configured; Review decisions require the authenticated editor.
-
-## Run
-
-### Server stack (10.0.0.157)
-
-The server compose lives at `/home/dad/Config/docker-compose.yml` on `10.0.0.157`. Add the n8n-table-ui service from this repo:
-
-```bash
-# From the server's Config dir, after copying docker-compose.n8n-table-ui.yml next to docker-compose.yml:
-docker compose up -d n8n-table-ui
-
-# Or build from this repo and point at the server compose:
-docker compose -f docker-compose.n8n-table-ui.yml up --build
+```sh
+cd full-stack
+python3 prepare_local.py --prepare --comfy-token-file /operator/private/comfyui-api-token
+# Edit the newly created private .env; never commit it.
+docker compose --env-file .env -f compose.json config --quiet
+# On your NEW installation, after configuring bind permissions and prerequisites:
+docker compose --env-file .env -f compose.json build
+# Operator-controlled first start, not an updater or release operation:
+docker compose --env-file .env -f compose.json up -d
 ```
 
-Web UI: `http://10.0.0.157:3458/`
+`prepare_local.py` creates directories, a private random n8n encryption key, private Review transport secret and initial enhancement setting. It never starts services, deletes data or overwrites existing settings/token files. If you do not yet have a ComfyUI token, omit `--comfy-token-file`, initialize ComfyUI's own authentication first, then place its genuine token in `data/comfyui/storage-user/login/PASSWORD` before starting media consumers. No reference audio or authentication database is shipped.
 
-### Local smoke test (standalone)
+Set `LAN_BIND_IP` to the intended trusted-LAN IP; the example is loopback for safe validation. Set `N8N_HOSTNAME`, `COMFYUI_PUBLIC_HOST`, and `REVIEW_UI_ORIGINS` to matching real hostnames/origins. ComfyUI media URLs must be directly browser-reachable. Supply an **explicit RTX 5060 Ti UUID** in `COMFYUI_5060_TI_UUID`; verify the UUID/model with `nvidia-smi -L`. ComfyUI has no all-GPU/3060 fallback. Ollama's separate `OLLAMA_GPU_UUID` is independently operator-selected. Install Docker Compose, NVIDIA drivers and NVIDIA Container Toolkit before GPU use.
 
-```bash
-docker compose -f docker/speck-local.yml up --build
+## Full-stack services and persistent bindings
+
+| Service | Host port(s) | Source | Persistent host bindings under `full-stack/` |
+|---|---:|---|---|
+| n8n-table-ui | 3458 | root Dockerfile | `data/n8n-table-ui/.data`; read-only source HTML/proxy binds |
+| n8n | 5678 | `n8nio/n8n:latest` | `data/n8n`, read-only `data` |
+| ComfyUI | 8188 | `yanwk/comfyui-boot:cu130-megapak-pt211` | `data/comfyui/storage-{cache,nodes,models,user}` |
+| Ollama | 11434 | `ollama/ollama:latest` | `data/ollama` |
+| FFmpeg API | 8765 | operator-supplied `FFMPEG_IMAGE` (no source/build context bundled) | `data/ffmpeg-api/uploads`, operator voice references, private ComfyUI token file |
+| Pocket TTS | 49112 | `full-stack/pockettts/Dockerfile` | `data/pockettts/{voices,logs,voice-cache,huggingface-cache}` |
+| SearXNG | 8080 | `docker.io/searxng/searxng:latest` | `data/searxng/ect`, `data/searxng/Cache` (original spelling preserved) |
+| LLM evaluation suite | 9090 → 8080 | `ghcr.io/thecodacus/llm-eval-suite:latest` | `data/llm-eval` |
+| Caddy gateway | 8081, 8443 | `caddy:2-alpine` | safe `Caddyfile`, `data/caddy` |
+
+The supplied Caddyfile is a minimal optional LAN HTTP gateway, not the operator's private TLS/proxy configuration. Port 8443 is preserved in the service export but no HTTPS listener/certificate is configured by the example. Use direct n8n port 5678 for initial setup; path-prefixed editor proxying needs separate n8n path/public URL configuration.
+
+**Keep every relative `./data` binding.** Back up persistent data before upgrades. Do not use stack-wide `down`, volume deletion, resets or blanket ownership changes. n8n and Pocket run as UID 1000 and need write access to their own data/cache/log directories; grant narrowly scoped ownership/ACLs on a fresh installation. ComfyUI retains its root-dependent startup and `umask 000`; do not force an incompatible non-root entrypoint. Never replace existing model/voice caches with empty directories.
+
+Pocket is CPU-only, non-quantized FP32, **four processing threads and eight CPU quota**. Its distributable `pockettts/cpu_startup.py` imports Pocket before setting Torch thread counts, preserving the fix for Pocket's import-time thread reset. Torch CPU wheels and dedicated Pocket runtime remain separate from FFmpeg's HTTP consumer. Stock/authorized voices and model access must be supplied by the operator; a new host does **not** inherit Jarvis.
+
+## CRUD-first setup: every required table through webhooks
+
+The source exports include **11 linked workflows**, **7 table schemas**, and **4 template configuration rows**. Discovery used current UI routes/configured IDs, published webhook paths, `executeWorkflow` and `errorWorkflow` closure; unrelated personal Fiverr automations and diagnostic clones are excluded. Workflow snapshots have no production rows, pinData, staticData or credential values. Source IDs are remapping identifiers, not valid destination IDs.
+
+Required schemas: `running_job`, `ComfyUI`, `Pipeline_Review_Gate`, `Pipeline_Status_History`, `Shorts_Production`, `AI_Run_Metrics`, `ComfyUI_Templates`. Exact names, column capitalization/types and native credential dependencies are in `full-stack/manifest.json` and `tables.json`.
+
+1. Create the destination n8n account and private API key. Configure the required encrypted native credentials yourself; no script creates credentials on the live operator system. The n8n API credential used **inside CRUD** is separate from the UI server's read-only inventory/schedule key.
+2. Import/configure/publish **Data Table CRUD first**. For manual UI setup, use the fresh `full-stack/crud-bootstrap.json`, configure its native n8n credential and publish it. Do not restore the legacy generic onboarding fixture over repaired production CRUD.
+3. The Setup wizard orders **CRUD → connectivity → Build all required tables → verify IDs → optional isolated smoke test**. Explicit Build creates every required typed schema via native `yt-create`, verifies IDs/rows via `yt-get` and read-only schema metadata, then writes only empty-table template configuration via `yt-wright`. Compatible existing names/schemas are reused, conflicts fail without deletion, existing nonempty template configuration is preserved. The server saves its assigned-ID mapping privately. No production job is inserted or dispatched by Build.
+4. Run the importer for the full native workflow-ID/table-ID/credential remapping. It can bootstrap CRUD itself or reuse tables created by the wizard. It uses REST only for workflow definitions/publication and read-only table inventory/metadata; **no REST table creation route is used**.
+
+```sh
+# Working directory: full-stack. Edit copies, not the example files.
+cp credential-map.example.json credential-map.json
+cp endpoint-map.example.json endpoint-map.json
+# Fill each old native credential ID with destination {id,name}; no secret values.
+# Set actual fixed server/LAN origins in endpoint-map.json.
+# Export your private N8N_API_KEY into the process environment without printing it.
+python3 import_setup.py \
+  --url http://YOUR_NEW_N8N_HOST:5678 \
+  --expected-url http://YOUR_NEW_N8N_HOST:5678 \
+  --credentials credential-map.json --endpoint-map endpoint-map.json \
+  --journal import-state.json --import-templates --apply
 ```
 
-## Setup Wizard
+Optional `--project DESTINATION_PROJECT_ID` passes the native project ID through the distributable CRUD create contract. Without it, n8n's credential-owner personal project is used. Read the destination's existing project ID, never copy a production project identity. The importer reserves fresh inactive workflow IDs, publishes only CRUD, builds compatible tables through its webhooks, then remaps every string/resource-locator/resource-mapper/embedded Code dependency and credential reference. It journals assigned IDs atomically and reads targets back. **All non-CRUD workflows/schedulers remain inactive.** Reruns preserve tables and reject schema conflicts/active non-CRUD targets; never automatically retry an uncertain create/write. Inspect native execution/state and the journal first.
 
-The Setup tab walks through first-time configuration:
+Set `HOME_RUNNER_WORKFLOW_ID` from the import journal's new Runner ID, populate Home/Jobs/Templates IDs in Config (Build fills these), and configure native endpoints/credentials. Review's private `X-Review-Transport` credential must match the generated server-only `review-secret`. ComfyUI's native Bearer credential and `COMFYUI_TOKEN_FILE` must refer to the same authenticated service, with destination restrictions. Browser bundles, URLs and storage never receive those credentials. Publish helpers/error workflows before callers; enable production schedules only after models, templates, credentials, dependencies and isolated acceptance checks are validated.
 
-1. **Connect to n8n** — verify the proxy can reach n8n.
-2. **Configure table IDs** — enter the IDs of your existing n8n data tables. (Tables are created in the n8n UI, not from the wizard.)
-3. **Download webhook workflow** — get the workflow JSON to import into n8n.
-4. **Smoke test** — verify read/write/update operations work end-to-end.
+## Models and enhancement defaults
 
-## UI Features
+`full-stack/model-requirements.json` lists exact workflow model tags and template model filenames. Supply Ollama models, ComfyUI custom-node packages and model files yourself; exports do not prove these are installed on a new host. Three template graphs are configured; `Text to image 20` is intentionally incomplete and must remain unsupported rather than being silently invented.
 
-- **Home tab** — browse ComfyUI Jobs rows (Completed / Next Up / Working panels), edit rows, push to working.
-- **Jobs tab** — browse Shorts_Production rows, edit in-place.
-- **Job ID linking** — click a Job ID to see all linked ComfyUI rows for a Shorts_Production row.
-- **Edit modal** — inline edit with type→API template mapping from the templates table.
-- **Config tab** — view/edit localStorage config + read-only proxy env fields.
-- **Debug panel** — toggleable request/response log.
-+ - **Bottom bar** — always-visible strip at the bottom showing the running version, git commit short hash, and branch, served by `GET /version`. The values come from the container, not GitHub.
-+ - **Check for updates popup** — click the bottom-bar button to open a modal explaining the two update paths (drop into `.data/` for no-rebuild UI/version changes vs full image rebuild for proxy/dependency changes), the beta-vs-main split, and quick verify commands.
+Config → **Ollama enhancement** shows all unique installed exact tags from server-side `/api/tags`, preserving duplicate elimination without tag rewriting. The default is `qwen3.8:latest`; Config Save atomically persists a changed installed selection privately in `.data/ollama-enhancement-settings.json`. The backend validates the saved tag immediately before draft-only native enhancement. No model pull, job save, approval or generation occurs when selecting a model. Missing tags/connection/model errors retain the draft and fail visibly. Manual-editor enhancement has its documented original fallback; no other workflow model is changed.
 
-+## Version Bar, Updater Popup, Beta vs Main
-+
-+### Bottom bar
-+
-+The bottom bar is fixed to the bottom of the viewport and shows `n8n-table-ui  <version>  commit <sha>  (<branch>)` pulled from `GET /version`. It is visible on every tab. A **Check for updates** button opens the updater popup.
-+
-+`GET /version` returns a JSON object shaped `{ version, commit, branch }`. Priority:
-+
-+1. `.data/version.json` when it was **hand-dropped by an operator** (no `_seeded` marker) — wins over everything, never overwritten by a restart/rebuild.
-+2. `.data/version.json` auto-seeded by a prior container run (`_seeded: true`) — corrected by the new build's baked files when they differ.
-+3. `/app/version.txt`, `/app/git-commit.txt`, `/app/git-branch.txt` baked into the image at build time from `--build-arg`.
-+4. `VERSION` / `GIT_COMMIT` / `GIT_BRANCH` env (baked in by Dockerfile `ENV`, surviving when compose doesn't pass them).
-+5. `'0.0.0'` / `'unknown'` fallback.
-+
-+On first run (or after a clean `.data/`), the proxy auto-seeds `.data/version.json` from the baked files and writes `_seeded: true` into it.
-+
-+### Updater popup
-+
-+The popup explains two update paths and the beta/main split, and gives quick verify commands (`curl -s http://localhost:3458/version`, `ls -la .../.data/`). It is not a GitHub poll — there is no automatic "new version available" check. To wire one, add a call against the GitHub API and compare the returned ref SHA against the bottom-bar commit.
-+
-+### Beta vs main
-+
-+- **main** = production.
-+- **beta** = testing. Build from the `beta` branch, deploy, and point the container at it when you want to test new UI or build changes. Do not swap beta onto the production container unless you intend a beta rollout.
-+
-+When building for beta, pass the branch so the bottom bar reads `(beta)`:
-+
-+```bash
-+docker build \
-+  --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) \
-+  --build-arg GIT_BRANCH=beta \
-+  --build-arg VERSION=0.1.0-beta.1 \
-+  -t n8n-table-ui:beta-v1 .
-+```
-+
-+When building for main, pass `GIT_BRANCH=main` and a release `VERSION`.
-+
-+### No-rebuild updates (drop into `.data/`)
-+
-+The proxy serves `.data/index.html` when it exists, and reads `.data/version.json` for the version bar. So UI tweaks and version bumps can be applied without a build:
-+
-+```bash
-+# On the server (10.0.0.157), drop the new UI file and an optional version bump:
-+cp new-index.html /home/dad/Config/data/n8n-table-ui/.data/index.html
-+echo '{"version":"0.1.0","commit":"manual","branch":"main","_seeded":false}' \
-+  > /home/dad/Config/data/n8n-table-ui/.data/version.json
-+
-+# Restart to pick it up (no docker build):
-+docker restart n8n-table-ui
-+```
-+
-+Notes:
-+
-+- A hand-dropped `version.json` must **not** carry `_seeded` (or carry `_seeded: false`) so a later rebuild does not overwrite it. The proxy writes `_seeded: true` only on files it auto-generates.
-+- Changes to `proxy-server.cjs`, the Dockerfile, or image dependencies still require a build + deploy + restart.
-+- The `.data/` dir is owned by `dad` and writable by the container (the container runs as root, so files it writes end up root-owned — re-own with `sudo chown -R dad:dad .../.data` if you need to edit them as `dad`). Set up the `.data/` dir once before first run:
-+
-+```bash
-+ssh dad@10.0.0.157 'mkdir -p /home/dad/Config/data/n8n-table-ui/.data && sudo chown -R dad:dad /home/dad/Config/data/n8n-table-ui/.data'
-+```
-+
-+## Build Args
-## Configuration
+`OLLAMA_BASE_URL` is operator-managed server configuration (Compose uses `http://ollama:11434`), never a client-selected proxy destination. Point the native Ollama credential at the same service. Docker copies **both adjacent `review-backend.cjs` and `ollama-settings.cjs`**, plus the Setup module/assets; durable settings stay in the data bind. The Home schedule engine is separately pinned to the installed native `cron@4.4.0`, with the existing private runtime override honored when present.
 
-### Proxy environment variables
+## Review, Push and schedule behavior
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | 3458 | Proxy listen port |
-| `N8N_HOST` | n8n | n8n hostname on Docker network |
-| `N8N_PORT` | 5678 | n8n port |
-| `N8N_API_KEY` | (none) | Sent as `X-N8N-API-KEY` header. Set if n8n requires API auth. |
-| `DATA_DIR` | /app/.data | Writable dir for logs, env override, HTML override |
+Review actions intentionally require **no operator/n8n login** on this trusted LAN. Exact Origin/Host checks are not authentication and cannot defend against malicious LAN clients. Private native webhook credentials stay server-only. Never publish this unauthenticated UI/CRUD network directly to the Internet.
 
-### UI config (localStorage key `n8n-table-ui-config`)
+Review lists complete, idle, dependency-valid assets with original direct ComfyUI previews, editable prompts, Enhance, per-asset Approve/Deny and type-specific Regenerate. A parent job's all-assets-approved aggregate is a review state, not final-video completion. Final assembly/upload remains missing. Decisions bind to fresh metadata snapshots and expiring single-use job-bound nonces; approvals for changed assets/dependent video are invalidated. Enhance returns only an editable prompt draft. **Regenerate first saves/confirms the exact queue row, then calls the shared Home `doPush`**. Native regeneration is prepare-only, avoiding duplicate dispatch. If Push fails after save, the row remains pending with “Saved; push failed”; there is no automatic retry. Queue acknowledgment means accepted, not generated.
 
-| Key | Default | Description |
-|-----|---------|-------------|
-| `tableHome` | xKckTZI3ZU5HqIpZ | ComfyUI Jobs table ID |
-| `tableJobs` | vN5vMR56WpEsdLMn | Shorts_Production table ID |
-| `tableTemplates` | haulC2FnGWqHb0no | ComfyUI_Templates table ID |
-| `tableLink` | ComfyUI.JobID == Shorts_Production.id | Reference — describes how Home and Jobs rows are joined |
-| `webhookBase` | http://10.0.0.157:5678/webhook | Override webhook base URL (rarely needed) |
-| `refreshInterval` | 15000 | Auto-refresh interval (ms) |
-| `maxDebugLines` | 100 | Debug panel scrollback |
-| `debugDefault` | false | Open debug panel on load |
-| `autoRefreshDefault` | true | Auto-refresh enabled by default |
+Home remains the ComfyUI queue; Jobs contains only Shorts_Production partitioned by Type. New creates a pending Research idea, not a new table or arbitrary generation graph. Only Push dispatches an exact positive row ID. Published Research/Production/Dispatcher/yt-Test transports are POST with `Id` and boolean `ByPass`; no pre-locking or cloning. Exact table+row suppression and the first-acknowledgment 60-second refresh preserve source tabs/unsaved edits. Existing schedules can independently consume pending rows; creation is not an indefinite manual hold.
 
-## Build Args
+Home's next-run display reads the **published Runner schedule**, explicit timezone and recognized night-eligibility contract. Inactive schedules show paused, missing/changed contracts fail unavailable, and empty queues still retain the timer. The captured schedules are America/New_York: Research 07:00, Scene 08:00, Dispatcher 09:00, Morning Brief 07:00, and Runner every 15 minutes during 22:00–06:59. These actual definitions are preserved, not replaced by an invented new chronology; they remain inactive on import. Keep preparation order and the overnight gate in mind when configuring your own approved schedule. Direct image/video URLs are not rewritten through the UI: original filename/subfolder/type/query encoding stays intact. Browser playback may require a separate ComfyUI login/session; backend readability does not prove browser playback.
 
-The image bakes three values at build time via `--build-arg`; these survive when compose does not pass them as env vars, and they seed `.data/version.json` on first run:
+## Morning integration
 
-|| Build arg | Default | Description ||
-|| `GIT_COMMIT` | `unknown` | Short git commit hash baked into `/app/git-commit.txt` and the bottom bar ||
-|| `GIT_BRANCH` | `unknown` | Branch name baked into `/app/git-branch.txt` (e.g. `beta` or `main`) ||
-|| `VERSION` | `0.0.0` | Version string baked into `/app/version.txt` and the bottom bar ||
+The exported Morning workflow preserves its current complete briefing context/template and deterministic validation; there is **no HTML Morning renderer** added. Delivery/response-validation nodes are disabled and the private receiver URL/credential binding is not distributed. An external Hermes receiver is optional and must be separately configured/authorized by the operator. Its current sentence-audio integration is `pockettts_brief_audio_v2`; do not replace it with an older audio tool or assume Jarvis voice/reference/cache exists. This repository does not export Hermes auth, route configuration or private voice data. Structured JSON/parser validation checks the current full text/template contract, not pronunciation, speaker identity or acoustic quality. No ASR round-trip for this release candidate was exercised; even a later transcript match would not certify Jarvis timbre, every sentence boundary, scene timing or human listening acceptance.
 
-Example (beta build):
+## Updates and component identity
 
-```bash
-docker build \
-  --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) \
-  --build-arg GIT_BRANCH=beta \
-  --build-arg VERSION=0.1.0-beta.1 \
-  -t n8n-table-ui:beta-v1 .
+Updates consume public main/beta releases; they do not commit or push GitHub. Public checks require no GitHub login. Static bind assets can be reloaded; startup-loaded backend/helper changes need only an explicitly authorized UI-process restart; Dockerfile/dependency changes require a reviewed image rebuild/recreate. Preserve `.data/index.html` overrides, private backend overrides, hand-managed `version.json` and dirty operator source. A source SHA/version label cannot identify mixed running UI/server/Review/Ollama/updater bytes: compare `/updates/identity` component hashes and updater readiness separately. The full-stack example intentionally does not install/register the private host updater service; Apply is unavailable until the operator separately configures it. Publishing beta never activates it.
+
+## Troubleshooting, backups and rollback
+
+From `full-stack/`, use read-only checks:
+
+```sh
+docker compose --env-file .env -f compose.json ps
+docker compose --env-file .env -f compose.json logs --tail 100 n8n n8n-table-ui pockettts ffmpeg-api
+python3 check_setup.py
+python3 test_setup.py
+python3 test_helpers.py
 ```
 
-Example (main build):
+Keep logs private: native errors can contain prompts or upstream credentials. Do not dump Docker environment, active `.env`, n8n databases or full execution snapshots into support tickets. A missing webhook means CRUD was not published/registered or its method/path differs; an API credential is not webhook authentication. Unknown tables mean IDs were not remapped. Schema conflicts require operator review, not table deletion. Missing models/voices must be supplied explicitly; never silently substitute a different model/GPU/voice. Schedule unavailable can mean inactive Runner, missing private read key or a changed eligibility contract. Missing audio/media may be an auth/URL/permissions/model issue; do not restart unrelated services to diagnose it.
 
-```bash
-docker build \
-  --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) \
-  --build-arg GIT_BRANCH=main \
-  --build-arg VERSION=1.0.0 \
-  -t n8n-table-ui:1.0.0 .
-```
+Before any authorized update, take application-consistent backups of the exact persistent binds and private configuration, retaining file permissions and model/voice caches. Preserve the private encryption key with the n8n backup: rotating it can make stored credentials unreadable. Keep the import journal and component identities with the backup, outside Git. Restore a prior reviewed image/source set in a separate checkout, reconcile existing overrides, then recreate/restart **only the explicitly authorized changed service**. Never reset the operator's dirty checkout or overwrite its index. Do not use stack-wide down/reset, delete volumes or import stale production rows to roll back a UI release.
 
-### Files
+## Verification and limitations
 
-| File | Purpose |
-|------|---------|
-| `proxy-server.cjs` | Node.js HTTP proxy — serves UI, forwards webhooks to n8n |
-| `index.html` | Full UI (single file, inline JS) |
-| `Dockerfile` | Docker image definition |
-| `docker-compose.n8n-table-ui.yml` | Drop-in compose for server stack |
-|| `docker/speck-local.yml` | Standalone local compose for smoke testing |
-|| `webhook-workflow-template.json` | Bundled n8n **Data Table CRUD** workflow (5 webhooks + HTTP nodes) — served by the proxy at `GET /webhook-workflow-template.json` for the setup wizard download |
-|| `SPEC_ANALYSIS.md` | Full specification analysis and optimization notes |
+Run `npm test`, `npm run build`, `node --test setup-bootstrap.test.cjs ollama-settings.test.cjs per-asset-enhancement.test.cjs review-lan.test.cjs review-home-push.test.cjs`, `python3 full-stack/check_setup.py`, and `python3 full-stack/test_setup.py`.
 
-## Beta audit and update testing
+The fresh origin/beta baseline passed 156 tests. The current complete candidate run returned **211 tests: 194 passed, 17 failed, exit 1**. The 18 focused current-contract tests and 7 Python importer/helper tests passed. Integrating existing dirty operator work and fresh published contracts currently yields historical-contract failures (authenticated Review/file-hash expectations, old editor/Model behavior and guarded Home deletion); see `BETA-LIMITATIONS.md` for the actual final run. Do not treat a clean syntax/focused/mock suite as a clean full suite. Setup tests exercise actual exported CRUD normalization plus instrumented mocked transports, not a new native full-stack boot. Compose config checks syntax, not model availability, GPU drivers, permissions or startup. No production generation, approval, live schema write, workflow import or stack deployment was performed for this publication.
 
-The `beta` branch contains the tested UI fixes; `main` is not changed by this
-rollout. The update popup is informational and reloads table data: it does not
-fetch GitHub, select a branch, install assets, or refresh the document script.
-Test beta in a separate checkout/deployment, or explicitly deploy its assets,
-then reload the browser document. Preserve `.data/index.html` and manually
-managed version metadata; verify served bytes rather than trusting a version label.
+Final assembly/upload, cross-host installation acceptance, complete audiovisual generation, public-Internet security and live updater activation remain unverified or missing. Images retaining `latest` reflect the operator's actual stack, not reproducible pinned upstream releases.
 
-The proxy rejects request bodies over 1 MiB with structured HTTP 413 before
-forwarding. Current observed template row maximum was 11,441 serialized bytes.
-Create-table column parsing now returns an array rather than a Promise.
+## Licenses and source provenance
 
-**Unresolved Push linkage:** Push currently sends POST `/webhook/yt-update`
-with `{operation:'update',id:tableId,match:{id:rowId},row:{Working:true}}`.
-This preserves the exact row but does not execute Research, Scene Production,
-Dispatcher, or Runner. Their queue selectors require `Working=false`, so marking
-it true can strand it. Do not use Push as a generation trigger until an
-explicit exact-row, authenticated execution contract is designed and tested.
-The Runner's current direct POST `/webhook/yt-Test` takes body `Id`/`Type`;
-other generation workflows use GET and different row query keys. No production
-generation calls were made during this audit, and no workflow was edited.
-
-## Direct ComfyUI browser media
-
-The user's explicit preference is original direct ComfyUI `:8188/view` URLs
-for image/video src and open/fallback links: **no `/media/comfy/view` rewrite**.
-For example, `http://10.0.0.157:8188/view?filename=LTX-2.5_i2v_00110_.mp4&subfolder=video`
-remains that exact URL. Never guess subfolders, default missing type in the
-browser, or add bearer credentials to URLs/bundles.
-
-Log in to ComfyUI at the same host `:8188` first. Browser img/video elements
-cannot inject bearer Authorization; direct media relies on the ComfyUI session
-cookie and endpoint support for that session. Unreachable or rejecting ComfyUI
-means previews/playback are not verified, regardless of passing UI tests.
-
-The server-side authenticated cache route is retained as unused infrastructure;
-the UI never invokes it. Its bearer token remains server-side in the read-only
-`COMFYUI_TOKEN_FILE` mount. Existing cache contents and version metadata are
-preserved; no ComfyUI or n8n settings are changed.
-
-Run `npm test` and `npm run build` for contracts and full inline-script syntax.
-Never queue generation or approve real jobs as a preview test.
-
-## License
-
-ISC
+The UI repository declares ISC; its license is now included as `LICENSE`. Pocket server source preserves its upstream MIT license under `full-stack/pockettts/LICENSE` and records the pinned source commit in `full-stack/SOURCE-PROVENANCE.md`; local changes are bundled as actual source, not fabricated images. FFmpeg implementation source is excluded; its external image and the startup helper are documented separately. No FFmpeg source redistribution license is implied. Model weights, third-party dependencies, authorized voice references and container image licenses are separate operator obligations.

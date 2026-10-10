@@ -1,0 +1,6 @@
+const test=require('node:test');const assert=require('node:assert/strict');const fs=require('fs');const vm=require('vm');
+const html=fs.readFileSync(__dirname+'/index.html','utf8');
+const code=html.slice(html.indexOf('  function reviewSummary('),html.indexOf('  async function refreshReview('));
+const c={URL};vm.createContext(c);vm.runInContext(code,c);
+test('Review accepts only current complete Queued production assets and preserves rejection',()=>{const jobs=[{id:1,type:'Text to image',URL:'http://10.0.0.157:8188/view?filename=x.png',Completed:true,Working:false,Params:'{"scene_id":"s","frame_role":"static"}',Dependencies:'{"version":1,"inputs":[]}'}];const parent={Type:'Review',Status:'Queued',Scenes:'[{"scene_id":"s","type":"text_to_image"}]'};const s=c.reviewSummary(parent,jobs,[]);assert.equal(s.ready,true);assert.equal(s.state,'pending');jobs[0].Completed=false;assert.equal(c.reviewSummary(parent,jobs,[]).ready,false);assert.equal(c.reviewSummary(parent,jobs,[{State:'rejected'}]).state,'rejected');});
+test('Review shows source script scenes and server-bound asset snapshot',()=>{assert.ok(html.includes('parent.Script'));assert.ok(html.includes('parent.Scenes'));assert.ok(html.includes('JSON.parse(listed.snapshot)'));assert.ok(html.includes('reviewTickets.set(host.dataset.reviewJob,listed)'));});

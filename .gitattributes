@@ -1,0 +1,3 @@
+# Portable bundled Pocket build sources use LF.
+full-stack/pockettts/Dockerfile text eol=lf
+full-stack/pockettts/requirements.txt text eol=lf

@@ -1,0 +1,607 @@
+{
+  "name": "Write Jobs Loop",
+  "nodes": [
+    {
+      "id": "e36f0229-f5c0-405d-a413-01f199fa650f",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -672,
+        128
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "jobs",
+              "type": "array"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "36f06f32-5810-4d65-9b1e-c817f3aa4671",
+      "name": "Read dependency templates",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "haulC2FnGWqHb0no",
+          "mode": "list"
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "f9d89bcb-fc5e-481d-bd0d-1fbddee594a5",
+      "name": "Prepare dependency producers",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const jobs=$('When Executed by Another Workflow').first().json.jobs;const templates=$input.all().map(i=>i.json);const result=(()=>{\nif(!Array.isArray(jobs)||!jobs.length)throw Error('No jobs supplied');\nconst metadata=new Map(templates.map(t=>[t.type,t]));const images=[],videos=[];\nconst parse=v=>typeof v==='string'?JSON.parse(v):v;\nfor(const job of jobs){const t=metadata.get(job.type);if(!t||!t.Dependencies)throw Error('Unconfigured template '+job.type);const d=parse(t.Dependencies);if(d.version!==1||!Array.isArray(d.inputs))throw Error('Invalid template Dependencies');const p=parse(job.Params);if(!p||!p.scene_id)throw Error('Missing scene linkage');if(!String(job.prompt||'').trim())throw Error('Missing job prompt');const normalized={...job,JobID:String(job.JobID),Dependencies:JSON.stringify({version:1,inputs:[]})};(d.inputs.length?videos:images).push(normalized);}\nfor(const job of videos){const d=parse(metadata.get(job.type).Dependencies);const p=parse(job.Params);const prerequisites=[];for(const input of d.inputs){const found=images.filter(i=>{const pp=parse(i.Params);return i.type===input.producerType&&i.JobID===job.JobID&&pp.scene_id===p.scene_id&&pp.frame_role===input.role;});if(found.length!==1)throw Error('Missing or ambiguous prerequisite producer for '+job.type+' scene '+p.scene_id+' role '+input.role);prerequisites.push({role:input.role,producerType:input.producerType,scene_id:p.scene_id});}job._prerequisites=prerequisites;}\nif(!images.length)throw Error('No image producers; dependency-first insertion required');\nreturn {images,videos};\n\n})();return [{json:result,pairedItem:$input.all().map((_,item)=>({item}))}];"
+      }
+    },
+    {
+      "id": "5d783f84-1079-468e-9959-00a092b6cbcf",
+      "name": "Split image producers",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "fieldToSplitOut": "images",
+        "options": {}
+      }
+    },
+    {
+      "id": "6de23e00-2b06-47e2-a198-b4e9e906452c",
+      "name": "Insert image producers",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        224
+      ],
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "xKckTZI3ZU5HqIpZ",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Completed": false,
+            "Working": false,
+            "type": "={{ $json.type }}",
+            "prompt": "={{ $json.prompt }}",
+            "ref": "={{ $json.ref }}",
+            "JobID": "={{ $json.JobID }}",
+            "Params": "={{ $json.Params }}",
+            "AttemptCount": 0,
+            "ExecutionID": null,
+            "LastError": null,
+            "RequestKey": null,
+            "Dependencies": "={{ $json.Dependencies }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Working",
+              "displayName": "Working",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "prompt",
+              "displayName": "prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ref",
+              "displayName": "ref",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "JobID",
+              "displayName": "JobID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Params",
+              "displayName": "Params",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "AttemptCount",
+              "displayName": "AttemptCount",
+              "type": "number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ExecutionID",
+              "displayName": "ExecutionID",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LastError",
+              "displayName": "LastError",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "RequestKey",
+              "displayName": "RequestKey",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Dependencies",
+              "displayName": "Dependencies",
+              "type": "string",
+              "display": true,
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "defaultMatch": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "optimizeBulk": false
+        }
+      }
+    },
+    {
+      "id": "052f7150-16f8-4903-89f8-d7d41a70c236",
+      "name": "Bind inserted prerequisite IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const prepared=$('Prepare dependency producers').first().json;const rows=$input.all().map(i=>i.json);const videos=prepared.videos.map(job=>{const inputs=job._prerequisites.map(edge=>{const parents=rows.filter(r=>{const p=JSON.parse(r.Params);return r.type===edge.producerType&&String(r.JobID)===job.JobID&&p.scene_id===edge.scene_id&&p.frame_role===edge.role;});if(parents.length!==1||!Number.isSafeInteger(parents[0].id)||parents[0].id<=0)throw Error('Native inserted prerequisite ID missing or ambiguous');return {role:edge.role,rowId:parents[0].id};});const {_prerequisites,...rest}=job;return {...rest,Dependencies:JSON.stringify({version:1,inputs})};});return [{json:{videos,insertedImages:rows.length},pairedItem:$input.all().map((_,item)=>({item}))}];"
+      }
+    },
+    {
+      "id": "8215d3ce-08c1-4e0b-8c6c-6c9fc8ac09d4",
+      "name": "Has dependent jobs?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "31ef4d4c-07d5-4add-bac2-a7302ea86e82",
+              "leftValue": "={{ $json.videos.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "f818fcd6-4ba7-47cf-8262-635e853177d5",
+      "name": "Split dependent jobs",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "fieldToSplitOut": "videos",
+        "options": {}
+      }
+    },
+    {
+      "id": "3b755b5d-5f8f-4cc0-863f-8cef63e42c52",
+      "name": "Insert dependent jobs",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        224
+      ],
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "xKckTZI3ZU5HqIpZ",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Completed": false,
+            "Working": false,
+            "type": "={{ $json.type }}",
+            "prompt": "={{ $json.prompt }}",
+            "ref": "={{ $json.ref }}",
+            "JobID": "={{ $json.JobID }}",
+            "Params": "={{ $json.Params }}",
+            "AttemptCount": 0,
+            "ExecutionID": null,
+            "LastError": null,
+            "RequestKey": null,
+            "Dependencies": "={{ $json.Dependencies }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Working",
+              "displayName": "Working",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "prompt",
+              "displayName": "prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ref",
+              "displayName": "ref",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "JobID",
+              "displayName": "JobID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Params",
+              "displayName": "Params",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "AttemptCount",
+              "displayName": "AttemptCount",
+              "type": "number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ExecutionID",
+              "displayName": "ExecutionID",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LastError",
+              "displayName": "LastError",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "RequestKey",
+              "displayName": "RequestKey",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Dependencies",
+              "displayName": "Dependencies",
+              "type": "string",
+              "display": true,
+              "readOnly": false,
+              "removed": false,
+              "required": false,
+              "defaultMatch": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "optimizeBulk": false
+        }
+      }
+    },
+    {
+      "id": "868e3a2c-7220-4bac-94a4-3245d2652331",
+      "name": "Done",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{json:{insertedImages:$('Bind inserted prerequisite IDs').first().json.insertedImages,insertedDependentJobs:$('Bind inserted prerequisite IDs').first().json.videos.length},pairedItem:$input.all().map((_,item)=>({item}))}];"
+      }
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Read dependency templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read dependency templates": {
+      "main": [
+        [
+          {
+            "node": "Prepare dependency producers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare dependency producers": {
+      "main": [
+        [
+          {
+            "node": "Split image producers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split image producers": {
+      "main": [
+        [
+          {
+            "node": "Insert image producers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert image producers": {
+      "main": [
+        [
+          {
+            "node": "Bind inserted prerequisite IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bind inserted prerequisite IDs": {
+      "main": [
+        [
+          {
+            "node": "Has dependent jobs?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has dependent jobs?": {
+      "main": [
+        [
+          {
+            "node": "Split dependent jobs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split dependent jobs": {
+      "main": [
+        [
+          {
+            "node": "Insert dependent jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert dependent jobs": {
+      "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "buw89dDrqgXnuCDz"
+  },
+  "id": "OxJfxFqOABCWu6Q6",
+  "active": false
+}

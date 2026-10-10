@@ -29,3 +29,17 @@ compose-speck-local.yml
 compose-speck-server.yml
 # .data is a bind mount at runtime — never bake host state into the image
 .data
+.git
+.env
+.env.*
+**/.env
+**/.env.*
+**/data
+**/__pycache__
+**/*.pyc
+**/*.pem
+**/*.key
+**/*.crt
+**/credential-map.json
+**/import-state.json
+**/review-secret
