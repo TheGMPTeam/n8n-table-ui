@@ -1,0 +1,64 @@
+# n8n-table-ui — standalone compose, for adding to ANOTHER stack
+#
+# Self-contained: no local checkout or build needed. Pulls the published image
+# and joins whatever Docker network your n8n already runs on.
+#
+#   docker compose -f docker-compose.n8n-table-ui.standalone.yml up -d
+#
+# Everything is configurable by environment variable, so you can drop this file
+# into any stack without editing it. Copy it to .env next to this file, or
+# export the variables before `up`:
+#
+#   N8N_UI_NETWORK=my-n8n_default   # network your n8n service is on
+#   N8N_HOST=n8n                    # n8n service name, or a host/IP
+#   N8N_PORT=5678
+#   N8N_UI_PORT=3458                # published UI port
+#   N8N_API_KEY=...                 # only if n8n requires API auth
+#
+# Finding the target network:
+#   docker inspect <n8n-container> \
+#     --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}'
+#
+# Two connection modes:
+#
+#   1. SHARED NETWORK (default) — N8N_HOST is the n8n *service name* and the UI
+#      joins N8N_UI_NETWORK. Nothing needs to be published by n8n.
+#   2. ISOLATED — set N8N_HOST to a reachable host/IP (e.g. 10.0.0.157) and set
+#      N8N_UI_NETWORK to this file's own network name. No shared network needed.
+#
+# This UI is UNAUTHENTICATED. Keep the published port on loopback or a trusted
+# LAN; never expose it publicly without adding authentication.
+
+services:
+  n8n-table-ui:
+    image: thegmpteam/n8n-table-ui:${N8N_UI_TAG:-latest}
+    pull_policy: daily
+    container_name: ${N8N_UI_CONTAINER:-n8n-table-ui}
+    restart: unless-stopped
+    ports:
+      # Bind to a specific interface with N8N_UI_BIND, e.g. 10.0.0.157
+      - "${N8N_UI_BIND:-127.0.0.1}:${N8N_UI_PORT:-3458}:3458"
+    environment:
+      NODE_ENV: production
+      PORT: "3458"
+      # n8n service name on the shared network, or a host/IP in isolated mode.
+      N8N_HOST: ${N8N_HOST:-n8n}
+      N8N_PORT: ${N8N_PORT:-5678}
+      # Only needed when n8n requires API auth; the proxy omits the header when unset.
+      N8N_API_KEY: ${N8N_API_KEY:-}
+      # Upstream for /api/* and /webhook/* (defaults to N8N_HOST in the image).
+      API_BASE: ${N8N_HOST:-n8n}
+      API_PORT: ${N8N_PORT:-5678}
+      DATA_DIR: /app/.data
+    volumes:
+      # Writable runtime state: version.json, optional index.html override, logs.
+      - ${N8N_UI_DATA:-./data/n8n-table-ui/.data}:/app/.data
+    networks:
+      - ui
+
+networks:
+  ui:
+    # Set N8N_UI_NETWORK to the network your n8n already uses. Leave it unset to
+    # let this file create its own isolated network (isolated mode).
+    name: ${N8N_UI_NETWORK:-n8n-table-ui}
+    external: ${N8N_UI_NETWORK_EXTERNAL:-false}

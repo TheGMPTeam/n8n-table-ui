@@ -2,17 +2,130 @@
 
 A trusted-LAN table and per-asset Review interface for n8n. **Beta publication is not deployment or production-readiness certification.** Final assembly/upload is not connected, and the complete UI test suite still has 17 failures.
 
-## Run from the published image
-
-The UI is published as a public image — no local checkout or build required:
+## Docker Hub
 
 ```sh
-docker pull thegmpteam/n8n-table-ui:beta
+docker pull thegmpteam/n8n-table-ui:latest
 ```
 
-`docker-compose.n8n-table-ui.yml` uses that image by default. To build from a
-checkout instead, comment out `image:` and uncomment the `build:` block in that
-file. An immutable digest is available as `thegmpteam/n8n-table-ui:sha-<short-sha>`.
+- [Docker Hub — thegmpteam/n8n-table-ui](https://hub.docker.com/r/thegmpteam/n8n-table-ui)
+- Tags: `latest` (current), `beta` (branch build), `sha-<commit>` (immutable)
+
+Platform: `linux/amd64`.
+
+## Run
+
+Two compose files, for two situations:
+
+| File | Use when |
+|---|---|
+| `docker-compose.n8n-table-ui.yml` | **Adding to the stack this repo belongs to.** Drop-in service block that joins the existing `automation` network and talks to n8n by service name. |
+| `docker-compose.n8n-table-ui.standalone.yml` | **Adding to a different stack.** Self-contained, no local checkout, everything configurable by env var. |
+
+Both pull `thegmpteam/n8n-table-ui:latest` — neither needs a local build. To build
+from a checkout instead, comment out `image:` and uncomment the `build:` block in
+`docker-compose.n8n-table-ui.yml`.
+
+### 1. Stack compose (the server stack)
+
+`docker-compose.n8n-table-ui.yml` is a drop-in for the server's own stack. It
+assumes n8n is already on the `automation` network as service `n8n`:
+
+```sh
+# From the server's Config dir, after copying the file next to docker-compose.yml:
+docker compose up -d n8n-table-ui
+```
+
+```yaml
+services:
+  n8n-table-ui:
+    image: thegmpteam/n8n-table-ui:latest
+    pull_policy: daily
+    container_name: n8n-table-ui
+    restart: unless-stopped
+    ports:
+      - "3458:3458"
+    environment:
+      - NODE_ENV=production
+      - PORT=3458
+      - N8N_HOST=n8n
+      - N8N_PORT=5678
+      - N8N_API_KEY=${N8N_API_KEY}
+      - API_BASE=n8n
+      - API_PORT=5678
+      - DATA_DIR=/app/.data
+    volumes:
+      - ./data/n8n-table-ui/.data:/app/.data
+    networks:
+      - automation
+    depends_on:
+      - n8n
+
+networks:
+  automation:
+    external: true
+    name: automation
+```
+
+Web UI: `http://<server-ip>:3458/`
+
+### 2. Standalone compose (add to another stack)
+
+`docker-compose.n8n-table-ui.standalone.yml` is self-contained. No checkout, no
+build, and it hardcodes no host or network — configure it entirely with
+environment variables so it drops into any stack:
+
+```sh
+docker compose -f docker-compose.n8n-table-ui.standalone.yml up -d
+```
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `N8N_UI_TAG` | `latest` | Image tag to pull |
+| `N8N_UI_NETWORK` | `n8n-table-ui` | Docker network to join |
+| `N8N_UI_NETWORK_EXTERNAL` | `false` | `true` when joining an existing network |
+| `N8N_UI_BIND` | `127.0.0.1` | Host interface to publish on |
+| `N8N_UI_PORT` | `3458` | Host port |
+| `N8N_UI_CONTAINER` | `n8n-table-ui` | Container name |
+| `N8N_UI_DATA` | `./data/n8n-table-ui/.data` | Host path for runtime state |
+| `N8N_HOST` | `n8n` | n8n service name, or a reachable host/IP |
+| `N8N_PORT` | `5678` | n8n port |
+| `N8N_API_KEY` | (none) | Only if n8n requires API auth |
+
+**Shared network (default)** — the UI joins the network n8n is already on and
+resolves it by service name; nothing needs to be published by n8n:
+
+```sh
+N8N_UI_NETWORK=<n8n-network> N8N_UI_NETWORK_EXTERNAL=true N8N_HOST=n8n \
+N8N_UI_BIND=10.0.0.157 \
+docker compose -f docker-compose.n8n-table-ui.standalone.yml up -d
+```
+
+Find the network name with:
+
+```sh
+docker inspect <n8n-container> \
+  --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}'
+```
+
+**Isolated** — no shared network; point `N8N_HOST` at an address the container can
+reach and leave the network to this file:
+
+```sh
+N8N_HOST=10.0.0.157 N8N_PORT=5678 N8N_UI_BIND=10.0.0.157 \
+docker compose -f docker-compose.n8n-table-ui.standalone.yml up -d
+```
+
+Verify either mode:
+
+```sh
+curl -s http://<bind>:<port>/config   # proxy env snapshot
+curl -s http://<bind>:<port>/version  # version / commit / branch
+curl -s http://<bind>:<port>/         # serves the UI (HTTP 200)
+```
+
+The default `N8N_UI_BIND` is `127.0.0.1`, so the port is **not** exposed on the LAN
+until you set it.
 
 Publishing the image does not change the trust boundary: the UI is a
 trusted-LAN service, and the container still needs `N8N_API_KEY` supplied at
