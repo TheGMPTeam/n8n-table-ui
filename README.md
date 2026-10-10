@@ -1,68 +1,55 @@
-# n8n-table-ui — beta
+# n8n-table-ui — six-service beta
 
-Trusted-LAN UI for n8n's native Data Tables and the Research → Script → Scenes → Review pipeline. **Beta publication is not deployment or production-readiness certification.** No final-video assembler or upload handoff is connected. Approval does not create a finished short.
+Beta source publication is not deployment or production-readiness certification. No final-video assembler/upload handoff exists.
 
-## Quick start
-
-Use a separate host/directory for first installation; never import this bundle over an existing production stack.
+## Interactive installation
 
 ```sh
 git clone --branch beta https://github.com/TheGMPTeam/n8n-table-ui.git
 cd n8n-table-ui
-npm test
-npm run build
-# Supply your compatible external FFmpeg image before preflight:
-export FFMPEG_IMAGE=your-existing-compatible-ffmpeg-image:tag
-python3 full-stack/check_setup.py
-python3 full-stack/test_setup.py
+python3 full-stack/installer.py
 ```
 
-The nine-service setup is `full-stack/compose.json` (JSON is valid Compose input). It was derived programmatically from **all nine** services in the operator's main and UI-only Compose files. Pocket build source is bundled with its MIT license. **FFmpeg API source is deliberately excluded: this is not a self-contained FFmpeg build. Before preflight/start, obtain an existing compatible image or build one from your own separately authorized source outside this checkout, then set `FFMPEG_IMAGE` to that locally available tag.** The sample `ffmpeg-api:latest` is not published by this repository; Compose never pulls it and has no FFmpeg build context.
+The installer asks project/install path, bind IP, timezone, each service, all ports, CPU quota/threads, GPU UUIDs, prepared ComfyUI image, enhancement model/template choices and hidden secrets. Final confirmation defaults to **No**: cancellation performs no writes/build/start. Confirmed execution builds the real UI/Pocket Dockerfiles and starts **only selected services** with `--no-deps`. No deletion, down, reset or production host deployment is part of publication.
 
-```sh
-# First prerequisite, before running check_setup.py:
-export FFMPEG_IMAGE=your-existing-compatible-ffmpeg-image:tag
-docker image inspect "$FFMPEG_IMAGE" >/dev/null
-# Or, only with your own authorized external source:
-# docker build -t "$FFMPEG_IMAGE" /operator/authorized/external/ffmpeg-source
-```
+Exactly six Compose services: **n8n-table-ui, n8n, ollama, pockettts, searxng, comfyui**. No FFmpeg, Caddy, evaluator or Redis service. Exclude ComfyUI to use an external browser-reachable hostname. Port defaults respectively 3458, 5678, 11434, 49112, 8080, 8188. Compose internal service DNS uses the standard internal ports independent of host-port choices.
 
-Preflight rejects missing/unavailable FFmpeg images rather than substituting a stub. Configure the same image in private `full-stack/.env`. Workflow HTTP calls to its compatible API are included; implementation code and generated source patches/archives are not.
+Configuration is private `.env` mode 0600; existing `.env` stops the installer rather than being overwritten. Persistent mounts remain relative `./data`; existing files/settings/cache are retained. A different install directory uses the original checkout as UI build context: retain that checkout. Model/template choices are recorded for operator configuration, not automatic imports or pulls. Review generated files before enabling schedules. Never expose the unauthenticated UI/CRUD outside a trusted LAN.
+
+### GPU, images and permissions
+
+The GPU picker lists real UUIDs with names. On this host Comfy must explicitly select **RTX 5060 Ti**; never RTX 3060 fallback. Other hosts choose their own listed UUIDs. NVIDIA Container Toolkit/drivers are prerequisites. The actual running Comfy image inspected for this release is `yanwk/comfyui-boot:cu130-megapak-pt211`; the installer accepts a prepared operator image. Its /root/ComfyUI layout and /runner-scripts/entrypoint.sh contract must match Compose. Custom-node and model readiness is operator responsibility. No Comfy source/build context is bundled. The optional operator build-context prompt requires a real Dockerfile, source license and explicit review of pinned custom nodes/licensing/weight exclusions, then builds only selected ComfyUI after final consent. That operator-supplied build remains unverified in this audit; use the existing prepared image by default.
+
+Give n8n and Pocket's runtime UID 1000 narrowly scoped write access to their own fresh data/cache/log binds. Comfy retains its root-dependent entrypoint; do not force a non-root user or recursively change unrelated host ownership. Do not migrate an existing stack by replacing its binds with empty directories.
+
+Pocket MIT source and real Dockerfile are included. CPU-only FP32, four Torch threads, one interop thread and eight-CPU quota are defaults, reduced on smaller hosts. Startup imports Pocket before setting threads and retains persistent voice/model cache. No voice references, weights or private auth are shipped. A fresh host does not inherit Jarvis.
+
+### SearXNG and models
+
+`full-stack/searxng-settings.yml` always enables HTML and JSON and disables limiter: standalone, no Redis seventh container. Set its private installation secret before wider use. Read-only existing SearXNG JSON search returned a parsed object with 21 results during this audit; this does not prove a fresh six-stack boot.
 
 ```sh
 cd full-stack
-python3 prepare_local.py --prepare --comfy-token-file /operator/private/comfyui-api-token
-# Edit the newly created private .env; never commit it.
-docker compose --env-file .env -f compose.json config --quiet
-# On your NEW installation, after configuring bind permissions and prerequisites:
-docker compose --env-file .env -f compose.json build
-# Operator-controlled first start, not an updater or release operation:
-docker compose --env-file .env -f compose.json up -d
+python3 -m unittest test_installer test_download_models
+docker compose --env-file .env.example -f compose.json config --quiet
+# After installer creates private .env:
+docker compose --env-file .env -f compose.json ps
+curl 'http://YOUR_BIND_IP:8080/search?q=example&format=json'
 ```
 
-`prepare_local.py` creates directories, a private random n8n encryption key, private Review transport secret and initial enhancement setting. It never starts services, deletes data or overwrites existing settings/token files. If you do not yet have a ComfyUI token, omit `--comfy-token-file`, initialize ComfyUI's own authentication first, then place its genuine token in `data/comfyui/storage-user/login/PASSWORD` before starting media consumers. No reference audio or authentication database is shipped.
+`comfy-model-manifest.json` inventories **10 distinct model filenames**, target directory hints, loader inputs and every exported-template use. All download URLs are explicitly manual-unresolved, not invented Hugging Face paths. Resolve each against primary repository metadata, size and license before downloading. Unknown target directories also need operator resolution.
 
-Set `LAN_BIND_IP` to the intended trusted-LAN IP; the example is loopback for safe validation. Set `N8N_HOSTNAME`, `COMFYUI_PUBLIC_HOST`, and `REVIEW_UI_ORIGINS` to matching real hostnames/origins. ComfyUI media URLs must be directly browser-reachable. Supply an **explicit RTX 5060 Ti UUID** in `COMFYUI_5060_TI_UUID`; verify the UUID/model with `nvidia-smi -L`. ComfyUI has no all-GPU/3060 fallback. Ollama's separate `OLLAMA_GPU_UUID` is independently operator-selected. Install Docker Compose, NVIDIA drivers and NVIDIA Container Toolkit before GPU use.
+```sh
+# Only after independently reviewing/resolving the manifest; never part of development:
+python3 download_models.py --manifest YOUR_VERIFIED_MANIFEST.json \
+  --models-dir ./data/comfyui/storage-models/models --consent
+```
 
-## Full-stack services and persistent bindings
+The optional downloader streams into a sibling temporary file, checks free space and expected bytes, publishes atomically without overwriting, and preserves any existing destination. HTTP fixture tests use seven bytes, not weights. It does not authenticate gated downloads or verify cryptographic model hashes; incomplete existing files require operator review rather than silent replacement.
 
-| Service | Host port(s) | Source | Persistent host bindings under `full-stack/` |
-|---|---:|---|---|
-| n8n-table-ui | 3458 | root Dockerfile | `data/n8n-table-ui/.data`; read-only source HTML/proxy binds |
-| n8n | 5678 | `n8nio/n8n:latest` | `data/n8n`, read-only `data` |
-| ComfyUI | 8188 | `yanwk/comfyui-boot:cu130-megapak-pt211` | `data/comfyui/storage-{cache,nodes,models,user}` |
-| Ollama | 11434 | `ollama/ollama:latest` | `data/ollama` |
-| FFmpeg API | 8765 | operator-supplied `FFMPEG_IMAGE` (no source/build context bundled) | `data/ffmpeg-api/uploads`, operator voice references, private ComfyUI token file |
-| Pocket TTS | 49112 | `full-stack/pockettts/Dockerfile` | `data/pockettts/{voices,logs,voice-cache,huggingface-cache}` |
-| SearXNG | 8080 | `docker.io/searxng/searxng:latest` | `data/searxng/ect`, `data/searxng/Cache` (original spelling preserved) |
-| LLM evaluation suite | 9090 → 8080 | `ghcr.io/thecodacus/llm-eval-suite:latest` | `data/llm-eval` |
-| Caddy gateway | 8081, 8443 | `caddy:2-alpine` | safe `Caddyfile`, `data/caddy` |
+### Optional external FFmpeg
 
-The supplied Caddyfile is a minimal optional LAN HTTP gateway, not the operator's private TLS/proxy configuration. Port 8443 is preserved in the service export but no HTTPS listener/certificate is configured by the example. Use direct n8n port 5678 for initial setup; path-prefixed editor proxying needs separate n8n path/public URL configuration.
-
-**Keep every relative `./data` binding.** Back up persistent data before upgrades. Do not use stack-wide `down`, volume deletion, resets or blanket ownership changes. n8n and Pocket run as UID 1000 and need write access to their own data/cache/log directories; grant narrowly scoped ownership/ACLs on a fresh installation. ComfyUI retains its root-dependent startup and `umask 000`; do not force an incompatible non-root entrypoint. Never replace existing model/voice caches with empty directories.
-
-Pocket is CPU-only, non-quantized FP32, **four processing threads and eight CPU quota**. Its distributable `pockettts/cpu_startup.py` imports Pocket before setting Torch thread counts, preserving the fix for Pocket's import-time thread reset. Torch CPU wheels and dedicated Pocket runtime remain separate from FFmpeg's HTTP consumer. Stock/authorized voices and model access must be supplied by the operator; a new host does **not** inherit Jarvis.
+FFmpeg implementation/container is excluded. Existing exported workflow HTTP consumers require an independently supplied compatible external API and endpoint mapping; without that dependency those consumers are not operational. Review approval still does not launch an absent final assembler. Legacy `check_setup.py`/external-image test are nine-stack artifacts and are not this six-service preflight; use Compose config and new installer tests above.
 
 ## CRUD-first setup: every required table through webhooks
 
@@ -125,8 +112,8 @@ From `full-stack/`, use read-only checks:
 
 ```sh
 docker compose --env-file .env -f compose.json ps
-docker compose --env-file .env -f compose.json logs --tail 100 n8n n8n-table-ui pockettts ffmpeg-api
-python3 check_setup.py
+docker compose --env-file .env -f compose.json logs --tail 100 n8n n8n-table-ui pockettts searxng
+docker compose --env-file .env -f compose.json config --quiet
 python3 test_setup.py
 python3 test_helpers.py
 ```
@@ -137,7 +124,9 @@ Before any authorized update, take application-consistent backups of the exact p
 
 ## Verification and limitations
 
-Run `npm test`, `npm run build`, `node --test setup-bootstrap.test.cjs ollama-settings.test.cjs per-asset-enhancement.test.cjs review-lan.test.cjs review-home-push.test.cjs`, `python3 full-stack/check_setup.py`, and `python3 full-stack/test_setup.py`.
+Six-service recovery audit: Compose resolved exactly six services; 11 Python installer/downloader/importer/helper tests passed. UI and Pocket images built from real Dockerfiles. The isolated UI image returned HTTP 200 parsed JSON from `/config`; the existing n8n API read returned HTTP 200 with 31 workflows and no remaining cursor. Existing SearXNG JSON search was read-only. No production restart, weight download or native workflow mutation occurred. Installer Docker command assertions are fake-runner tests, not a fresh-host deployment. The full Node suite remains the same 211 tests / 194 passed / 17 failed as the published beta baseline; no JavaScript source was changed in this recovery.
+
+Run `npm test`, `npm run build`, `node --test setup-bootstrap.test.cjs ollama-settings.test.cjs per-asset-enhancement.test.cjs review-lan.test.cjs review-home-push.test.cjs`, and `python3 full-stack/test_setup.py`.
 
 The fresh origin/beta baseline passed 156 tests. The current complete candidate run returned **211 tests: 194 passed, 17 failed, exit 1**. The 18 focused current-contract tests and 7 Python importer/helper tests passed. Integrating existing dirty operator work and fresh published contracts currently yields historical-contract failures (authenticated Review/file-hash expectations, old editor/Model behavior and guarded Home deletion); see `BETA-LIMITATIONS.md` for the actual final run. Do not treat a clean syntax/focused/mock suite as a clean full suite. Setup tests exercise actual exported CRUD normalization plus instrumented mocked transports, not a new native full-stack boot. Compose config checks syntax, not model availability, GPU drivers, permissions or startup. No production generation, approval, live schema write, workflow import or stack deployment was performed for this publication.
 

@@ -1,50 +1,6 @@
 {
   "name": "n8n-table-ui-beta",
   "services": {
-    "caddy-proxy": {
-      "restart": "unless-stopped",
-      "command": null,
-      "entrypoint": null,
-      "environment": {
-        "TZ": "UTC",
-        "UMASK": "002"
-      },
-      "extra_hosts": [
-        "host.docker.internal=host-gateway"
-      ],
-      "image": "caddy:2-alpine",
-      "volumes": [
-        {
-          "type": "bind",
-          "source": "./Caddyfile",
-          "target": "/etc/caddy/Caddyfile",
-          "read_only": true,
-          "bind": {}
-        },
-        {
-          "type": "bind",
-          "source": "./data/caddy",
-          "target": "/data",
-          "bind": {}
-        }
-      ],
-      "ports": [
-        {
-          "mode": "ingress",
-          "target": 8081,
-          "published": "8081",
-          "protocol": "tcp",
-          "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
-        },
-        {
-          "mode": "ingress",
-          "target": 8443,
-          "published": "8443",
-          "protocol": "tcp",
-          "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
-        }
-      ]
-    },
     "comfyui": {
       "deploy": {
         "resources": {
@@ -56,7 +12,7 @@
                 ],
                 "driver": "nvidia",
                 "device_ids": [
-                  "${COMFYUI_5060_TI_UUID:?Select the RTX 5060 Ti UUID explicitly}"
+                  "${COMFYUI_5060_TI_UUID:-GPU-OPERATOR-SELECTION-REQUIRED}"
                 ]
               }
             ]
@@ -76,11 +32,11 @@
         "HF_TOKEN": "${HF_TOKEN}",
         "HF_XET_HIGH_PERFORMANCE": "1",
         "HOWARD_ENABLE_LOGGING": "false",
-        "UMASK": "000"
+        "UMASK": "000",
+        "TZ": "${TZ:-America/New_York}"
       },
-      "image": "yanwk/comfyui-boot:cu130-megapak-pt211",
+      "image": "${COMFYUI_IMAGE:-yanwk/comfyui-boot:cu130-megapak-pt211}",
       "init": true,
-      "pull_policy": "daily",
       "runtime": "nvidia",
       "security_opt": [
         "label=disable",
@@ -176,79 +132,7 @@
         {
           "mode": "ingress",
           "target": 8188,
-          "published": "8188",
-          "protocol": "tcp",
-          "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
-        }
-      ]
-    },
-    "ffmpeg-api": {
-      "restart": "unless-stopped",
-      "command": null,
-      "entrypoint": null,
-      "environment": {
-        "COMFYUI_TOKEN_FILE": "${COMFYUI_TOKEN_FILE:-/run/secrets/comfyui-token}",
-        "POCKET_TTS_URL": "http://pockettts:49112",
-        "TZ": "UTC",
-        "UMASK": "002",
-        "POCKET_NATIVE_VOICE_IDS": "${POCKET_NATIVE_VOICE_IDS:-}"
-      },
-      "volumes": [
-        {
-          "type": "bind",
-          "source": "./data/ffmpeg-api/uploads",
-          "target": "/uploads",
-          "bind": {}
-        },
-        {
-          "type": "bind",
-          "source": "./data/pockettts/voice-cache/ffmpeg-references",
-          "target": "/pocket-voice-cache/ffmpeg-references",
-          "bind": {}
-        },
-        {
-          "type": "bind",
-          "source": "./data/comfyui/storage-user/login/PASSWORD",
-          "target": "/run/secrets/comfyui-token",
-          "read_only": true,
-          "bind": {}
-        }
-      ],
-      "image": "${FFMPEG_IMAGE:?Set FFMPEG_IMAGE to your existing compatible FFmpeg API image}",
-      "pull_policy": "never",
-      "ports": [
-        {
-          "mode": "ingress",
-          "target": 8765,
-          "published": "8765",
-          "protocol": "tcp",
-          "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
-        }
-      ]
-    },
-    "llm-eval-suite": {
-      "restart": "unless-stopped",
-      "command": null,
-      "entrypoint": null,
-      "environment": {
-        "TZ": "Etk/Indiana",
-        "UMASK": "002"
-      },
-      "image": "ghcr.io/thecodacus/llm-eval-suite:latest",
-      "pull_policy": "daily",
-      "volumes": [
-        {
-          "type": "bind",
-          "source": "./data/llm-eval",
-          "target": "/data",
-          "bind": {}
-        }
-      ],
-      "ports": [
-        {
-          "mode": "ingress",
-          "target": 8080,
-          "published": "9090",
+          "published": "${COMFYUI_PORT:-8188}",
           "protocol": "tcp",
           "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
         }
@@ -259,14 +143,14 @@
       "command": null,
       "entrypoint": null,
       "environment": {
-        "GENERIC_TIMEZONE": "UTC",
+        "GENERIC_TIMEZONE": "${TZ:-America/New_York}",
         "N8N_ENCRYPTION_KEY": "${N8N_ENCRYPTION_KEY}",
         "N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS": "false",
         "N8N_HOST": "${N8N_HOSTNAME:-localhost}",
         "N8N_PROTOCOL": "http",
         "N8N_SECURE_COOKIE": "false",
         "N8N_WEBHOOK_URL": "http://${N8N_HOSTNAME:-localhost}:5678/",
-        "TZ": "UTC",
+        "TZ": "${TZ:-America/New_York}",
         "UMASK": "002"
       },
       "extra_hosts": [
@@ -289,21 +173,11 @@
           "bind": {}
         }
       ],
-      "depends_on": {
-        "comfyui": {
-          "condition": "service_started",
-          "required": true
-        },
-        "ollama": {
-          "condition": "service_started",
-          "required": true
-        }
-      },
       "ports": [
         {
           "mode": "ingress",
           "target": 5678,
-          "published": "5678",
+          "published": "${N8N_PORT:-5678}",
           "protocol": "tcp",
           "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
         }
@@ -320,7 +194,7 @@
                 ],
                 "driver": "nvidia",
                 "device_ids": [
-                  "${OLLAMA_GPU_UUID:?Select Ollama GPU explicitly}"
+                  "${OLLAMA_GPU_UUID:-GPU-OPERATOR-SELECTION-REQUIRED}"
                 ]
               }
             ]
@@ -333,7 +207,8 @@
       "environment": {
         "OLLAMA_FLASH_ATTENTION": "1",
         "OLLAMA_HOST": "0.0.0.0",
-        "UMASK": "002"
+        "UMASK": "002",
+        "TZ": "${TZ:-America/New_York}"
       },
       "image": "ollama/ollama:latest",
       "pull_policy": "daily",
@@ -360,7 +235,7 @@
         {
           "mode": "ingress",
           "target": 11434,
-          "published": "11434",
+          "published": "${OLLAMA_PORT:-11434}",
           "protocol": "tcp",
           "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
         }
@@ -370,7 +245,7 @@
       "deploy": {
         "resources": {
           "limits": {
-            "cpus": 8,
+            "cpus": "${POCKET_CPUS:-8}",
             "memory": "4294967296"
           },
           "reservations": {
@@ -379,7 +254,7 @@
         }
       },
       "restart": "unless-stopped",
-      "cpus": 8,
+      "cpus": "${POCKET_CPUS:-8}",
       "command": [
         "python",
         "/app/cpu_startup.py"
@@ -387,8 +262,8 @@
       "entrypoint": null,
       "environment": {
         "HF_TOKEN": "${HF_TOKEN}",
-        "MKL_NUM_THREADS": "4",
-        "OMP_NUM_THREADS": "4",
+        "MKL_NUM_THREADS": "${POCKET_THREADS:-4}",
+        "OMP_NUM_THREADS": "${POCKET_THREADS:-4}",
         "POCKET_TTS_HOST": "0.0.0.0",
         "POCKET_TTS_INTEROP_THREADS": "1",
         "POCKET_TTS_LANGUAGE": "english",
@@ -397,9 +272,10 @@
         "POCKET_TTS_PORT": "49112",
         "POCKET_TTS_QUANTIZE": "false",
         "POCKET_TTS_STREAM_DEFAULT": "true",
-        "POCKET_TTS_TORCH_THREADS": "4",
+        "POCKET_TTS_TORCH_THREADS": "${POCKET_THREADS:-4}",
         "POCKET_TTS_VOICES_DIR": "/app/voices",
-        "POCKET_TTS_VOICE_CACHE_DIR": "/app/voice_cache"
+        "POCKET_TTS_VOICE_CACHE_DIR": "/app/voice_cache",
+        "TZ": "${TZ:-America/New_York}"
       },
       "pull_policy": "never",
       "volumes": [
@@ -452,7 +328,7 @@
         {
           "mode": "ingress",
           "target": 49112,
-          "published": "49112",
+          "published": "${POCKETTTS_PORT:-49112}",
           "protocol": "tcp",
           "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
         }
@@ -475,8 +351,9 @@
       "command": null,
       "entrypoint": null,
       "environment": {
-        "SEARXNG_BASE_URL": "http://10.0.0.157:8080/",
-        "UMASK": "002"
+        "SEARXNG_BASE_URL": "http://${LAN_BIND_IP:-127.0.0.1}:${SEARXNG_PORT:-8080}/",
+        "UMASK": "002",
+        "TZ": "${TZ:-America/New_York}"
       },
       "image": "docker.io/searxng/searxng:latest",
       "logging": {
@@ -490,9 +367,10 @@
       "volumes": [
         {
           "type": "bind",
-          "source": "./data/searxng/ect",
-          "target": "/etc/searxng",
-          "bind": {}
+          "source": "./searxng-settings.yml",
+          "target": "/etc/searxng/settings.yml",
+          "bind": {},
+          "read_only": true
         },
         {
           "type": "bind",
@@ -505,7 +383,7 @@
         {
           "mode": "ingress",
           "target": 8080,
-          "published": "8080",
+          "published": "${SEARXNG_PORT:-8080}",
           "protocol": "tcp",
           "host_ip": "${LAN_BIND_IP:-127.0.0.1}"
         }
@@ -517,7 +395,7 @@
       "entrypoint": null,
       "environment": {
         "COMFYUI_HOST": "${COMFYUI_PUBLIC_HOST:?Set a browser-reachable trusted-LAN ComfyUI hostname}",
-        "COMFYUI_PORT": "8188",
+        "COMFYUI_PORT": "${COMFYUI_PORT:-8188}",
         "COMFYUI_TOKEN_FILE": "${COMFYUI_TOKEN_FILE:-/run/secrets/comfyui-token}",
         "DATA_DIR": "/app/.data",
         "N8N_HOST": "n8n",
@@ -527,36 +405,16 @@
         "N8N_API_KEY": "${N8N_API_KEY}",
         "REVIEW_WEBHOOK_SECRET": "${REVIEW_WEBHOOK_SECRET}",
         "OLLAMA_BASE_URL": "http://ollama:11434",
-        "HOME_RUNNER_WORKFLOW_ID": "${HOME_RUNNER_WORKFLOW_ID:-MZK3Pv01FHqZbooz}",
+        "HOME_RUNNER_WORKFLOW_ID": "${HOME_RUNNER_WORKFLOW_ID:-}",
         "REVIEW_UI_ORIGINS": "${REVIEW_UI_ORIGINS:-http://localhost:3458,http://127.0.0.1:3458}",
-        "N8N_SETUP_PROJECT_ID": "${N8N_SETUP_PROJECT_ID:-}"
+        "N8N_SETUP_PROJECT_ID": "${N8N_SETUP_PROJECT_ID:-}",
+        "TZ": "${TZ:-America/New_York}"
       },
       "volumes": [
         {
           "type": "bind",
-          "source": "./data/comfyui/storage-user/login/PASSWORD",
-          "target": "/run/secrets/comfyui-token",
-          "read_only": true,
-          "bind": {}
-        },
-        {
-          "type": "bind",
           "source": "./data/n8n-table-ui/.data",
           "target": "/app/.data",
-          "bind": {}
-        },
-        {
-          "type": "bind",
-          "source": "../index.html",
-          "target": "/app/index.html",
-          "read_only": true,
-          "bind": {}
-        },
-        {
-          "type": "bind",
-          "source": "../proxy-server.cjs",
-          "target": "/app/proxy-server.cjs",
-          "read_only": true,
           "bind": {}
         }
       ],
@@ -574,7 +432,7 @@
           "mode": "ingress",
           "host_ip": "${LAN_BIND_IP:-127.0.0.1}",
           "target": 3458,
-          "published": "3458",
+          "published": "${N8N_TABLE_UI_PORT:-3458}",
           "protocol": "tcp"
         }
       ]
