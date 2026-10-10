@@ -1,43 +1,81 @@
-# n8n-table-ui — drop-in service for the server's automation stack
+# n8n-table-ui — production service for the server's automation stack
 #
-# Add this file to the server's /home/dad/Config/ and append the n8n-table-ui
-# service block to docker-compose.yml, or include it from there.
+# PRODUCTION. This is the stack drop-in: it joins the existing `automation`
+# network and reaches n8n, ComfyUI and Ollama by service name. For adding the UI
+# to a DIFFERENT stack, use docker-compose.n8n-table-ui.standalone.yml instead.
 #
 # Server context (from /home/dad/Config/docker-compose.yml):
-#   network: automation
-#   n8n service name: n8n
-#   n8n port: 5678
-#   n8n webhook URL: http://10.0.0.157:5678/
-#   n8n data volume: ./data/n8n:/home/node/.n8n
-#   n8n shared data: ./data:/data:ro
+#   network:            automation
+#   n8n service:        n8n           port 5678
+#   ComfyUI service:    comfyui       port 8188
+#   Ollama service:     ollama        port 11434
+#   UI data bind:       ./data/n8n-table-ui/.data
+#
+# Environment variables this service reads:
+#   N8N_HOST / N8N_PORT            n8n service name and port
+#   API_BASE / API_PORT            upstream for /api/* and /webhook/*
+#   DATA_DIR                       writable runtime state
+#   N8N_API_KEY                    only if n8n requires API auth
+#   COMFYUI_HOST / COMFYUI_PORT    ComfyUI service for direct media
+#   COMFYUI_TOKEN_FILE             bearer token file for authenticated media
+#   OLLAMA_BASE_URL                Ollama origin for enhancement model listing
+#   REVIEW_UI_ORIGINS              exact same-origin allowlist for Review/Config
+#   HOME_RUNNER_WORKFLOW_ID        Runner workflow ID for Home queue state
+#   UPDATE_CONTROL_SOCKET          narrow host updater socket (read-only)
 
 services:
   n8n-table-ui:
-    # Published image (no local checkout needed):
-    #   docker pull thegmpteam/n8n-table-ui:beta
-    # To build from this checkout instead, comment out `image:` and uncomment `build:`.
-    image: thegmpteam/n8n-table-ui:beta
+    # Published image — no local checkout or build needed.
+    image: thegmpteam/n8n-table-ui:latest
+    pull_policy: daily
+    # To build from a checkout instead, comment out `image:` and uncomment `build:`.
     # build:
     #   context: ./n8n-table-ui
     #   dockerfile: Dockerfile
     #   args:
-    #     GIT_BRANCH: beta
-    #     VERSION: 1.0.0-beta
+    #     GIT_BRANCH: main
+    #     VERSION: 1.0.0
     container_name: n8n-table-ui
     restart: unless-stopped
     ports:
-      - "3458:3458"
+      # LAN access: http://<server-ip>:3458/
+      # Bind to a specific interface with N8N_UI_BIND when needed.
+      - "${N8N_UI_BIND:-10.0.0.157}:${N8N_UI_PORT:-3458}:3458"
     environment:
       - NODE_ENV=production
       - PORT=3458
+      - DATA_DIR=/app/.data
+      # n8n on the shared network, by service name.
       - N8N_HOST=n8n
       - N8N_PORT=5678
-      - N8N_API_KEY=${N8N_API_KEY}
       - API_BASE=n8n
       - API_PORT=5678
-      - DATA_DIR=/app/.data
+      # Only needed when n8n requires API auth; omit the header otherwise.
+      - N8N_API_KEY=${N8N_API_KEY:-}
+      # ComfyUI for direct browser media (original :8188/view URLs, no rewrite).
+      # MUST match the host in the stored output URLs. n8n rows hold absolute
+      # URLs like http://10.0.0.157:8188/view?..., and the review backend
+      # requires the URL hostname to equal COMFYUI_HOST exactly. A service name
+      # here is rejected with "Output URL is not the fixed ComfyUI view endpoint".
+      - COMFYUI_HOST=${COMFYUI_HOST:-10.0.0.157}
+      - COMFYUI_PORT=8188
+      - COMFYUI_TOKEN_FILE=/run/secrets/comfyui-token
+      # Ollama for enhancement model listing/selection. Service name works here
+      # (the UI calls it directly, so no stored-URL matching is involved).
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      # Exact same-origin allowlist for Review and Config mutations.
+      - REVIEW_UI_ORIGINS=${REVIEW_UI_ORIGINS:-http://10.0.0.157:3458,http://localhost:3458,http://127.0.0.1:3458}
+      # Runner workflow ID for Home queue state; override if it changes.
+      - HOME_RUNNER_WORKFLOW_ID=${HOME_RUNNER_WORKFLOW_ID:-}
+      # Narrow host updater socket (read-only mount below).
+      - UPDATE_CONTROL_SOCKET=/run/ui-updater/control.sock
     volumes:
+      # Writable runtime state: version.json, optional index.html override, logs.
       - ./data/n8n-table-ui/.data:/app/.data
+      # Read-only host updater socket for no-rebuild UI updates.
+      - ./n8n-table-ui-update-state/run:/run/ui-updater:ro
+      # ComfyUI session token for authenticated direct media. Read-only.
+      - ./data/comfyui/storage-user/login/PASSWORD:/run/secrets/comfyui-token:ro
     networks:
       - automation
     depends_on:
