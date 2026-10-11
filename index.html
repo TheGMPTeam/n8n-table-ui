@@ -810,22 +810,110 @@
   }
 
 #jobs-workflows [role="tablist"]{display:flex;gap:8px;overflow-x:auto;padding:10px 0;max-width:100%} #jobs-workflows [role="tab"]{flex:0 0 auto;border:1px solid var(--border);background:var(--panel);color:var(--text);padding:10px;border-radius:6px} #jobs-workflows [aria-selected="true"]{border-color:var(--accent);color:var(--accent)} #jobs-workflows section{padding:12px;border:1px solid var(--border)} #jobs-workflows [hidden]{display:none} #jobs-workflows .table-scroll{max-height:60vh;overflow:auto} #jobs-workflows td{max-width:260px} #jobs-workflows button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* Production Command Center shell — template-first workspace. */
+  body { padding: 0 0 30px; }
+  .command-shell { display:grid; grid-template-columns:248px minmax(0,1fr); min-height:calc(100vh - 30px); }
+  .command-sidebar { position:sticky; top:0; height:calc(100vh - 30px); overflow-y:auto; display:flex; flex-direction:column; gap:28px; padding:24px 15px; background:#0b150f; border-right:1px solid var(--border); z-index:60; }
+  .command-brand { display:flex; align-items:center; gap:12px; padding:0 10px; }
+  .command-logo { display:grid; place-items:center; width:40px; height:40px; flex:none; background:var(--accent); color:#13200f; clip-path:polygon(20% 0,100% 0,100% 80%,80% 100%,0 100%,0 20%); font-size:22px; font-weight:900; }
+  .command-brand strong { display:block; font-size:14px; letter-spacing:1px; }
+  .command-brand small { display:block; color:var(--muted); font-size:10px; letter-spacing:1.8px; }
+  .command-nav-label { margin:0 12px 9px; color:#789078; font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; }
+  .command-sidebar .tabs { display:grid; gap:6px; margin:0; }
+  .command-sidebar .tab-btn { width:100%; min-height:48px; display:grid; grid-template-columns:24px minmax(0,1fr); grid-template-rows:auto auto; column-gap:11px; align-items:center; padding:9px 13px !important; border:1px solid transparent; border-radius:9px !important; text-align:left; }
+  .command-sidebar .tab-btn .nav-symbol { grid-row:1 / 3; width:22px; color:#8fa58c; font-size:18px; text-align:center; }
+  .command-sidebar .tab-btn .nav-title { color:#b8c8b6; font-weight:650; }
+  .command-sidebar .tab-btn small { color:#748572; font-size:10px; font-weight:500; }
+  .command-sidebar .tab-btn:hover { background:var(--raised,#18291d); border-color:#344a37; }
+  .command-sidebar .tab-btn.active { background:#243b22; border-color:#49663b; box-shadow:none; }
+  .command-sidebar .tab-btn.active .nav-symbol,
+  .command-sidebar .tab-btn.active .nav-title { color:var(--accent); }
+  .command-sidefoot { margin-top:auto; padding:14px; border:1px solid var(--border); border-radius:12px; background:var(--panel); color:var(--muted); font-size:11px; line-height:1.6; }
+  .command-sidefoot strong { display:block; color:var(--success); font-size:11px; letter-spacing:.7px; }
+  .command-main { min-width:0; width:100%; max-width:1800px; margin:0 auto; padding:26px 32px 52px; }
+  .command-content { min-width:0; }
+  .topbar { position:relative; top:auto; padding:0; margin:0 0 24px; border:0; border-radius:0; background:transparent; box-shadow:none; backdrop-filter:none; align-items:center; }
+  .command-heading { min-width:0; margin-right:auto; }
+  .command-eyebrow { color:var(--accent); font-size:10px; font-weight:750; letter-spacing:2.3px; text-transform:uppercase; }
+  .command-heading h1 { margin:4px 0 0; font-size:28px; letter-spacing:-.8px; }
+  .command-heading p { margin:4px 0 0; color:var(--muted); font-size:12px; }
+  #btn-refresh { flex:none; min-width:108px; }
+  .command-content > .tab-panel.active { animation:command-enter .16s ease-out; }
+  @keyframes command-enter { from { opacity:.45; transform:translateY(3px); } to { opacity:1; transform:none; } }
+
+  /* Template-first Home editor. Selection is staged until Save. */
+  #modal { max-width:1060px; }
+  #updater-modal { max-width:700px; }
+  .template-switcher-group { padding:0 !important; overflow:clip; border-color:#4a653f !important; background:#0b160f !important; }
+  .template-switcher-heading { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; padding:15px 16px 12px; border-bottom:1px solid var(--border); background:linear-gradient(110deg,#263d23,transparent 85%); }
+  .template-switcher-heading label { margin:0 !important; color:var(--accent) !important; font-size:13px !important; font-weight:750; letter-spacing:.5px; }
+  .template-switcher-heading small { display:block; margin-top:3px; color:var(--muted); font-size:11px; text-transform:none; letter-spacing:0; }
+  .template-current { flex:none; max-width:45%; color:var(--accent); font-size:11px; font-weight:700; text-align:right; overflow-wrap:anywhere; }
+  #modal-type { width:calc(100% - 32px); margin:14px 16px 0; }
+  .template-options { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; padding:14px 16px 16px; }
+  .template-option { min-height:78px; display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:9px; padding:12px; border:1px solid #354b36; border-radius:10px; background:#142219; color:var(--text); text-align:left; cursor:pointer; }
+  .template-option:hover { border-color:#789c58; background:#1a2d1d; }
+  .template-option[aria-selected="true"] { border-color:var(--accent); background:#263d22; box-shadow:inset 3px 0 0 var(--accent),0 0 18px #b4f35412; }
+  .template-option-name { font-size:13px; font-weight:750; line-height:1.25; }
+  .template-option-meta { color:var(--muted); font-size:10px; letter-spacing:.7px; text-transform:uppercase; }
+  .template-option[aria-selected="true"] .template-option-meta { color:var(--accent); }
+  .template-save-note { margin:0; padding:0 16px 14px; color:var(--warn); font-size:11px; }
+  .template-preview { margin-top:14px; }
+  .template-preview summary { cursor:pointer; color:var(--muted); font-size:12px; font-weight:650; }
+  .template-preview textarea { margin-top:12px; }
+
+  @media (max-width:900px) {
+    .command-shell { grid-template-columns:1fr; }
+    .command-sidebar { position:sticky; height:auto; padding:10px 12px; gap:8px; border-right:0; border-bottom:1px solid var(--border); }
+    .command-brand,.command-sidefoot,.command-nav-label { display:none; }
+    .command-sidebar-nav { display:contents; }
+    .command-sidebar .tabs { display:flex; overflow-x:auto; gap:6px; }
+    .command-sidebar .tab-btn { width:auto; min-width:max-content; min-height:38px; display:flex; padding:7px 11px !important; }
+    .command-sidebar .tab-btn .nav-symbol { width:auto; font-size:15px; }
+    .command-sidebar .tab-btn small { display:none; }
+    .command-main { padding:20px 14px 48px; }
+  }
+  @media (max-width:620px) {
+    .command-heading h1 { font-size:22px; }
+    .command-heading p { display:none; }
+    #btn-refresh { min-width:0; }
+    .template-options { grid-template-columns:1fr 1fr; padding:12px; }
+    .template-switcher-heading { padding:13px 12px 10px; }
+    #modal-type { width:calc(100% - 24px); margin:12px 12px 0; }
+    .template-save-note { padding:0 12px 12px; }
+  }
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <h1>n8n Tables</h1>
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="panel-tables" data-role="home" data-table="xKckTZI3ZU5HqIpZ">Home</button>
-    <button class="tab-btn" data-tab="panel-tables" data-role="jobs" data-table="vN5vMR56WpEsdLMn">Jobs</button>
-    <button class="tab-btn" data-tab="panel-config">Config</button>
-    <button class="tab-btn" data-tab="panel-review">Review</button>
-    <button class="tab-btn" data-tab="panel-new">New</button>
-    <button class="tab-btn" data-tab="panel-setup">Setup</button>
+<div class="command-shell">
+<aside class="command-sidebar" aria-label="Production navigation">
+  <div class="command-brand"><div class="command-logo">⌁</div><div><strong>COMMAND / 08</strong><small>PRODUCTION OS</small></div></div>
+  <div class="command-sidebar-nav">
+    <div class="command-nav-label">Workspace</div>
+    <nav class="tabs" aria-label="Workspace">
+      <button class="tab-btn active" data-tab="panel-tables" data-role="home" data-table="xKckTZI3ZU5HqIpZ"><span class="nav-symbol">⌂</span><span class="nav-title">Home</span><small>Templates & generation</small></button>
+      <button class="tab-btn" data-tab="panel-tables" data-role="jobs" data-table="vN5vMR56WpEsdLMn"><span class="nav-symbol">▦</span><span class="nav-title">Jobs</span><small>Production stages</small></button>
+      <button class="tab-btn" data-tab="panel-review"><span class="nav-symbol">◈</span><span class="nav-title">Review</span><small>Approve outputs</small></button>
+      <button class="tab-btn" data-tab="panel-new"><span class="nav-symbol">⊕</span><span class="nav-title">New</span><small>Production idea</small></button>
+    </nav>
   </div>
-  <button class="refresh-btn" id="btn-refresh">Refresh</button>
+  <div class="command-sidebar-nav">
+    <div class="command-nav-label">System</div>
+    <nav class="tabs" aria-label="System">
+      <button class="tab-btn" data-tab="panel-config"><span class="nav-symbol">⚙</span><span class="nav-title">Config</span><small>Models & routing</small></button>
+      <button class="tab-btn" data-tab="panel-setup"><span class="nav-symbol">◫</span><span class="nav-title">Setup</span><small>Connection checks</small></button>
+    </nav>
+  </div>
+  <div class="command-sidefoot"><strong>● TEMPLATE WORKSPACE</strong>Choose a Home row, switch its template, review the change, then Save. Push remains a separate action.</div>
+</aside>
+<div class="command-main">
+<div class="topbar">
+  <div class="command-heading"><div class="command-eyebrow">Control center / production suite</div><h1>Production Command Center</h1><p>Template-first generation queue, production jobs, and asset review</p></div>
+  <button class="refresh-btn" id="btn-refresh">↻ Refresh</button>
 </div>
+<div class="command-content">
 
 <div class="tab-panel active" id="panel-tables">
 <section id="jobs-workflows" hidden><div role="tablist" aria-label="Production workflows"></div>
@@ -951,7 +1039,11 @@
   </div>
 </div>
 
-      <div class="modal-overlay" id="modal-overlay">
+</div>
+</div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
   <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
     <div class="popup-header"><h2 id="modal-title">Edit Row</h2><button class="btn-cancel" id="btn-cancel" aria-label="Close row dialog">Close</button></div>
     <div id="modal-body"></div>
@@ -1116,10 +1208,29 @@
 
   // Trusted LAN, same-origin private transport. Origin checks are not authentication.
   const reviewTickets = new Map();
-  let reviewPending = false;
+  // Per-job pending set: a slow action on one card must not lock the whole tab.
+  const reviewPending = new Set();
+  // The native Enhancement model is allowed 180s server-side; every other route
+  // answers in seconds. The client deadline must outlast the server one so a slow
+  // action reports a result instead of hanging forever.
+  const REVIEW_TIMEOUT_MS = { '/review/enhance': 200000, '/review/list': 60000, '/review/decision': 60000 };
   async function reviewRequest(route,body) {
-    const response=await fetch(route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const ms=REVIEW_TIMEOUT_MS[route]||60000,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),ms);
+    let response;
+    try{
+      response=await fetch(route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:controller.signal});
+    }catch(error){
+      if(error&&error.name==='AbortError')throw new Error('Review request timed out after '+Math.round(ms/1000)+'s. The server may still be finishing; refresh to re-check state before retrying.');
+      throw error;
+    }finally{clearTimeout(timer);}
     const result=await response.json();if(!response.ok||result.error){const error=new Error(result.message||result.error||'Review refused');error.status=response.status;throw error;}return result;
+  }
+  // Visible progress: keep a live elapsed counter on the card while it waits.
+  function reviewProgress(message,base){
+    const started=Date.now();
+    const paint=()=>{if(message.isConnected)message.textContent=base+' ('+Math.round((Date.now()-started)/1000)+'s)';};
+    paint();const timer=setInterval(paint,1000);
+    return ()=>{clearInterval(timer);paint();};
   }
   function reviewError(message,error){message.textContent='Review: '+error.message;}
   function bindReviewReadability(host){
@@ -1142,15 +1253,18 @@
     host.querySelector('[data-review-message]').textContent=listed.State==='approved'?listed.nextStep:'Current asset metadata loaded. Readable assets enable automatically; inspect each asset before approving. Completion does not imply quality approval.';
   }
   $('#review-list').addEventListener('click',async event=>{
-    const button=event.target.closest('[data-review-action]');if(!button||reviewPending)return;
+    const button=event.target.closest('[data-review-action]');if(!button)return;
     const host=button.closest('[data-review-card]'),message=host.querySelector('[data-review-message]');
     const JobID=host.dataset.reviewJob,action=button.dataset.reviewAction;
-    reviewPending=true;button.disabled=true;let enhancingAsset=null;
+    if(reviewPending.has(JobID))return;
+    reviewPending.add(JobID);button.disabled=true;let enhancingAsset=null;
     try{
 
       if(action==='list'){
-        reviewTickets.delete(JobID);message.textContent='Verifying current metadata and original file contents…';
-        displayReviewedAssets(host,await reviewRequest('/review/list',{JobID}));
+        reviewTickets.delete(JobID);
+        const stopList=reviewProgress(message,'Verifying current metadata and original file contents…');
+        let listed;try{listed=await reviewRequest('/review/list',{JobID});}finally{stopList();}
+        displayReviewedAssets(host,listed);
       }else{
         const asset=button.closest('[data-review-asset]'),assetId=Number(asset.dataset.reviewAsset),ticket=reviewTickets.get(JobID);
         if(!ticket||Date.now()>=ticket.expiresAt)throw new Error('Verify current files again before deciding.');
@@ -1160,8 +1274,8 @@
           if(!prompt.trim())throw new Error('Enter a nonblank draft before Enhancement.');
           enhancingAsset=asset;asset.setAttribute('aria-busy','true');button.textContent='Enhancing…';asset.querySelector('[data-review-prompt]').readOnly=true;
           reviewTickets.delete(JobID);host.querySelectorAll('[data-review-asset] button').forEach(b=>b.disabled=true);
-          message.textContent='Enhancing asset #'+assetId+' with native AI. No rows are saved and no media generation is dispatched.';
-          const enhanced=await reviewRequest('/review/enhance',{JobID,assetId,prompt,decisionNonce:ticket.decisionNonce});
+          const stopEnhance=reviewProgress(message,'Enhancing asset #'+assetId+' with native AI. No rows are saved and no media generation is dispatched.');
+          let enhanced;try{enhanced=await reviewRequest('/review/enhance',{JobID,assetId,prompt,decisionNonce:ticket.decisionNonce});}finally{stopEnhance();}
           if(enhanced.JobID!==JobID||enhanced.assetId!==assetId||enhanced.beforePrompt!==prompt||enhanced.snapshot!==ticket.snapshot||enhanced.persisted!==false||enhanced.generationDispatched!==false||typeof enhanced.enhancedPrompt!=='string'||!enhanced.enhancedPrompt.trim()||typeof enhanced.decisionNonce!=='string'||Date.now()>=enhanced.expiresAt)throw new Error('Invalid or expired enhancement. Original draft is unchanged.');
           reviewTickets.set(JobID,{...ticket,decisionNonce:enhanced.decisionNonce,expiresAt:enhanced.expiresAt});
           asset.querySelector('[data-review-before]').textContent=prompt;asset.querySelector('[data-review-enhancement]').hidden=false;asset.querySelector('[data-review-enhancement]').open=true;
@@ -1176,16 +1290,17 @@
         }
         reviewTickets.delete(JobID);host.querySelectorAll('[data-review-asset] button').forEach(b=>b.disabled=true);
         const queueTableId=TABLES.comfy;
-        const decided=await reviewRequest('/review/decision',{JobID,assetId,action,reason,prompt:action==='regenerate'?prompt:undefined,decisionNonce:ticket.decisionNonce});
+        const stopDecision=reviewProgress(message,'Recording '+action+' for asset #'+assetId+'…');
+        let decided;try{decided=await reviewRequest('/review/decision',{JobID,assetId,action,reason,prompt:action==='regenerate'?prompt:undefined,decisionNonce:ticket.decisionNonce});}finally{stopDecision();}
         if(action==='regenerate'){
           if(decided.regenerationPrepared!==true||decided.dispatch!==false||decided.ready!==true||decided.sourceTableId!==queueTableId||String(decided.regeneratedAssetId)!==String(assetId)||!decided.updatedRow||decided.updatedRow.prompt!==prompt||String(decided.updatedRow.id)!==String(assetId))throw new Error('Regeneration save/readback was not confirmed; no Push.');
           try{await doPush(String(assetId),decided.updatedRow.type,{tableId:queueTableId,row:decided.updatedRow,tab:'home',stage:'runner'});}catch(e){throw new Error('Saved; push failed: '+e.message+' · Pending asset remains in Home Next Up.');}
           host.remove();$('#review-status').textContent='Regeneration queued. This job leaves Review until all required assets finish. Track pending assets in Home.';
         }
-        else displayReviewedAssets(host,await reviewRequest('/review/list',{JobID}));
+        else{const stopReload=reviewProgress(message,'Reloading current asset state…');let fresh;try{fresh=await reviewRequest('/review/list',{JobID});}finally{stopReload();}displayReviewedAssets(host,fresh);}
       }
     }catch(e){reviewTickets.delete(JobID);host.querySelectorAll('[data-review-asset] button').forEach(b=>b.disabled=true);reviewError(message,e);message.append(' · No automatic retry. Verify current files before trying again.');}
-    finally{if(enhancingAsset){enhancingAsset.removeAttribute('aria-busy');enhancingAsset.querySelector('[data-review-prompt]').readOnly=false;button.textContent='Enhancement';}if(button.isConnected&&(action==='list'||reviewTickets.has(JobID)))button.disabled=false;reviewPending=false;}
+    finally{if(enhancingAsset){enhancingAsset.removeAttribute('aria-busy');enhancingAsset.querySelector('[data-review-prompt]').readOnly=false;button.textContent='Enhancement';}if(button.isConnected&&(action==='list'||reviewTickets.has(JobID)))button.disabled=false;reviewPending.delete(JobID);}
   });
   function reviewAssetMarkup(j,verified=false,JobID='') {
     let p={};try{p=JSON.parse(j.Params||'{}');}catch{}
@@ -1212,7 +1327,8 @@ if(previous.length>1)throw Error('Ambiguous review state');const saved=JSON.pars
     return {ready,state:previous.length===1?previous[0].State:'pending'};
   }
   async function refreshReview() {
-    const status=$('#review-status');if(reviewPending)return;
+    const status=$('#review-status');
+    if(reviewPending.size){status.textContent='An asset action is still running; Refresh will re-enable when it finishes.';return;}
     status.textContent='Loading completed assets…';reviewTickets.clear();
     try{
       const [parents,jobs,reviews]=await Promise.all([readAllRows(config.tableJobs),readAllRows(config.tableHome),readAllRows(config.tableReview)]);
@@ -1286,6 +1402,10 @@ if(previous.length>1)throw Error('Ambiguous review state');const saved=JSON.pars
   function canonicalType(type) {
     const key = String(type ?? '').trim().toLowerCase().replace(/_/g, ' ');
     return ({'text to image':'Text to image','image to video':'Image to video','flf to video':'FLF to video'})[key] || type;
+  }
+  function templateCardStatus(selected, ready, selectedLabel = 'Current selection') {
+    if (!ready) return 'Template unavailable';
+    return selected ? selectedLabel : 'Template ready';
   }
   function validateParams(raw) {
     let params;
@@ -2507,12 +2627,20 @@ let cols = [];
       if (isCol(col.name, 'API')) return; // hidden — linked to type pulldown, preview below shows it
       if (isCol(col.name, 'type')) {
         if (isJobsEditor) return;
-        html += '<div class="field-group"><label>' + escapeHtml(col.name) + '</label><select id="modal-type"><option value="">—</option>';
-        if (val && !state.templates.some(t => canonicalType(t.type) === canonicalType(val))) html += '<option selected value="' + escapeAttr(val) + '">' + escapeHtml(val) + ' (no template)</option>';
+        const selectedType = canonicalType(val);
+        html += '<div class="field-group template-switcher-group"><div class="template-switcher-heading"><div><label>' + escapeHtml(col.name) + '</label><small>One-click template switching for this Home generation row</small></div><span class="template-current" id="template-current">' + escapeHtml(selectedType || 'No template selected') + '</span></div><select id="modal-type" aria-label="Generation template"><option value="">— Select template —</option>';
+        if (val && !state.templates.some(t => canonicalType(t.type) === selectedType)) html += '<option selected value="' + escapeAttr(val) + '">' + escapeHtml(val) + ' (no template)</option>';
         state.templates.forEach(t => {
-          html += '<option value="' + escapeAttr(canonicalType(t.type)) + '"' + (canonicalType(t.type) === canonicalType(val) ? ' selected' : '') + '>' + escapeHtml(canonicalType(t.type)) + '</option>';
+          const type = canonicalType(t.type);
+          html += '<option value="' + escapeAttr(type) + '"' + (type === selectedType ? ' selected' : '') + '>' + escapeHtml(type) + '</option>';
         });
-        html += '</select></div>';
+        html += '</select><div class="template-options" id="template-options" role="listbox" aria-label="Available generation templates">';
+        state.templates.forEach(t => {
+          const type = canonicalType(t.type);
+          const selected = type === selectedType;
+          html += '<button type="button" class="template-option" data-template-type="' + escapeAttr(type) + '" data-template-ready="' + String(Boolean(t.API)) + '" role="option" aria-selected="' + String(selected) + '"><span class="template-option-name">' + escapeHtml(type) + '</span><span class="template-option-meta">' + templateCardStatus(selected, Boolean(t.API), 'Current template') + '</span></button>';
+        });
+        html += '</div><p class="template-save-note">Template changes are staged only. Use Save to update this row; Push remains separate.</p></div>';
       } else if (isCol(col.name, 'Completed', 'completed')) {
         html += '<div class="field-group checkbox-row"><label>' + escapeHtml(col.name) + '</label><input type="checkbox" id="modal-completed"' + (isTrue(val) ? ' checked' : '') + '></div>';
       } else if (isCol(col.name, 'Working', 'working')) {
@@ -2523,24 +2651,34 @@ let cols = [];
     });
 
     // template preview
-    if (!isJobsEditor) html += '<div class="template-preview"><h4>Template API (from selected type)</h4><textarea id="modal-template-api" readonly>' + escapeHtml('') + '</textarea></div>';
+    if (!isJobsEditor) html += '<details class="template-preview"><summary>Template API preview (read-only)</summary><textarea id="modal-template-api" readonly>' + escapeHtml('') + '</textarea></details>';
 
     body.innerHTML = html;
 
-    // wire type select to update template preview + row.API
+    // Wire the dropdown and large template cards to one staged Type value.
     const typeSel = $('#modal-type');
     if (typeSel) {
-      typeSel.addEventListener('change', () => {
+      const syncTemplateSelection = () => {
         const t = state.templates.find(t => canonicalType(t.type) === typeSel.value);
         const ta = $('#modal-template-api');
-        if (t && t.API) {
-          ta.value = t.API;
-        } else {
-          ta.value = '';
-        }
+        const current = $('#template-current');
+        if (ta) ta.value = t && t.API ? t.API : '';
+        if (current) current.textContent = typeSel.value || 'No template selected';
+        body.querySelectorAll('[data-template-type]').forEach(card => {
+          const selected = card.getAttribute('data-template-type') === typeSel.value;
+          card.setAttribute('aria-selected', String(selected));
+          const meta = card.querySelector('.template-option-meta');
+          if (meta) meta.textContent = templateCardStatus(selected, card.getAttribute('data-template-ready') === 'true');
+        });
+      };
+      typeSel.addEventListener('change', syncTemplateSelection);
+      body.querySelectorAll('[data-template-type]').forEach(card => {
+        card.addEventListener('click', () => {
+          typeSel.value = card.getAttribute('data-template-type') || '';
+          typeSel.dispatchEvent(new Event('change'));
+        });
       });
-      // trigger initial
-      setTimeout(() => typeSel.dispatchEvent(new Event('change')), 0);
+      setTimeout(syncTemplateSelection, 0);
     }
 
     // wire Completed + Working checkboxes to update row state live
