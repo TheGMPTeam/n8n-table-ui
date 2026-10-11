@@ -867,6 +867,11 @@
   .agent-proj-btn.active { border-color:var(--accent); color:var(--accent); font-weight:650; }
   .agent-proj-new { background:transparent; border:1px dashed var(--border); color:var(--muted); padding:10px 12px; border-radius:6px; cursor:pointer; font-size:13px; }
   .agent-proj-new:hover { color:var(--accent); border-color:var(--accent); }
+  .agent-tool-btn { background:var(--panel); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px; cursor:pointer; font-size:12px; transition:all .15s; }
+  .agent-tool-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .agent-tool-danger:hover { border-color:var(--danger); color:var(--danger); }
+  .agent-msg .msg-remove { align-self:flex-end; background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:10px; padding:0 2px; }
+  .agent-msg .msg-remove:hover { color:var(--danger); }
   .agent-chat { max-height:460px; min-height:220px; overflow-y:auto; background:var(--input); border:1px solid var(--border); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:10px; }
   .agent-chat-empty { color:var(--muted); font-style:italic; font-size:13px; text-align:center; margin:auto; }
   .agent-msg { max-width:82%; display:flex; flex-direction:column; gap:2px; }
@@ -997,6 +1002,7 @@
     <div class="config-row"><label for="cfg-table-home">Home table</label><input id="cfg-table-home" class="cfg-input"></div>
     <div class="config-row"><label for="cfg-table-jobs">Production table</label><input id="cfg-table-jobs" class="cfg-input"></div>
     <div class="config-row"><label for="cfg-table-templates">Templates table</label><input id="cfg-table-templates" class="cfg-input"></div>
+    <div class="config-row"><label for="cfg-table-agents">Agents table</label><input id="cfg-table-agents" class="cfg-input"></div>
     <div class="config-row"><label for="cfg-table-link">Link rule</label><input id="cfg-table-link" class="cfg-input"></div>
     </fieldset>
     <fieldset><legend>Connection details</legend>
@@ -1060,14 +1066,14 @@
     <div class="agent-proj-bar">
       <div class="agent-proj-tabs" id="agent-proj-tabs"></div>
       <button class="agent-proj-new" id="agent-proj-new" type="button">+ New project</button>
+      <span style="flex:1"></span>
+      <button class="agent-tool-btn" id="agent-clear-chat" type="button">Clear chat</button>
+      <button class="agent-tool-btn agent-tool-danger" id="agent-remove-project" type="button">Remove project</button>
     </div>
     <div style="max-width:1100px">
       <div class="agent-chat" id="agent-chat"></div>
       <div class="config-row" style="margin-top:14px;align-items:flex-end;gap:10px">
-        <select id="agent-select" class="cfg-input" style="width:170px;flex:0 0 auto">
-          <option value="creative-director">Creative Director</option>
-          <option value="spec-out">Spec-Out</option>
-        </select>
+        <div class="agent-proj-tabs" id="agent-tabs"></div>
         <textarea id="agent-message" class="cfg-input" rows="2" placeholder="Type your message to the agent..." style="flex:1;resize:vertical"></textarea>
         <button class="btn-save" id="agent-send" style="padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-weight:600;flex:0 0 auto">Send to Agent</button>
       </div>
@@ -1131,6 +1137,7 @@
     tableHome: 'xKckTZI3ZU5HqIpZ',
     tableJobs: 'vN5vMR56WpEsdLMn',
     tableTemplates: 'haulC2FnGWqHb0no',
+    tableAgents: 'quaEdbl3Fb0XXTLf',
     tableMetrics: 'MgzHSOR57oYxcmZq',
     tableReview: '5xZbQOeVq0mh9cJu',
     tableLink: 'ComfyUI.JobID == Shorts_Production.id',
@@ -1984,11 +1991,11 @@ function renderSetupPanel(direction) {
   async function checkSetupHealthy() {
     const snapshot = { ...config };
     try {
-      for (const key of ['tableHome', 'tableJobs', 'tableTemplates']) {
+      for (const key of ['tableHome', 'tableJobs', 'tableTemplates', 'tableAgents']) {
         if (typeof snapshot[key] !== 'string' || !snapshot[key].trim()) return false;
         await callWebhook('/yt-get', { operation: 'get', id: snapshot[key], limit: 1 });
       }
-      return ['tableHome', 'tableJobs', 'tableTemplates'].every(key => config[key] === snapshot[key]);
+      return ['tableHome', 'tableJobs', 'tableTemplates', 'tableAgents'].every(key => config[key] === snapshot[key]);
     } catch (e) {
       log('checkSetupHealthy: ' + e.message);
       return false;
@@ -2853,6 +2860,7 @@ let cols = [];
       tableHome: $('#cfg-table-home').value.trim(),
       tableJobs: $('#cfg-table-jobs').value.trim(),
       tableTemplates: $('#cfg-table-templates').value.trim(),
+      tableAgents: $('#cfg-table-agents').value.trim(),
       tableLink: $('#cfg-table-link').value.trim(),
       webhookBase: $('#cfg-webhook-base').value.trim(),
       refreshInterval: $('#cfg-refresh-interval').value,
@@ -2898,6 +2906,7 @@ let cols = [];
     $('#cfg-table-home').value = config.tableHome;
     $('#cfg-table-jobs').value = config.tableJobs;
     $('#cfg-table-templates').value = config.tableTemplates;
+    $('#cfg-table-agents').value = config.tableAgents;
     $('#cfg-table-link').value = config.tableLink;
     $('#cfg-webhook-base').value = getWebhookBase();
     $('#cfg-webhook-base').readOnly = true;
@@ -3389,17 +3398,31 @@ let cols = [];
   $('#btn-create-table')?.addEventListener('click', (e) => { e.preventDefault(); createTable(); });
 
   // ─── Agents Tab ─────────────────────────────────────────────────────────
-  const AGENTS_TABLE_ID = 'quaEdbl3Fb0XXTLf';
   const AGENT_WEBHOOK_PATH = '/agent-send-v3';
   const AGENT_POLL_INTERVAL_MS = 3000;
   const AGENT_POLL_TIMEOUT_MS = 180000;
+  const AGENT_DEFS = [
+    { id: 'creative-director', label: 'Creative Director' },
+    { id: 'spec-out', label: 'Spec-Out' },
+  ];
+
+  const AGENT_PROJECTS_KEY = 'n8nTableUi.agentProjects';
+  function agentProjectsStored() {
+    try { const v = JSON.parse(localStorage.getItem(AGENT_PROJECTS_KEY)); return Array.isArray(v) ? v.filter(x => typeof x === 'string' && x) : []; } catch { return []; }
+  }
+  function agentProjectsStore(list) {
+    try { localStorage.setItem(AGENT_PROJECTS_KEY, JSON.stringify(list)); } catch {}
+  }
 
   const agentState = {
     projects: [],          // project names, first-seen order
     active: null,          // active project name
+    agent: 'creative-director',
     rows: [],              // all conversation rows
     pending: null,         // { project, agent, message, sentAt, startedAt, started, timer }
   };
+
+  function agentsTableId() { return config.tableAgents || CONFIG_DEFAULTS.tableAgents; }
 
   function agentStatus(msg, kind) {
     const el = document.getElementById('agent-send-status');
@@ -3414,9 +3437,9 @@ let cols = [];
     return new Intl.DateTimeFormat('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }).format(d);
   }
 
-  function agentRowsForProject(project) {
+  function agentRowsFor(project, agent) {
     return agentState.rows
-      .filter(r => (r.Project || '') === project)
+      .filter(r => (r.Project || '') === project && (r.Agent || '') === agent)
       .sort((a, b) => String(a.Timestamp || '').localeCompare(String(b.Timestamp || '')));
   }
 
@@ -3435,6 +3458,21 @@ let cols = [];
     });
   }
 
+  function renderAgentSwitch() {
+    const bar = document.getElementById('agent-tabs');
+    if (!bar) return;
+    bar.innerHTML = AGENT_DEFS.map(a =>
+      '<button class="agent-proj-btn' + (a.id === agentState.agent ? ' active' : '') + '" data-agent="' + escapeAttr(a.id) + '" type="button">' + escapeHtml(a.label) + '</button>'
+    ).join('');
+    bar.querySelectorAll('.agent-proj-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        agentState.agent = btn.dataset.agent;
+        renderAgentSwitch();
+        renderAgentChat();
+      });
+    });
+  }
+
   function renderAgentChat() {
     const chat = document.getElementById('agent-chat');
     if (!chat) return;
@@ -3443,42 +3481,58 @@ let cols = [];
       chat.innerHTML = '<div class="agent-chat-empty">Create a project to start a conversation.</div>';
       return;
     }
-    const rows = agentRowsForProject(project);
+    const rows = agentRowsFor(project, agentState.agent);
     let html = '';
     rows.forEach(r => {
       if (r.Message) {
-        html += '<div class="agent-msg agent-msg-user">' +
+        html += '<div class="agent-msg agent-msg-user" data-row-id="' + escapeAttr(String(r.id)) + '">' +
           '<div class="bubble">' + escapeHtml(r.Message) + '</div>' +
-          '<div class="meta">' + escapeHtml(agentTimeShort(r.Timestamp)) + '</div></div>';
+          '<div class="meta">' + escapeHtml(agentTimeShort(r.Timestamp)) +
+          ' <button class="msg-remove" data-remove="' + escapeAttr(String(r.id)) + '" type="button" title="Remove this exchange">remove</button></div></div>';
       }
       if (r.Response) {
         html += '<div class="agent-msg agent-msg-agent">' +
           '<div class="who">' + escapeHtml(r.Agent || 'Agent') + '</div>' +
-          '<div class="bubble">' + escapeHtml(r.Response) + '</div>' +
-          '<div class="meta">' + escapeHtml(agentTimeShort(r.Timestamp)) + '</div></div>';
+          '<div class="bubble">' + escapeHtml(r.Response) + '</div></div>';
       }
     });
     const p = agentState.pending;
-    if (p && p.project === project) {
+    if (p && p.project === project && p.agent === agentState.agent) {
       html += '<div class="agent-msg agent-msg-user">' +
         '<div class="bubble">' + escapeHtml(p.message) + '</div>' +
         '<div class="meta">sending...</div></div>';
       html += '<div class="agent-typing"><span class="dots"><i></i><i></i><i></i></span>' +
         (p.started ? escapeHtml(p.agent) + ' is thinking...' : 'Sending to ' + escapeHtml(p.agent) + '...') + '</div>';
     }
-    if (!html) html = '<div class="agent-chat-empty">No messages in this project yet.</div>';
+    if (!html) html = '<div class="agent-chat-empty">No messages with this agent in the project yet.</div>';
     chat.innerHTML = html;
+    chat.querySelectorAll('.msg-remove').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const rid = btn.dataset.remove;
+        btn.disabled = true;
+        try {
+          await callWebhook('/yt-remove', { operation: 'remove-row', id: agentsTableId(), match: { id: rid } });
+          agentState.rows = agentState.rows.filter(r => String(r.id) !== rid);
+          renderAgentChat();
+          agentStatus('Message removed.', 'success');
+        } catch (e) {
+          btn.disabled = false;
+          agentStatus('Remove failed: ' + e.message, 'danger');
+        }
+      });
+    });
     chat.scrollTop = chat.scrollHeight;
   }
 
   async function loadAgentConversations() {
-    const body = await callWebhook('/yt-get', { operation: 'get', id: AGENTS_TABLE_ID, limit: 200 });
+    const body = await callWebhook('/yt-get', { operation: 'get', id: agentsTableId(), limit: 250 });
     agentState.rows = unwrapRows(body);
     const seen = [];
     agentState.rows.forEach(r => {
       const p = r.Project || '';
       if (p && !seen.includes(p)) seen.push(p);
     });
+    agentProjectsStored().forEach(p => { if (!seen.includes(p)) seen.push(p); });
     agentState.projects = seen;
     if (!agentState.active || !seen.includes(agentState.active)) {
       agentState.active = agentState.pending ? agentState.pending.project : (seen[seen.length - 1] || null);
@@ -3498,11 +3552,12 @@ let cols = [];
     p.timer = setTimeout(async () => {
       if (agentState.pending !== p) return;
       try {
-        const body = await callWebhook('/yt-get', { operation: 'get', id: AGENTS_TABLE_ID, limit: 200 });
+        const body = await callWebhook('/yt-get', { operation: 'get', id: agentsTableId(), limit: 250 });
         const rows = unwrapRows(body);
         agentState.rows = rows;
         const mine = rows.find(r =>
           (r.Project || '') === p.project &&
+          (r.Agent || '') === p.agent &&
           (r.Message || '') === p.message &&
           String(r.Timestamp || '') >= p.sentAt &&
           r.Response);
@@ -3536,10 +3591,11 @@ let cols = [];
       project = (prompt('New project name:') || '').trim();
       if (!project) return;
       agentState.projects.push(project);
+      agentProjectsStore(agentState.projects);
       agentState.active = project;
       renderAgentTabs();
     }
-    const agent = document.getElementById('agent-select').value;
+    const agent = agentState.agent;
     const message = document.getElementById('agent-message').value.trim();
     if (!message) { agentStatus('Message is required.', 'warn'); return; }
 
@@ -3566,6 +3622,46 @@ let cols = [];
     }
   }
 
+  async function clearAgentChat() {
+    const project = agentState.active;
+    if (!project) { agentStatus('No project selected.', 'warn'); return; }
+    const agent = agentState.agent;
+    if (!confirm('Clear the ' + agent + ' thread in "' + project + '"? This removes every message in this chat for this agent only.')) return;
+    agentStatus('Clearing chat...', 'warn');
+    try {
+      const ids = agentState.rows
+        .filter(r => (r.Project || '') === project && (r.Agent || '') === agent)
+        .map(r => String(r.id));
+      for (const id of ids) {
+        await callWebhook('/yt-remove', { operation: 'remove-row', id: agentsTableId(), match: { id } });
+      }
+      agentState.rows = agentState.rows.filter(r => !((r.Project || '') === project && (r.Agent || '') === agent));
+      renderAgentChat();
+      agentStatus('Chat cleared for ' + agent + ' in "' + project + '".', 'success');
+    } catch (e) {
+      agentStatus('Clear failed: ' + e.message, 'danger');
+    }
+  }
+
+  async function removeAgentProject() {
+    const project = agentState.active;
+    if (!project) { agentStatus('No project selected.', 'warn'); return; }
+    if (!confirm('Remove project "' + project + '" and all its chat history?')) return;
+    agentStatus('Removing project...', 'warn');
+    try {
+      await callWebhook('/yt-remove', { operation: 'remove-rows', id: agentsTableId(), match: { Project: project } });
+      agentState.rows = agentState.rows.filter(r => (r.Project || '') !== project);
+      agentState.projects = agentState.projects.filter(p => p !== project);
+      agentProjectsStore(agentState.projects);
+      agentState.active = agentState.projects[agentState.projects.length - 1] || null;
+      renderAgentTabs();
+      renderAgentChat();
+      agentStatus('Project "' + project + '" removed.', 'success');
+    } catch (e) {
+      agentStatus('Remove failed: ' + e.message, 'danger');
+    }
+  }
+
   document.getElementById('agent-send')?.addEventListener('click', sendAgentMessage);
   document.getElementById('agent-message')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAgentMessage(); }
@@ -3574,11 +3670,15 @@ let cols = [];
     const name = (prompt('New project name:') || '').trim();
     if (!name) return;
     if (!agentState.projects.includes(name)) agentState.projects.push(name);
+    agentProjectsStore(agentState.projects);
     agentState.active = name;
     renderAgentTabs();
     renderAgentChat();
   });
+  document.getElementById('agent-clear-chat')?.addEventListener('click', clearAgentChat);
+  document.getElementById('agent-remove-project')?.addEventListener('click', removeAgentProject);
   document.querySelector('[data-tab="panel-agents"]')?.addEventListener('click', () => {
+    renderAgentSwitch();
     loadAgentConversations().catch(e => agentStatus('Failed to load conversations: ' + e.message, 'danger'));
   });
 

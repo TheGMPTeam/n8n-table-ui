@@ -110,7 +110,7 @@
         576
       ],
       "parameters": {
-        "jsCode": "// Normalize both entry paths (webhook body-wrapped, or direct from Tool Workflow trigger) into one consistent shape, and validate before anything downstream runs.\nconst raw = $json.body || $json;\nconst triggerSource = $json.body ? 'webhook' : 'workflow';\ntry {\nconst operation = String(raw.operation || '').toLowerCase();\nconst validOps = ['create', 'write', 'update', 'get', 'remove'];\n// Review state is writable only through the authenticated native Review gate.\nif (String(raw.id) === '5xZbQOeVq0mh9cJu' && operation !== 'get') { const e=new Error('Review state requires authenticated Review transport'); e.statusCode=403; throw e; }\n\nif (!validOps.includes(operation)) {\n  throw new Error(`Invalid operation \"${raw.operation}\". Must be one of: ${validOps.join(', ')}`);\n}\nif (operation !== 'create' && !raw.id) {\n  throw new Error(`Missing required \"id\" (data table ID) for operation \"${operation}\"`);\n}\nif (['write', 'update', 'create'].includes(operation) && !raw.row) {\n  throw new Error(`Missing required \"row\" for operation \"${operation}\"`);\n}\nif (operation === 'update' && (!raw.row || typeof raw.row !== 'object' || Array.isArray(raw.row) || Object.keys(raw.row).length === 0 || Object.values(raw.row).every(v => v === undefined))) {\n  throw new Error('For \"update\", row must be a non-empty object of data columns');\n}\nif (operation === 'update' && (!raw.match || raw.match.id === undefined || raw.match.id === null)) {\n  throw new Error('Missing required \"match.id\" for update operation');\n}\nif (operation === 'write' && !Array.isArray(raw.row?.data)) {\n  throw new Error('For \"write\", row.data must be an array of row objects, e.g. { \"data\": [{...}] }');\n}\nif (operation === 'create' && (!raw.row?.name || !Array.isArray(raw.row?.columns))) {\n  throw new Error('For \"create\", row must include \"name\" and a \"columns\" array');\n}\n\nif (raw.limit !== undefined && (!Number.isInteger(raw.limit) || raw.limit < 1 || raw.limit > 250)) throw new Error('limit must be an integer from 1 to 250');\nif (raw.cursor !== undefined && typeof raw.cursor !== 'string') throw new Error('cursor must be a string');\nreturn [{\n  json: {\n    limit: raw.limit || 100,\n    cursor: raw.cursor || \"\",\n    operation,\n    id: raw.id || null,\n    row: raw.row || null,\n    match: raw.match || null,\n    _triggerSource: triggerSource\n  }\n}];\n} catch (e) {\n if (triggerSource !== \"webhook\") throw e;\n return [{json:{_validationError:true,error:\"invalid_request\",message:e.message,statusCode:e.statusCode===403?403:400}}];\n}"
+        "jsCode": "// Normalize both entry paths (webhook body-wrapped, or direct from Tool Workflow trigger) into one consistent shape, and validate before anything downstream runs.\nconst raw = $json.body || $json;\nconst triggerSource = $json.body ? 'webhook' : 'workflow';\ntry {\nconst operation = String(raw.operation || '').toLowerCase();\nconst validOps = ['create', 'write', 'update', 'get', 'remove', 'remove-row', 'remove-rows'];\n// Review state is writable only through the authenticated native Review gate.\nif (String(raw.id) === '5xZbQOeVq0mh9cJu' && operation !== 'get') { const e=new Error('Review state requires authenticated Review transport'); e.statusCode=403; throw e; }\n\nif (!validOps.includes(operation)) {\n  throw new Error(`Invalid operation \"${raw.operation}\". Must be one of: ${validOps.join(', ')}`);\n}\nif (operation !== 'create' && !raw.id) {\n  throw new Error(`Missing required \"id\" (data table ID) for operation \"${operation}\"`);\n}\nif (['write', 'update', 'create'].includes(operation) && !raw.row) {\n  throw new Error(`Missing required \"row\" for operation \"${operation}\"`);\n}\nif (operation === 'update' && (!raw.row || typeof raw.row !== 'object' || Array.isArray(raw.row) || Object.keys(raw.row).length === 0 || Object.values(raw.row).every(v => v === undefined))) {\n  throw new Error('For \"update\", row must be a non-empty object of data columns');\n}\nif (operation === 'update' && (!raw.match || raw.match.id === undefined || raw.match.id === null)) {\n  throw new Error('Missing required \"match.id\" for update operation');\n}\nif (operation === 'write' && !Array.isArray(raw.row?.data)) {\n  throw new Error('For \"write\", row.data must be an array of row objects, e.g. { \"data\": [{...}] }');\n}\nif (operation === 'create' && (!raw.row?.name || !Array.isArray(raw.row?.columns))) {\n  throw new Error('For \"create\", row must include \"name\" and a \"columns\" array');\n}\n\nif (operation === 'remove-row' && (!raw.match || raw.match.id === undefined || raw.match.id === null)) {\n  throw new Error('Missing required \"match.id\" for operation \"remove-row\"');\n}\nif (operation === 'remove-rows' && (!raw.match || typeof raw.match !== 'object' || Array.isArray(raw.match) || Object.keys(raw.match).length === 0)) {\n  throw new Error('For \"remove-rows\", match must be a non-empty object of column values, e.g. { \"Project\": \"...\" }');\n}\nif (raw.limit !== undefined && (!Number.isInteger(raw.limit) || raw.limit < 1 || raw.limit > 250)) throw new Error('limit must be an integer from 1 to 250');\nif (raw.cursor !== undefined && typeof raw.cursor !== 'string') throw new Error('cursor must be a string');\nreturn [{\n  json: {\n    limit: raw.limit || 100,\n    cursor: raw.cursor || \"\",\n    operation,\n    id: raw.id || null,\n    row: raw.row || null,\n    match: raw.match || null,\n    _triggerSource: triggerSource\n  }\n}];\n} catch (e) {\n if (triggerSource !== \"webhook\") throw e;\n return [{json:{_validationError:true,error:\"invalid_request\",message:e.message,statusCode:e.statusCode===403?403:400}}];\n}"
       }
     },
     {
@@ -234,6 +234,50 @@
                 ],
                 "combinator": "and"
               }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cond-remove-row",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "remove-row",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cond-remove-rows",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "remove-rows",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
             }
           ]
         },
@@ -256,13 +300,8 @@
         "nodeCredentialType": "n8nApi",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { name: $json.row.name, columns: $json.row.columns, ...($json.row.projectId ? { projectId: $json.row.projectId } : {}) } }}",
+        "jsonBody": "={{ { name: $json.row.name, columns: $json.row.columns } }}",
         "options": {}
-      },
-      "credentials": {
-        "n8nApi": {
-          "name": "Configure destination native n8nApi credential"
-        }
       }
     },
     {
@@ -283,11 +322,6 @@
         "specifyBody": "json",
         "jsonBody": "={{ { data: $json.row.data } }}",
         "options": {}
-      },
-      "credentials": {
-        "n8nApi": {
-          "name": "Configure destination native n8nApi credential"
-        }
       }
     },
     {
@@ -436,11 +470,6 @@
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "n8nApi",
         "options": {}
-      },
-      "credentials": {
-        "n8nApi": {
-          "name": "Configure destination native n8nApi credential"
-        }
       }
     },
     {
@@ -458,11 +487,6 @@
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "n8nApi",
         "options": {}
-      },
-      "credentials": {
-        "n8nApi": {
-          "name": "Configure destination native n8nApi credential"
-        }
       }
     },
     {
@@ -545,6 +569,62 @@
         "options": {
           "responseCode": "={{ $json.statusCode || 400 }}"
         }
+      }
+    },
+    {
+      "id": "delete-row-(datatable)",
+      "name": "Delete row (dataTable)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        768,
+        1104
+      ],
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "value": "={{ $('Normalize Input').item.json.id }}",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('Normalize Input').item.json.match.id }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "delete-rows-(datatable)",
+      "name": "Delete rows (dataTable)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        768,
+        1248
+      ],
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "value": "={{ $('Normalize Input').item.json.id }}",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "Project",
+              "keyValue": "={{ $('Normalize Input').item.json.match.Project }}"
+            }
+          ]
+        },
+        "options": {}
       }
     }
   ],
@@ -662,6 +742,20 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Delete row (dataTable)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Delete rows (dataTable)",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -748,6 +842,28 @@
           }
         ]
       ]
+    },
+    "Delete row (dataTable)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete rows (dataTable)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -755,7 +871,7 @@
     "binaryMode": "separate",
     "timeSavedMode": "fixed",
     "callerPolicy": "workflowsFromSameOwner",
-    "availableInMCP": false,
+    "availableInMCP": true,
     "errorWorkflow": "buw89dDrqgXnuCDz"
   },
   "active": false
