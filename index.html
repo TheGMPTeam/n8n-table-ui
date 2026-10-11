@@ -859,6 +859,30 @@
   .template-option-meta { color:var(--muted); font-size:10px; letter-spacing:.7px; text-transform:uppercase; }
   .template-option[aria-selected="true"] .template-option-meta { color:var(--accent); }
   .template-save-note { margin:0; padding:0 16px 14px; color:var(--warn); font-size:11px; }
+  /* Agents tab: project tabs + chat window */
+  .agent-proj-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .agent-proj-tabs { display:flex; gap:8px; flex-wrap:wrap; }
+  .agent-proj-btn { background:var(--panel); border:1px solid var(--border); color:var(--text); padding:10px 14px; border-radius:6px; cursor:pointer; font-size:13px; transition:all .15s; }
+  .agent-proj-btn:hover { border-color:var(--accent); }
+  .agent-proj-btn.active { border-color:var(--accent); color:var(--accent); font-weight:650; }
+  .agent-proj-new { background:transparent; border:1px dashed var(--border); color:var(--muted); padding:10px 12px; border-radius:6px; cursor:pointer; font-size:13px; }
+  .agent-proj-new:hover { color:var(--accent); border-color:var(--accent); }
+  .agent-chat { max-height:460px; min-height:220px; overflow-y:auto; background:var(--input); border:1px solid var(--border); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+  .agent-chat-empty { color:var(--muted); font-style:italic; font-size:13px; text-align:center; margin:auto; }
+  .agent-msg { max-width:82%; display:flex; flex-direction:column; gap:2px; }
+  .agent-msg .bubble { padding:9px 12px; border-radius:12px; font-size:13px; line-height:1.45; white-space:pre-wrap; word-break:break-word; }
+  .agent-msg .meta { font-size:10px; color:var(--muted); }
+  .agent-msg-user { align-self:flex-end; align-items:flex-end; }
+  .agent-msg-user .bubble { background:var(--accent); color:#15200e; border-bottom-right-radius:4px; }
+  .agent-msg-agent { align-self:flex-start; align-items:flex-start; }
+  .agent-msg-agent .bubble { background:var(--panel); border:1px solid var(--border); color:var(--text); border-bottom-left-radius:4px; }
+  .agent-msg-agent .who { font-size:11px; color:var(--accent); font-weight:600; }
+  .agent-typing { align-self:flex-start; display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; }
+  .agent-typing .dots { display:inline-flex; gap:4px; padding:10px 12px; background:var(--panel); border:1px solid var(--border); border-radius:12px; border-bottom-left-radius:4px; }
+  .agent-typing .dots i { width:6px; height:6px; border-radius:50%; background:var(--accent); opacity:.35; animation:agent-dot 1.2s infinite; }
+  .agent-typing .dots i:nth-child(2) { animation-delay:.2s; }
+  .agent-typing .dots i:nth-child(3) { animation-delay:.4s; }
+  @keyframes agent-dot { 0%,80%,100% { opacity:.25; transform:translateY(0); } 40% { opacity:1; transform:translateY(-3px); } }
   .template-preview { margin-top:14px; }
   .template-preview summary { cursor:pointer; color:var(--muted); font-size:12px; font-weight:650; }
   .template-preview textarea { margin-top:12px; }
@@ -897,6 +921,7 @@
       <button class="tab-btn" data-tab="panel-tables" data-role="jobs" data-table="vN5vMR56WpEsdLMn"><span class="nav-symbol">▦</span><span class="nav-title">Jobs</span><small>Production stages</small></button>
       <button class="tab-btn" data-tab="panel-review"><span class="nav-symbol">◈</span><span class="nav-title">Review</span><small>Approve outputs</small></button>
       <button class="tab-btn" data-tab="panel-new"><span class="nav-symbol">⊕</span><span class="nav-title">New</span><small>Production idea</small></button>
+      <button class="tab-btn" data-tab="panel-agents"><span class="nav-symbol">✉</span><span class="nav-title">Agents</span><small>Agent chat projects</small></button>
     </nav>
   </div>
   <div class="command-sidebar-nav">
@@ -1023,6 +1048,31 @@
       <div id="production-idea-status" role="status" aria-live="polite"></div>
       <button class="btn-cancel" id="production-idea-jobs" type="button" hidden>Open Jobs · Research</button>
     </form>
+  </div>
+</div>
+
+<div class="tab-panel" id="panel-agents">
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Agent Messenger</span>
+      <span class="count-badge" id="agents-status">Ready</span>
+    </div>
+    <div class="agent-proj-bar">
+      <div class="agent-proj-tabs" id="agent-proj-tabs"></div>
+      <button class="agent-proj-new" id="agent-proj-new" type="button">+ New project</button>
+    </div>
+    <div style="max-width:1100px">
+      <div class="agent-chat" id="agent-chat"></div>
+      <div class="config-row" style="margin-top:14px;align-items:flex-end;gap:10px">
+        <select id="agent-select" class="cfg-input" style="width:170px;flex:0 0 auto">
+          <option value="creative-director">Creative Director</option>
+          <option value="spec-out">Spec-Out</option>
+        </select>
+        <textarea id="agent-message" class="cfg-input" rows="2" placeholder="Type your message to the agent..." style="flex:1;resize:vertical"></textarea>
+        <button class="btn-save" id="agent-send" style="padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-weight:600;flex:0 0 auto">Send to Agent</button>
+      </div>
+      <div id="agent-send-status" class="status-bar" style="margin-top:10px"></div>
+    </div>
   </div>
 </div>
 
@@ -2628,13 +2678,10 @@ let cols = [];
       if (isCol(col.name, 'type')) {
         if (isJobsEditor) return;
         const selectedType = canonicalType(val);
-        html += '<div class="field-group template-switcher-group"><div class="template-switcher-heading"><div><label>' + escapeHtml(col.name) + '</label><small>One-click template switching for this Home generation row</small></div><span class="template-current" id="template-current">' + escapeHtml(selectedType || 'No template selected') + '</span></div><select id="modal-type" aria-label="Generation template"><option value="">— Select template —</option>';
-        if (val && !state.templates.some(t => canonicalType(t.type) === selectedType)) html += '<option selected value="' + escapeAttr(val) + '">' + escapeHtml(val) + ' (no template)</option>';
-        state.templates.forEach(t => {
-          const type = canonicalType(t.type);
-          html += '<option value="' + escapeAttr(type) + '"' + (type === selectedType ? ' selected' : '') + '>' + escapeHtml(type) + '</option>';
-        });
-        html += '</select><div class="template-options" id="template-options" role="listbox" aria-label="Available generation templates">';
+        html += '<div class="field-group template-switcher-group"><div class="template-switcher-heading"><div><label>' + escapeHtml(col.name) + '</label><small>One-click template switching for this Home generation row</small></div><span class="template-current" id="template-current">' + escapeHtml(selectedType || 'No template selected') + '</span></div><input type="hidden" id="modal-type" value="' + escapeAttr(selectedType) + '"><div class="template-options" id="template-options" role="listbox" aria-label="Available generation templates">';
+        if (val && !state.templates.some(t => canonicalType(t.type) === selectedType)) {
+          html += '<button type="button" class="template-option" data-template-type="' + escapeAttr(val) + '" data-template-ready="false" role="option" aria-selected="true"><span class="template-option-name">' + escapeHtml(val) + '</span><span class="template-option-meta">' + templateCardStatus(true, false, 'Current template') + '</span></button>';
+        }
         state.templates.forEach(t => {
           const type = canonicalType(t.type);
           const selected = type === selectedType;
@@ -3340,6 +3387,200 @@ let cols = [];
   }
 
   $('#btn-create-table')?.addEventListener('click', (e) => { e.preventDefault(); createTable(); });
+
+  // ─── Agents Tab ─────────────────────────────────────────────────────────
+  const AGENTS_TABLE_ID = 'quaEdbl3Fb0XXTLf';
+  const AGENT_WEBHOOK_PATH = '/agent-send-v3';
+  const AGENT_POLL_INTERVAL_MS = 3000;
+  const AGENT_POLL_TIMEOUT_MS = 180000;
+
+  const agentState = {
+    projects: [],          // project names, first-seen order
+    active: null,          // active project name
+    rows: [],              // all conversation rows
+    pending: null,         // { project, agent, message, sentAt, startedAt, started, timer }
+  };
+
+  function agentStatus(msg, kind) {
+    const el = document.getElementById('agent-send-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'status-bar' + (kind ? ' ' + kind : '');
+  }
+
+  function agentTimeShort(ts) {
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return '';
+    return new Intl.DateTimeFormat('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }).format(d);
+  }
+
+  function agentRowsForProject(project) {
+    return agentState.rows
+      .filter(r => (r.Project || '') === project)
+      .sort((a, b) => String(a.Timestamp || '').localeCompare(String(b.Timestamp || '')));
+  }
+
+  function renderAgentTabs() {
+    const bar = document.getElementById('agent-proj-tabs');
+    if (!bar) return;
+    bar.innerHTML = agentState.projects.map(p =>
+      '<button class="agent-proj-btn' + (p === agentState.active ? ' active' : '') + '" data-proj="' + escapeAttr(p) + '" type="button">' + escapeHtml(p) + '</button>'
+    ).join('') || '<span style="color:var(--muted);font-size:12px;padding:10px 4px">No projects yet.</span>';
+    bar.querySelectorAll('.agent-proj-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        agentState.active = btn.dataset.proj;
+        renderAgentTabs();
+        renderAgentChat();
+      });
+    });
+  }
+
+  function renderAgentChat() {
+    const chat = document.getElementById('agent-chat');
+    if (!chat) return;
+    const project = agentState.active;
+    if (!project) {
+      chat.innerHTML = '<div class="agent-chat-empty">Create a project to start a conversation.</div>';
+      return;
+    }
+    const rows = agentRowsForProject(project);
+    let html = '';
+    rows.forEach(r => {
+      if (r.Message) {
+        html += '<div class="agent-msg agent-msg-user">' +
+          '<div class="bubble">' + escapeHtml(r.Message) + '</div>' +
+          '<div class="meta">' + escapeHtml(agentTimeShort(r.Timestamp)) + '</div></div>';
+      }
+      if (r.Response) {
+        html += '<div class="agent-msg agent-msg-agent">' +
+          '<div class="who">' + escapeHtml(r.Agent || 'Agent') + '</div>' +
+          '<div class="bubble">' + escapeHtml(r.Response) + '</div>' +
+          '<div class="meta">' + escapeHtml(agentTimeShort(r.Timestamp)) + '</div></div>';
+      }
+    });
+    const p = agentState.pending;
+    if (p && p.project === project) {
+      html += '<div class="agent-msg agent-msg-user">' +
+        '<div class="bubble">' + escapeHtml(p.message) + '</div>' +
+        '<div class="meta">sending...</div></div>';
+      html += '<div class="agent-typing"><span class="dots"><i></i><i></i><i></i></span>' +
+        (p.started ? escapeHtml(p.agent) + ' is thinking...' : 'Sending to ' + escapeHtml(p.agent) + '...') + '</div>';
+    }
+    if (!html) html = '<div class="agent-chat-empty">No messages in this project yet.</div>';
+    chat.innerHTML = html;
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  async function loadAgentConversations() {
+    const body = await callWebhook('/yt-get', { operation: 'get', id: AGENTS_TABLE_ID, limit: 200 });
+    agentState.rows = unwrapRows(body);
+    const seen = [];
+    agentState.rows.forEach(r => {
+      const p = r.Project || '';
+      if (p && !seen.includes(p)) seen.push(p);
+    });
+    agentState.projects = seen;
+    if (!agentState.active || !seen.includes(agentState.active)) {
+      agentState.active = agentState.pending ? agentState.pending.project : (seen[seen.length - 1] || null);
+    }
+    renderAgentTabs();
+    renderAgentChat();
+  }
+
+  function stopAgentPolling() {
+    if (agentState.pending && agentState.pending.timer) clearTimeout(agentState.pending.timer);
+    agentState.pending = null;
+  }
+
+  function pollAgentReply() {
+    const p = agentState.pending;
+    if (!p) return;
+    p.timer = setTimeout(async () => {
+      if (agentState.pending !== p) return;
+      try {
+        const body = await callWebhook('/yt-get', { operation: 'get', id: AGENTS_TABLE_ID, limit: 200 });
+        const rows = unwrapRows(body);
+        agentState.rows = rows;
+        const mine = rows.find(r =>
+          (r.Project || '') === p.project &&
+          (r.Message || '') === p.message &&
+          String(r.Timestamp || '') >= p.sentAt &&
+          r.Response);
+        if (mine) {
+          stopAgentPolling();
+          agentStatus('Replied.', 'success');
+          renderAgentTabs();
+          renderAgentChat();
+          return;
+        }
+        if (Date.now() - p.startedAt > AGENT_POLL_TIMEOUT_MS) {
+          stopAgentPolling();
+          agentStatus('No reply after 3 minutes. Check the n8n execution log.', 'warn');
+          renderAgentChat();
+          return;
+        }
+        renderAgentChat();
+        pollAgentReply();
+      } catch (e) {
+        if (agentState.pending !== p) return;
+        renderAgentChat();
+        pollAgentReply();
+      }
+    }, AGENT_POLL_INTERVAL_MS);
+  }
+
+  async function sendAgentMessage() {
+    if (agentState.pending) { agentStatus('Waiting for the previous reply...', 'warn'); return; }
+    let project = agentState.active;
+    if (!project) {
+      project = (prompt('New project name:') || '').trim();
+      if (!project) return;
+      agentState.projects.push(project);
+      agentState.active = project;
+      renderAgentTabs();
+    }
+    const agent = document.getElementById('agent-select').value;
+    const message = document.getElementById('agent-message').value.trim();
+    if (!message) { agentStatus('Message is required.', 'warn'); return; }
+
+    const btn = document.getElementById('agent-send');
+    btn.disabled = true;
+    const sentAt = new Date().toISOString();
+    agentState.pending = { project, agent, message, sentAt, startedAt: Date.now(), started: false, timer: null };
+    document.getElementById('agent-message').value = '';
+    agentStatus('Sending to ' + agent + '...', 'warn');
+    renderAgentChat();
+
+    try {
+      await callWebhook(AGENT_WEBHOOK_PATH, { project, agent, message });
+      agentState.pending.started = true;
+      agentStatus('Sent! Waiting for reply...', 'success');
+      renderAgentChat();
+      pollAgentReply();
+    } catch (e) {
+      stopAgentPolling();
+      agentStatus('Error: ' + e.message, 'danger');
+      renderAgentChat();
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById('agent-send')?.addEventListener('click', sendAgentMessage);
+  document.getElementById('agent-message')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAgentMessage(); }
+  });
+  document.getElementById('agent-proj-new')?.addEventListener('click', () => {
+    const name = (prompt('New project name:') || '').trim();
+    if (!name) return;
+    if (!agentState.projects.includes(name)) agentState.projects.push(name);
+    agentState.active = name;
+    renderAgentTabs();
+    renderAgentChat();
+  });
+  document.querySelector('[data-tab="panel-agents"]')?.addEventListener('click', () => {
+    loadAgentConversations().catch(e => agentStatus('Failed to load conversations: ' + e.message, 'danger'));
+  });
 
 })();
 </script>

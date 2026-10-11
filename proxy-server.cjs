@@ -460,7 +460,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Explicit webhook-only contract. Review decisions are editor-only.
-  const allowed = new Set(['/webhook/yt-get','/webhook/yt-create','/webhook/yt-wright','/webhook/yt-update','/webhook/yt-remove']);
+  const allowed = new Set(['/webhook/yt-get','/webhook/yt-create','/webhook/yt-wright','/webhook/yt-update','/webhook/yt-remove','/webhook/agent-send-v3']);
   if (allowed.has(pathname) && method === 'POST') {
     if (req.headers.origin && req.headers.origin !== 'http://' + req.headers.host && req.headers.origin !== 'https://' + req.headers.host) {
       res.writeHead(403, {'Content-Type':'application/json'});
