@@ -570,6 +570,10 @@
     white-space: nowrap;
     cursor: default;
   }
+  .bottombar-update-status { font-size: 11px; color: var(--muted, #8fa87f); white-space: nowrap; }
+  .bottombar-update-status.ok { color: #9ac96f; }
+  .bottombar-update-status.warn { color: #e0c060; }
+  .bottombar-update-status.err { color: #e0a0a0; }
   .bottombar-update-btn {
     background: transparent;
     border: 1px solid var(--border);
@@ -1116,6 +1120,7 @@
 
 <div class="bottombar" id="bottombar" style="display:none">
   <span class="bottombar-version" id="bottombar-version"></span>
+  <span class="bottombar-update-status" id="bottombar-update-status" role="status"></span>
   <button class="bottombar-update-btn" id="bottombar-update-btn">Check for updates</button>
 </div>
 
@@ -3177,9 +3182,33 @@ let cols = [];
     })();
   }
 
+  async function refreshUpdatePill() {
+    const pill = $('#bottombar-update-status');
+    if (!pill) return;
+    try {
+      const r = await fetch('/updates/check?branch=main');
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'check failed');
+      const c = data.recommendedMode !== undefined ? data : data.data;
+      if (!c || typeof c.updateAvailable !== 'boolean') throw new Error('bad check payload');
+      const short = (c.deployedSha || '').slice(0, 7);
+      if (c.updateAvailable) {
+        pill.textContent = 'Update available: ' + short + ' -> ' + (c.remoteSha || '').slice(0, 7);
+        pill.className = 'bottombar-update-status warn';
+      } else {
+        pill.textContent = 'Up to date (' + short + ')';
+        pill.className = 'bottombar-update-status ok';
+      }
+    } catch (e) {
+      pill.textContent = 'Update check unavailable';
+      pill.className = 'bottombar-update-status err';
+    }
+  }
+
   function attachBottomBarHandlers() {
     const openBtn = $('#bottombar-update-btn');
     if (openBtn) openBtn.addEventListener('click', (e) => { e.preventDefault(); openUpdaterModal(); });
+    refreshUpdatePill();
     const closeBtn = $('#updater-close');
     if (closeBtn) closeBtn.addEventListener('click', (e) => { e.preventDefault(); hideUpdaterModal(); });
     document.addEventListener('keydown', (e) => {
