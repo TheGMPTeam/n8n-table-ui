@@ -9,7 +9,12 @@ docker pull thegmpteam/n8n-table-ui:latest
 ```
 
 - [Docker Hub — thegmpteam/n8n-table-ui](https://hub.docker.com/r/thegmpteam/n8n-table-ui)
-- Tags: `latest` (current), `beta` (branch build), `sha-<commit>` (immutable)
+- Tags: `latest` (production, published only from `main`), `beta` (testing lane, published from `beta` pushes), `sha-<commit>` (immutable, every push)
+
+Lane rule: push to `beta` builds and publishes `beta` + `sha-*` only — it never moves
+`latest`. Production deployments always pull `latest` or an exact `sha-*` tag.
+The host updater treats `beta` as verify-only: it runs the beta image in a
+disposable container and never redeploys production from it.
 
 Platform: `linux/amd64`.
 
