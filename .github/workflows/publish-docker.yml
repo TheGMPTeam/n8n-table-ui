@@ -92,11 +92,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # main and beta are the same line of work here, and the other images in
-          # this namespace publish `latest` from a beta push. Promote both tags
-          # from this one verified digest so `latest` never goes stale.
+          # Lane rule: beta is the testing lane, main is production.
+          # A beta push publishes ONLY beta + sha-<short>; it never moves latest.
+          # A main push publishes latest + sha-<short>.
           source="${IMAGE_NAME}@${{ steps.build.outputs.digest }}"
-          for alias_tag in beta latest; do
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then alias_tags="latest"; else alias_tags="beta"; fi
+          for alias_tag in $alias_tags; do
             target="${IMAGE_NAME}:${alias_tag}"
             docker buildx imagetools create --tag "$target" "$source"
             actual="sha256:$(docker buildx imagetools inspect "$target" --raw | sha256sum | cut -d' ' -f1)"
