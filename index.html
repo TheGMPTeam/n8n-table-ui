@@ -591,6 +591,7 @@
   }
   /* Nonblocking update information: the page remains interactive and scrollable. */
   #updater-overlay { z-index: 250; display: none; opacity: 1; pointer-events: none; background: transparent; backdrop-filter: none; }
+  #updater-result, #updater-mode-summary { white-space: normal; overflow-wrap: anywhere; }
   #updater-modal { pointer-events: auto; max-height: calc(100dvh - 80px); overflow-y: auto; overscroll-behavior: contain; box-shadow: 0 16px 48px #0009; }
   .config-row { display: grid; grid-template-columns: 180px minmax(0,1fr); gap: 12px; align-items: center; margin-bottom: 16px; }
   .config-row input:not([type="checkbox"]) { width: 100%; min-width: 0; }
@@ -1054,7 +1055,7 @@
       <label for="production-idea">Idea for Research</label>
       <textarea id="production-idea" required rows="6" placeholder="Describe the Short you want to research"></textarea>
       <p>Creates one Research row in Jobs. Creation does not dispatch a workflow. Use Push separately to start Research; scheduled processing may also pick up pending ideas.</p>
-      <button class="btn-save" id="production-idea-create" type="submit">Create Production Job Idea</button>
+      <button class="btn-save" id="production-idea-create" type="submit" disabled aria-disabled="true" title="Enter an idea to enable creation">Create Production Job Idea</button>
       <div id="production-idea-status" role="status" aria-live="polite"></div>
       <button class="btn-cancel" id="production-idea-jobs" type="button" hidden>Open Jobs · Research</button>
     </form>
@@ -1410,6 +1411,13 @@ if(previous.length>1)throw Error('Ambiguous review state');const saved=JSON.pars
   }
   let productionIdeaPending = false;
   let productionIdeaUncertain = false;
+  function syncProductionIdeaCreate() {
+    const input = $('#production-idea'), button = $('#production-idea-create');
+    const disabled = productionIdeaPending || productionIdeaUncertain || !String(input.value || '').trim();
+    button.disabled = disabled;
+    button.setAttribute('aria-disabled', String(disabled));
+    button.title = disabled && !productionIdeaPending && !productionIdeaUncertain ? 'Enter an idea to enable creation' : '';
+  }
   async function createProductionIdea(event) {
     event.preventDefault();
     if (productionIdeaPending || productionIdeaUncertain) return;
@@ -1446,10 +1454,12 @@ if(previous.length>1)throw Error('Ambiguous review state');const saved=JSON.pars
       productionIdeaUncertain = !(error.status >= 400 && error.status < 500 && !createdId);
       status.textContent = error.message + (productionIdeaUncertain ? ' Creation may have succeeded' + (createdId ? ' (row #' + createdId + ')' : '') + '. Refresh Jobs and check before retrying; this form is locked to prevent duplicates.' : ' Correct the input and retry.');
     } finally {
-      productionIdeaPending = false; button.disabled = productionIdeaUncertain; input.readOnly = productionIdeaUncertain;
+      productionIdeaPending = false; input.readOnly = productionIdeaUncertain; syncProductionIdeaCreate();
     }
   }
   $('#production-idea-form').addEventListener('submit', createProductionIdea);
+  $('#production-idea').addEventListener('input', syncProductionIdeaCreate);
+  syncProductionIdeaCreate();
   $('#production-idea-jobs').addEventListener('click', () => {
     activeJobStage = 'research'; localStorage.setItem('jobs-workflow-tab', activeJobStage);
     document.querySelector('.tab-btn[data-role="jobs"]').click(); renderJobsWorkflows();
@@ -2262,7 +2272,13 @@ function renderSetupPanel(direction) {
     host.hidden = !active;
     if (!active) return;
     if (!JOB_STAGES.some(s => s[0] === activeJobStage)) activeJobStage = 'research';
-    host.querySelector('[role="tablist"]').innerHTML = JOB_STAGES.map(([id,label]) => '<button role="tab" id="stage-tab-'+id+'" aria-controls="stage-sheet-'+id+'" aria-selected="'+(id===activeJobStage)+'" tabindex="'+(id===activeJobStage?0:-1)+'" data-stage="'+id+'">'+label+' <span class="count-badge">'+jobsData(id).length+'</span></button>').join('');
+    const stageCountLabel = id => {
+      const all = jobsData(id), filter = jobsViews.get(id)?.filter || '';
+      if (!filter) return String(all.length);
+      const matching = all.filter(r => JSON.stringify(r).toLowerCase().includes(filter.toLowerCase())).length;
+      return matching + '/' + all.length;
+    };
+    host.querySelector('[role="tablist"]').innerHTML = JOB_STAGES.map(([id,label]) => '<button role="tab" id="stage-tab-'+id+'" aria-controls="stage-sheet-'+id+'" aria-selected="'+(id===activeJobStage)+'" tabindex="'+(id===activeJobStage?0:-1)+'" data-stage="'+id+'">'+label+' <span class="count-badge">'+stageCountLabel(id)+'</span></button>').join('');
     for (const [id,label,names] of JOB_STAGES) {
       let view = jobsViews.get(id);
       if (!view) {
@@ -3182,26 +3198,35 @@ let cols = [];
     })();
   }
 
-  async function refreshUpdatePill() {
+  const UPDATE_BRANCH_KEY = 'command-center-update-branch';
+  function preferredUpdateBranch() {
+    const saved = localStorage.getItem(UPDATE_BRANCH_KEY);
+    return saved === 'main' || saved === 'beta' ? saved : 'beta';
+  }
+  function renderUpdatePill(branch, c) {
+    const pill = $('#bottombar-update-status');
+    if (!pill) return;
+    const short = (c.deployedSha || '').slice(0, 7);
+    pill.textContent = c.updateAvailable
+      ? branch + ' update: ' + short + ' -> ' + (c.remoteSha || '').slice(0, 7)
+      : branch + ' current (' + short + ')';
+    pill.className = 'bottombar-update-status ' + (c.updateAvailable ? 'warn' : 'ok');
+    pill.dataset.branch = branch;
+  }
+  async function refreshUpdatePill(branch = preferredUpdateBranch()) {
     const pill = $('#bottombar-update-status');
     if (!pill) return;
     try {
-      const r = await fetch('/updates/check?branch=main');
+      const r = await fetch('/updates/check?branch=' + encodeURIComponent(branch));
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'check failed');
       const c = data.recommendedMode !== undefined ? data : data.data;
-      if (!c || typeof c.updateAvailable !== 'boolean') throw new Error('bad check payload');
-      const short = (c.deployedSha || '').slice(0, 7);
-      if (c.updateAvailable) {
-        pill.textContent = 'Update available: ' + short + ' -> ' + (c.remoteSha || '').slice(0, 7);
-        pill.className = 'bottombar-update-status warn';
-      } else {
-        pill.textContent = 'Up to date (' + short + ')';
-        pill.className = 'bottombar-update-status ok';
-      }
+      if (!c || typeof c.updateAvailable !== 'boolean' || c.branch !== branch) throw new Error('bad check payload');
+      renderUpdatePill(branch, c);
     } catch (e) {
-      pill.textContent = 'Update check unavailable';
+      pill.textContent = branch + ' update check unavailable';
       pill.className = 'bottombar-update-status err';
+      pill.dataset.branch = branch;
     }
   }
 
@@ -3261,9 +3286,16 @@ let cols = [];
       {title:'Check for updates', hideClose:false, onClose:null});
     let checked = null;
     const result = $('#updater-result'), apply = $('#updater-apply'), selector = $('#updater-branch');
+    selector.value = $('#bottombar-update-status')?.dataset?.branch || 'beta';
     const request = async (url, options) => { const r = await fetch(url, options); const data = await r.json(); if (!r.ok) throw new Error(data.error || 'Update request failed'); return data; };
     let checkSequence = 0;
-    selector.onchange = () => { checkSequence++; checked = null; apply.disabled = true; result.textContent = 'Branch changed. Check again.'; $('#updater-mode-summary').textContent = 'Recommended mode: check a branch first.'; };
+    selector.onchange = () => {
+      checkSequence++; checked = null; apply.disabled = true;
+      if (typeof localStorage !== 'undefined') localStorage.setItem(UPDATE_BRANCH_KEY, selector.value);
+      result.textContent = 'Branch changed. Check again.';
+      $('#updater-mode-summary').textContent = 'Recommended mode: check a branch first.';
+      if (typeof refreshUpdatePill === 'function') void refreshUpdatePill(selector.value);
+    };
     $('#updater-check').onclick = async () => {
       const selected = selector.value, sequence = ++checkSequence;
       checked = null; apply.disabled = true; result.textContent = 'Checking ' + selected + '…';
@@ -3273,7 +3305,10 @@ let cols = [];
         const c = response.recommendedMode !== undefined ? response : response.data;
         if (!c || c.branch !== selected || !/^[a-f0-9]{40}$/.test(c.remoteSha || '') || !/^[a-f0-9]{40}$/.test(c.deployedSha || '') || !/^[a-f0-9]{40}$/.test(c.serverSha || '') || typeof c.updateAvailable !== 'boolean' || !['databind','full','noRuntimeUpdate'].includes(c.recommendedMode) || typeof c.modeReason !== 'string' || !c.modeReason.trim() || (c.recommendedMode === 'full' ? c.runtimeAction !== 'image' : !['none','restart'].includes(c.runtimeAction))) throw new Error('Invalid update check response; host worker update required');
         const modeLabel = c.recommendedMode === 'full' ? 'Image update' : c.recommendedMode === 'noRuntimeUpdate' ? 'No runtime changes' : c.runtimeAction === 'restart' ? 'Bind update + app restart' : 'Bind update';
-        checked = c; result.textContent = 'Installed UI: ' + c.deployedSha + ' (' + (c.deployedCommitDate || 'commit date unavailable') + ') | server: ' + c.serverSha + ' | ' + c.branch + ': ' + c.remoteSha + ' (' + (c.remoteCommitDate || 'commit date unavailable') + ')'
+        checked = c;
+        if (typeof localStorage !== 'undefined') localStorage.setItem(UPDATE_BRANCH_KEY, selected);
+        if (typeof renderUpdatePill === 'function') renderUpdatePill(selected, c);
+        result.textContent = 'Installed UI: ' + c.deployedSha + ' (' + (c.deployedCommitDate || 'commit date unavailable') + ') | server: ' + c.serverSha + ' | ' + c.branch + ': ' + c.remoteSha + ' (' + (c.remoteCommitDate || 'commit date unavailable') + ')'
           + (c.updateAvailable ? ' — update available.' : ' — already current.')
           + (c.requiresConfirmation ? ' Branch switch or downgrade: review before applying.' : '')
           ;
