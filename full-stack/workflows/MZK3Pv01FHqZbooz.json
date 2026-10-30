@@ -9,12 +9,11 @@
       "typeVersion": 2,
       "position": [
         0,
-        288
+        1824
       ],
       "parameters": {
         "httpMethod": "POST",
         "path": "yt-Test",
-        "responseMode": "onReceived",
         "options": {}
       }
     },
@@ -25,11 +24,11 @@
       "typeVersion": 2,
       "onError": "continueErrorOutput",
       "position": [
-        4256,
-        0
+        5600,
+        -80
       ],
       "parameters": {
-        "jsCode": "if(!$('Normalize Bypass Context').isExecuted){const h=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'}).format(new Date()));if(h>=7&&h<22)throw Error('Nighttime window closed before submission');}\nconst __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst currentJob = $('Capture Current Job').item.json;\nconst seedRaw = currentJob.currentJobSeed !== undefined && currentJob.currentJobSeed !== null && currentJob.currentJobSeed !== '' ? currentJob.currentJobSeed : 0;\nconst seed = Number(seedRaw) || 0;\nconst rowId = Number(currentJob.currentJobId) || 0;\nconst prompt = String(currentJob.currentJobPrompt || 'a neutral standing portrait, soft studio light');\n\n// Baked-in FieldMap per type - only 3 API templates exist, no need for FieldMap/NeedsFrames\n// columns on ComfyUI_Templates. Node IDs verified by tracing each template's graph\n// backward from its Save node.\nconst FIELD_MAPS = {\n  \"Text to image\": {\n    positive: \"57:27\", prompt: \"57:27\", seed: \"57:3\",\n    extra: {\n      width: { node: \"57:13\", input: \"width\" },\n      height: { node: \"57:13\", input: \"height\" }\n    }\n  },\n  \"Image to video\": {\n    positive: \"398:364\", prompt: \"398:364\", negative: \"398:373\",\n    image1: \"395\", seed: \"398:339\",\n    extra: {\n      duration: { node: \"398:362\", input: \"value\" },\n      fps: { node: \"398:361\", input: \"value\" },\n      promptEnhance: { node: \"398:383\", input: \"value\" },\n      seed2: { node: \"398:338\", input: \"noise_seed\" },\n      // Overwrites the PrimitiveInt passthroughs directly, bypassing the\n      // Resolution Selector node (403) entirely.\n      width: { node: \"398:372\", input: \"value\" },\n      height: { node: \"398:360\", input: \"value\" }\n    }\n  },\n  \"FLF to video\": {\n    positive: \"251:222\", prompt: \"251:222\", negative: \"251:217\",\n    image1: \"31\", image2: \"39\", seed: \"251:196\",\n    extra: {\n      duration: { node: \"251:198\", input: \"value\" },\n      fps: { node: \"251:205\", input: \"value\" },\n      promptEnhance: { node: \"251:250\", input: \"value\" },\n      width: { node: \"251:215\", input: \"value\" },\n      height: { node: \"251:216\", input: \"value\" }\n    }\n  }\n};\n\nconst map = FIELD_MAPS[currentJob.currentJobType];\nif (!map) throw new Error(\"Unsupported template type\");\n\nconst tpl = $('Get template').item.json;\nlet api;\nlet apiParseError = null;\ntry { api = typeof tpl.API === 'string' ? JSON.parse(tpl.API) : (tpl.API || {}); } catch (e) { api = {}; apiParseError = e.message; }\n\nif (apiParseError || !api || Array.isArray(api) || !Object.keys(api).length || Object.values(api).some(n => !n || typeof n.class_type !== \"string\" || !n.inputs)) throw new Error(\"Missing or invalid API template\");\nconst dependencyMetadata=typeof tpl.Dependencies==='string'?JSON.parse(tpl.Dependencies):tpl.Dependencies;if(!dependencyMetadata||dependencyMetadata.version!==1||!Array.isArray(dependencyMetadata.inputs))throw Error('Invalid template Dependencies');if(dependencyMetadata.inputs.length>2)throw Error('Unsupported image binding count');if(dependencyMetadata.inputs.length){map.image1=dependencyMetadata.inputs[0].target.node;map.image2=dependencyMetadata.inputs[1]?.target.node;}\nlet frames = [];\ntry { frames = $('Collect frame names').item.json.frames || []; } catch (e) {}\n\n// ------------------------------------------------------------\n// DEBUG: track which mapped keys actually existed in the parsed\n// API object, vs which were silently skipped.\n// ------------------------------------------------------------\nconst hit = [];\nconst miss = [];\n\nfunction tryInject(label, nodeId, fn) {\n  if (!nodeId) return;\n  if (api[nodeId] && api[nodeId].inputs) {\n    fn();\n    hit.push(label + ' -> node ' + nodeId);\n  } else {\n    miss.push(label + ' -> node ' + nodeId + ' (not found in api)');\n  }\n}\n\ntryInject('positive', map.positive, () => { api[map.positive].inputs.text = prompt; });\ntryInject('prompt', map.prompt, () => { api[map.prompt].inputs.text = prompt; });\n// Preserve template negative prompt unless Params.negativePrompt is supplied.\ntryInject('seed', map.seed, () => {\n  const inputs = api[map.seed].inputs;\n  if (inputs.noise_seed !== undefined) inputs.noise_seed = seed;\n  else if (inputs.seed !== undefined) inputs.seed = seed;\n  else throw new Error('Mapped seed node has neither seed nor noise_seed');\n});\nif (map.image1 && frames[0]) {\n  tryInject('image1', map.image1, () => { api[map.image1].inputs.image = frames[0]; });\n}\nif (map.image2) {\n  tryInject('image2', map.image2, () => { api[map.image2].inputs.image = (frames[1] || frames[0] || ''); });\n}\n\n// Runtime params (duration, fps, prompt-enhance, second seed, width/height, etc.) -\n// optional, applied only when the job's Params column explicitly supplies them.\nlet params = {};\ntry { params = typeof currentJob.currentJobParams === 'string' ? JSON.parse(currentJob.currentJobParams) : (currentJob.currentJobParams || {}); } catch (e) {}\nif (params.negativePrompt !== undefined && map.negative) {\n  if (typeof params.negativePrompt !== 'string') throw new Error('Params.negativePrompt must be a string');\n  tryInject('negative', map.negative, () => { api[map.negative].inputs.text = params.negativePrompt; });\n}\nif (map.extra && typeof map.extra === 'object') {\n  for (const [key, target] of Object.entries(map.extra)) {\n    if (params[key] !== undefined) {\n      tryInject('extra.' + key, target && target.node, () => { api[target.node].inputs[target.input] = params[key]; });\n    }\n  }\n}\n\nif (miss.length) throw new Error('Required template fields missing: '+miss.join(', '));\nif (map.image1 && !frames[0]) throw new Error('Missing first frame');\nif (map.image2 && !frames[1]) throw new Error('Missing last frame');\nconst templateStr = JSON.stringify({ prompt: api });\n\n// If literally nothing was injected, fail loudly instead of silently\n// POSTing an untouched template to ComfyUI.\nif (hit.length === 0) {\n  throw new Error(\n    'Inject fields: NOTHING matched for type \"' + currentJob.currentJobType + '\". ' +\n    (apiParseError ? ('API JSON failed to parse: ' + apiParseError + '. ') : '') +\n    'Expected node keys: ' + JSON.stringify(map) + '. ' +\n    'Actual top-level keys in parsed API: ' + JSON.stringify(Object.keys(api))\n  );\n}\n\nreturn [{ json: { templateStr: templateStr, rowId: rowId, prompt: prompt, _injectHit: hit, _injectMiss: miss } }];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+        "jsCode": "if(!$('Normalize Bypass Context').isExecuted){const h=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'}).format(new Date()));if(h>=7&&h<22)throw Error('Nighttime window closed before submission');}\nconst __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst currentJob = $('Capture Current Job').item.json;\nconst seedRaw = currentJob.currentJobSeed !== undefined && currentJob.currentJobSeed !== null && currentJob.currentJobSeed !== '' ? currentJob.currentJobSeed : 0;\nconst seed = Number(seedRaw) || 0;\nconst rowId = Number(currentJob.currentJobId) || 0;\n\n// Parse params early for LTX-2.5 prompt building\nlet params = {};\ntry { params = typeof currentJob.currentJobParams === 'string' ? JSON.parse(currentJob.currentJobParams) : (currentJob.currentJobParams || {}); } catch (e) {}\n\n// Universal LTX-2.5 Positive Prompt Template Pack\n// Object-agnostic: works for people, animals, vehicles, machines, products,\n// buildings, landscapes, abstract forms, particles, and combinations.\nconst LTX_DEFAULTS = {\n  SUBJECT_DESCRIPTION: 'a single prominent object',\n  PRIMARY_ACTION: 'moves naturally through the scene',\n  SECONDARY_ACTION: 'subtle secondary motion',\n  MICRO_MOVEMENTS: 'small natural variations',\n  INTERACTION_DETAILS: 'objects respond naturally to physical forces',\n  SHOT_TYPE: 'medium-wide shot',\n  CAMERA_MOVEMENT: 'smooth lateral tracking',\n  CAMERA_SPEED: 'slow and controlled',\n  CAMERA_PERSPECTIVE: 'standard perspective',\n  ENVIRONMENT_DESCRIPTION: 'a neutral studio environment',\n  ENVIRONMENTAL_MOTION: 'subtle environmental movement',\n  ENVIRONMENT_DETAILS: 'natural environmental details',\n  LIGHTING_STYLE: 'soft diffused lighting',\n  LIGHT_SOURCE: 'soft overhead light',\n  LIGHT_DIRECTION: 'directional from above',\n  LIGHT_QUALITY: 'soft and even',\n  SHADOW_BEHAVIOR: 'natural soft shadows',\n  COLOR_PALETTE: 'natural tones',\n  VISUAL_STYLE: 'photorealistic',\n  REALISM_LEVEL: 'physically realistic',\n  OPENING_STATE: 'the object at rest',\n  ENDING_STATE: 'the object in a natural final state',\n  ENDING_ACTION: 'settles naturally into its final state',\n  FINAL_VISUAL_EVENT: 'the object in a natural final state',\n  LOCATION_OR_ENVIRONMENT: 'a natural outdoor setting',\n  TIME_OF_DAY: 'golden hour',\n  ATMOSPHERIC_CONDITIONS: 'clear skies with soft clouds',\n  SHAPE_AND_STRUCTURE: 'clear geometric form',\n  MATERIALS_AND_TEXTURES: 'detailed surface materials',\n  COLORS: 'natural color palette',\n  DISTINCTIVE_FEATURES: 'clear silhouette and details',\n  POSITION_IN_SCENE: 'centered in the frame',\n  MAIN_ACTION: 'performs a natural action',\n  ACTION_PHASE_1: 'the action begins',\n  ACTION_PHASE_2: 'the action continues',\n  ACTION_PHASE_3: 'the action concludes',\n  SECONDARY_OBJECTS_OR_SUBJECTS: 'background elements',\n  SECONDARY_ACTIONS: 'move naturally in the background',\n  PHYSICS_AND_INTERACTIONS: 'natural physical behavior',\n  WIND_WATER_SMOKE_FIRE_PARTICLES_OR_OTHER_EFFECTS: 'subtle environmental particles',\n  TRANSITION_DESCRIPTION: 'a continuous natural transition',\n  INITIAL_ACTION: 'begins moving naturally',\n  MIDDLE_ACTION: 'continues through the scene',\n  FINAL_ACTION: 'approaches the final position',\n  // Z-Image-Turbo T2I fields\n  T2I_SUBJECT: 'a single prominent object with clear shape and distinctive features',\n  T2I_ACTION_AND_POSE: 'rests in a natural pose',\n  T2I_ENVIRONMENT: 'a neutral studio setting with subtle depth',\n  T2I_COMPOSITION: 'centered composition, medium shot, clear subject separation',\n  T2I_LIGHTING: 'soft diffused overhead lighting, gentle shadows, natural highlights',\n  T2I_VISUAL_STYLE: 'photorealistic, cinematic photography',\n  T2I_DETAIL_AND_TEXTURE: 'detailed surface textures, fine material definition, realistic shading',\n  T2I_COLOR_AND_MOOD: 'natural color palette, balanced contrast, neutral atmosphere',\n  T2I_FINAL_QUALITY: 'coherent composition, clear subject separation, consistent perspective, well-defined shapes, detailed textures, intentional lighting, visually balanced framing'\n};\n\nconst ltxV = (key) => (params[key] !== undefined && params[key] !== '') ? String(params[key]) : LTX_DEFAULTS[key];\n\nfunction buildLTXPrompt(jobType) {\n  if (jobType === 'Image to video') {\n    return `SOURCE IMAGE: Use the supplied image as the visual reference for the scene, including all visible subjects, objects, structures, materials, colors, textures, composition, and spatial relationships.\n\nMAIN SUBJECT OR OBJECT: ${ltxV('SUBJECT_DESCRIPTION')}. Preserve the original shape, proportions, identity, surface details, material properties, color, and distinctive features of the primary subject or object.\n\nPRIMARY MOTION: ${ltxV('PRIMARY_ACTION')}. The movement follows a clear, continuous, physically plausible trajectory appropriate to the subject, object, material, or environment.\n\nSECONDARY MOTION: ${ltxV('SECONDARY_ACTION')}. Additional movement includes ${ltxV('MICRO_MOVEMENTS')}, supporting the main action without distracting from it.\n\nOBJECT INTERACTION: ${ltxV('INTERACTION_DETAILS')}. Objects respond naturally to contact, gravity, momentum, friction, deformation, fluid forces, or other relevant physical effects.\n\nCAMERA: ${ltxV('SHOT_TYPE')} with ${ltxV('CAMERA_MOVEMENT')} at ${ltxV('CAMERA_SPEED')}. Maintain coherent perspective, consistent framing, and clear visibility of the main action.\n\nENVIRONMENT: ${ltxV('ENVIRONMENT_DESCRIPTION')}. Background elements exhibit ${ltxV('ENVIRONMENTAL_MOTION')}, with believable interactions between the subject and its surroundings.\n\nLIGHTING AND ATMOSPHERE: ${ltxV('LIGHTING_STYLE')}, ${ltxV('COLOR_PALETTE')}, consistent illumination, realistic shadows, coherent reflections, and appropriate atmospheric depth.\n\nVISUAL STYLE: ${ltxV('VISUAL_STYLE')}, ${ltxV('REALISM_LEVEL')}, detailed surfaces, consistent geometry, coherent composition, and natural motion blur where appropriate.\n\nTEMPORAL CONTINUITY: Maintain visual consistency throughout the clip. Preserve subject identity, object geometry, scene layout, material characteristics, and lighting continuity. Motion develops smoothly without unnecessary transformations or scene changes.\n\nENDING: ${ltxV('ENDING_ACTION')}. Finish in a visually coherent state consistent with the action and the original scene.`;\n  }\n  if (jobType === 'Text to video') {\n    return `SCENE: ${ltxV('LOCATION_OR_ENVIRONMENT')}, featuring ${ltxV('ENVIRONMENT_DETAILS')}, ${ltxV('TIME_OF_DAY')}, and ${ltxV('ATMOSPHERIC_CONDITIONS')}.\n\nPRIMARY SUBJECT OR OBJECT: ${ltxV('SUBJECT_DESCRIPTION')}, including ${ltxV('SHAPE_AND_STRUCTURE')}, ${ltxV('MATERIALS_AND_TEXTURES')}, ${ltxV('COLORS')}, ${ltxV('DISTINCTIVE_FEATURES')}, and ${ltxV('POSITION_IN_SCENE')}.\n\nPRIMARY ACTION: ${ltxV('MAIN_ACTION')}. The action develops in a continuous sequence: first ${ltxV('ACTION_PHASE_1')}, then ${ltxV('ACTION_PHASE_2')}, followed by ${ltxV('ACTION_PHASE_3')}.\n\nSECONDARY ELEMENTS: ${ltxV('SECONDARY_OBJECTS_OR_SUBJECTS')} perform ${ltxV('SECONDARY_ACTIONS')}. Their movement and placement complement the primary action and maintain a readable composition.\n\nPHYSICAL BEHAVIOR: ${ltxV('PHYSICS_AND_INTERACTIONS')}. Movement, weight, momentum, collisions, deformation, fluid dynamics, mechanical operation, or other physical behaviors follow the scene's intended visual logic.\n\nCAMERA: ${ltxV('SHOT_TYPE')}, ${ltxV('CAMERA_MOVEMENT')}, ${ltxV('CAMERA_PERSPECTIVE')}, and ${ltxV('CAMERA_SPEED')}. The camera movement supports the action while maintaining coherent spatial relationships and subject visibility.\n\nENVIRONMENTAL MOTION: ${ltxV('WIND_WATER_SMOKE_FIRE_PARTICLES_OR_OTHER_EFFECTS')}. Environmental elements move and interact naturally with surrounding objects.\n\nLIGHTING: ${ltxV('LIGHT_SOURCE')}, ${ltxV('LIGHT_DIRECTION')}, ${ltxV('LIGHT_QUALITY')}, ${ltxV('SHADOW_BEHAVIOR')}, and ${ltxV('COLOR_PALETTE')}. Maintain consistent illumination and believable material response.\n\nVISUAL STYLE: ${ltxV('VISUAL_STYLE')}, ${ltxV('REALISM_LEVEL')}, detailed textures, coherent geometry, balanced composition, and appropriate depth of field.\n\nMOTION QUALITY: Smooth, continuous, readable motion with appropriate acceleration, deceleration, momentum, and timing. Maintain consistent object identity, shape, scale, and spatial relationships.\n\nSHOT PROGRESSION: The scene evolves from ${ltxV('OPENING_STATE')} to ${ltxV('ENDING_STATE')}, concluding with ${ltxV('FINAL_VISUAL_EVENT')}. Preserve the established scene and visual style throughout the clip.`;\n  }\n  if (jobType === 'FLF to video' || jobType === 'FLF to video H3') {\n    return `FIRST FRAME: Begin with the exact visual state of the supplied first frame, preserving visible subjects, objects, geometry, composition, position, scale, orientation, lighting, and environment.\n\nSUBJECT AND OBJECT CONSISTENCY: ${ltxV('SUBJECT_DESCRIPTION')}. Preserve recognizable identity, structure, proportions, materials, textures, colors, and physical characteristics throughout the sequence.\n\nTRANSITION OBJECTIVE: Animate a continuous transition from the first-frame state to the last-frame state through ${ltxV('TRANSITION_DESCRIPTION')}.\n\nINITIAL MOTION: ${ltxV('INITIAL_ACTION')}. Establish the direction, speed, and physical behavior of the primary movement.\n\nINTERMEDIATE MOTION: ${ltxV('MIDDLE_ACTION')}. Develop the transition through believable intermediate positions, rotations, deformations, interactions, or environmental changes as appropriate to the subject.\n\nFINAL APPROACH: ${ltxV('FINAL_ACTION')}. Gradually align the scene, subject positions, orientations, scales, and camera perspective with the supplied final-frame composition.\n\nOBJECT INTERACTIONS: ${ltxV('INTERACTION_DETAILS')}. Maintain consistent contact, trajectories, relative positions, and physical behavior wherever relevant.\n\nCAMERA: ${ltxV('CAMERA_MOVEMENT')} with ${ltxV('SHOT_TYPE')} framing. Maintain coherent perspective and a smooth camera trajectory that supports the transition.\n\nENVIRONMENT AND LIGHTING: ${ltxV('ENVIRONMENTAL_MOTION')}, ${ltxV('LIGHTING_STYLE')}, ${ltxV('COLOR_PALETTE')}, consistent illumination, coherent shadows, and stable scene geometry.\n\nVISUAL STYLE: ${ltxV('VISUAL_STYLE')}, ${ltxV('REALISM_LEVEL')}, consistent material appearance, detailed surfaces, coherent spatial relationships, and natural motion blur where appropriate.\n\nTEMPORAL CONTINUITY: Create smooth, physically plausible intermediate motion. Maintain object identity, geometry, scene structure, and visual consistency without unexplained transformations or abrupt discontinuities.\n\nLAST FRAME: End by matching the supplied last frame as closely as possible, including object positions, shapes, orientations, scale, composition, perspective, lighting, and background arrangement.\n\nENDING MOTION: ${ltxV('ENDING_ACTION')}. Complete the transition naturally and settle into the required final-frame state.`;\n  }\n  if (jobType === 'Text to image') {\n    return `SUBJECT: ${ltxV('T2I_SUBJECT')}.\n\nACTION AND POSE: ${ltxV('T2I_ACTION_AND_POSE')}.\n\nENVIRONMENT: ${ltxV('T2I_ENVIRONMENT')}.\n\nCOMPOSITION: ${ltxV('T2I_COMPOSITION')}.\n\nLIGHTING: ${ltxV('T2I_LIGHTING')}.\n\nVISUAL STYLE: ${ltxV('T2I_VISUAL_STYLE')}.\n\nDETAIL AND TEXTURE: ${ltxV('T2I_DETAIL_AND_TEXTURE')}.\n\nCOLOR AND MOOD: ${ltxV('T2I_COLOR_AND_MOOD')}.\n\nFINAL QUALITY: ${ltxV('T2I_FINAL_QUALITY')}.`;\n  }\n  return String(currentJob.currentJobPrompt || 'a neutral scene, soft studio light');\n}\n\n// If the row has a prompt but no LTX-specific params, use the row's prompt directly.\n  // This ensures the row's prompt is always respected when no structured params are provided.\n  const hasLTXParams = Object.keys(params).some(k => k.startsWith('T2I_') || k === 'SUBJECT_DESCRIPTION' || k === 'PRIMARY_ACTION' || k === 'SECONDARY_ACTION' || k === 'MICRO_MOVEMENTS' || k === 'INTERACTION_DETAILS' || k === 'SHOT_TYPE' || k === 'CAMERA_MOVEMENT' || k === 'CAMERA_SPEED' || k === 'CAMERA_PERSPECTIVE' || k === 'ENVIRONMENT_DESCRIPTION' || k === 'ENVIRONMENTAL_MOTION' || k === 'ENVIRONMENT_DETAILS' || k === 'LIGHTING_STYLE' || k === 'LIGHT_SOURCE' || k === 'LIGHT_DIRECTION' || k === 'LIGHT_QUALITY' || k === 'SHADOW_BEHAVIOR' || k === 'COLOR_PALETTE' || k === 'VISUAL_STYLE' || k === 'REALISM_LEVEL' || k === 'OPENING_STATE' || k === 'ENDING_STATE' || k === 'ENDING_ACTION' || k === 'FINAL_VISUAL_EVENT' || k === 'LOCATION_OR_ENVIRONMENT' || k === 'TIME_OF_DAY' || k === 'ATMOSPHERIC_CONDITIONS' || k === 'SHAPE_AND_STRUCTURE' || k === 'MATERIALS_AND_TEXTURES' || k === 'COLORS' || k === 'DISTINCTIVE_FEATURES' || k === 'POSITION_IN_SCENE' || k === 'MAIN_ACTION' || k === 'ACTION_PHASE_1' || k === 'ACTION_PHASE_2' || k === 'ACTION_PHASE_3' || k === 'SECONDARY_OBJECTS_OR_SUBJECTS' || k === 'SECONDARY_ACTIONS' || k === 'PHYSICS_AND_INTERACTIONS' || k === 'WIND_WATER_SMOKE_FIRE_PARTICLES_OR_OTHER_EFFECTS' || k === 'TRANSITION_DESCRIPTION' || k === 'INITIAL_ACTION' || k === 'MIDDLE_ACTION' || k === 'FINAL_ACTION');\n  const rowPrompt = String(currentJob.currentJobPrompt || '').trim();\n  const prompt = (rowPrompt && !hasLTXParams) ? rowPrompt : buildLTXPrompt(currentJob.currentJobType);\n\n// Baked-in FieldMap per type - only 3 API templates exist, no need for FieldMap/NeedsFrames\n// columns on ComfyUI_Templates. Node IDs verified by tracing each template's graph\n// backward from its Save node.\nconst FIELD_MAPS = {\n  \"Text to image\": {\n    positive: \"57:27\", prompt: \"57:27\", seed: \"57:3\",\n    extra: {\n      width: { node: \"57:13\", input: \"width\" },\n      height: { node: \"57:13\", input: \"height\" }\n    }\n  },\n  \"Image to video\": {\n    positive: \"398:364\", prompt: \"398:364\", negative: \"398:373\",\n    image1: \"395\", seed: \"398:339\",\n    extra: {\n      duration: { node: \"398:362\", input: \"value\" },\n      fps: { node: \"398:361\", input: \"value\" },\n      promptEnhance: { node: \"398:383\", input: \"value\" },\n      seed2: { node: \"398:338\", input: \"noise_seed\" },\n      width: { node: \"398:372\", input: \"value\" },\n      height: { node: \"398:360\", input: \"value\" }\n    }\n  },\n  \"FLF to video\": {\n    positive: \"251:222\", prompt: \"251:222\", negative: \"251:217\",\n    image1: \"31\", image2: \"39\", seed: \"251:196\",\n    extra: {\n      duration: { node: \"251:198\", input: \"value\" },\n      fps: { node: \"251:205\", input: \"value\" },\n      promptEnhance: { node: \"251:250\", input: \"value\" },\n      width: { node: \"251:215\", input: \"value\" },\n      height: { node: \"251:216\", input: \"value\" }\n    }\n  },\n  \"FLF to video H3\": {\n    positive: \"105:104\", prompt: \"105:104\", promptInput: \"prompt\",\n    image1: \"136\", image2: \"145\", seed: \"105:15\",\n    extra: {\n      duration: { node: \"105:111\", input: \"value\" }\n    }\n  }\n};\n\nconst map = FIELD_MAPS[currentJob.currentJobType];\nif (!map) throw new Error(\"Unsupported template type\");\n\nconst tpl = $('Get template').item.json;\nlet api;\nlet apiParseError = null;\ntry { api = typeof tpl.API === 'string' ? JSON.parse(tpl.API) : (tpl.API || {}); } catch (e) { api = {}; apiParseError = e.message; }\n\nif (apiParseError || !api || Array.isArray(api) || !Object.keys(api).length || Object.values(api).some(n => !n || typeof n.class_type !== \"string\" || !n.inputs)) throw new Error(\"Missing or invalid API template\");\nconst dependencyMetadata=typeof tpl.Dependencies==='string'?JSON.parse(tpl.Dependencies):tpl.Dependencies;if(!dependencyMetadata||dependencyMetadata.version!==1||!Array.isArray(dependencyMetadata.inputs))throw Error('Invalid template Dependencies');if(dependencyMetadata.inputs.length>2)throw Error('Unsupported image binding count');if(dependencyMetadata.inputs.length){map.image1=dependencyMetadata.inputs[0].target.node;map.image2=dependencyMetadata.inputs[1]?.target.node;}\nlet frames = [];\ntry { frames = $('Collect frame names').item.json.frames || []; } catch (e) {}\n\nconst hit = [];\nconst miss = [];\n\nfunction tryInject(label, nodeId, fn) {\n  if (!nodeId) return;\n  if (api[nodeId] && api[nodeId].inputs) {\n    fn();\n    hit.push(label + ' -> node ' + nodeId);\n  } else {\n    miss.push(label + ' -> node ' + nodeId + ' (not found in api)');\n  }\n}\n\ntryInject('positive', map.positive, () => { api[map.positive].inputs[map.promptInput || 'text'] = prompt; });\ntryInject('prompt', map.prompt, () => { api[map.prompt].inputs[map.promptInput || 'text'] = prompt; });\ntryInject('seed', map.seed, () => {\n  const inputs = api[map.seed].inputs;\n  if (inputs.noise_seed !== undefined) inputs.noise_seed = seed;\n  else if (inputs.seed !== undefined) inputs.seed = seed;\n  else throw new Error('Mapped seed node has neither seed nor noise_seed');\n});\nif (map.image1 && frames[0]) {\n  tryInject('image1', map.image1, () => { api[map.image1].inputs.image = frames[0]; });\n}\nif (map.image2) {\n  tryInject('image2', map.image2, () => { api[map.image2].inputs.image = (frames[1] || frames[0] || ''); });\n}\n\nif (params.negativePrompt !== undefined && map.negative) {\n  if (typeof params.negativePrompt !== 'string') throw new Error('Params.negativePrompt must be a string');\n  tryInject('negative', map.negative, () => { api[map.negative].inputs.text = params.negativePrompt; });\n}\nif (map.extra && typeof map.extra === 'object') {\n  for (const [key, target] of Object.entries(map.extra)) {\n    if (params[key] !== undefined) {\n      tryInject('extra.' + key, target && target.node, () => { api[target.node].inputs[target.input] = params[key]; });\n    }\n  }\n}\n\nif (miss.length) throw new Error('Required template fields missing: '+miss.join(', '));\nif (map.image1 && !frames[0]) throw new Error('Missing first frame');\nif (map.image2 && !frames[1]) throw new Error('Missing last frame');\nconst templateStr = JSON.stringify({ prompt: api });\n\nif (hit.length === 0) {\n  throw new Error(\n    'Inject fields: NOTHING matched for type \"' + currentJob.currentJobType + '\". ' +\n    (apiParseError ? ('API JSON failed to parse: ' + apiParseError + '. ') : '') +\n    'Expected node keys: ' + JSON.stringify(map) + '. ' +\n    'Actual top-level keys in parsed API: ' + JSON.stringify(Object.keys(api))\n  );\n}\n\nreturn [{ json: { templateStr: templateStr, rowId: rowId, prompt: prompt, _injectHit: hit, _injectMiss: miss } }];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
       }
     },
     {
@@ -39,8 +38,8 @@
       "typeVersion": 4.2,
       "onError": "continueErrorOutput",
       "position": [
-        4480,
-        80
+        6272,
+        144
       ],
       "parameters": {
         "method": "POST",
@@ -72,8 +71,8 @@
       "typeVersion": 4.2,
       "onError": "continueErrorOutput",
       "position": [
-        4928,
-        272
+        6720,
+        336
       ],
       "parameters": {
         "url": "=http://10.0.0.157:8188/history/{{ $('Store Prompt Info').item.json.prompt_id }}",
@@ -105,8 +104,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        5824,
-        368
+        7616,
+        448
       ],
       "parameters": {
         "conditions": {
@@ -139,8 +138,8 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        6048,
-        512
+        7840,
+        624
       ],
       "parameters": {
         "amount": 10
@@ -154,15 +153,17 @@
       "continueOnFail": true,
       "onError": "continueErrorOutput",
       "position": [
-        6272,
-        320
+        8064,
+        432
       ],
       "parameters": {
         "operation": "update",
         "dataTableId": {
           "__rl": true,
           "mode": "list",
-          "value": "xKckTZI3ZU5HqIpZ"
+          "value": "xKckTZI3ZU5HqIpZ",
+          "cachedResultName": "ComfyUI",
+          "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
         },
         "matchType": "allConditions",
         "filters": {
@@ -275,8 +276,8 @@
       "typeVersion": 2,
       "onError": "continueErrorOutput",
       "position": [
-        6048,
-        240
+        7840,
+        352
       ],
       "parameters": {
         "jsCode": "const job=$('Capture Current Job').item.json;const pid=$('Store Prompt Info').item.json.prompt_id;const result=$json.body?.[pid];if(!result||result.status?.status_str==='error')throw Error('Missing or failed exact prompt history');const wantVideo=job.currentJobType!=='Text to image';const files=Object.values(result.outputs||{}).flatMap(o=>[...(o.images||[]),...(o.gifs||[]),...(o.videos||[])]);const matching=files.filter(f=>typeof f.filename==='string'&&(wantVideo?/\\.(mp4|webm|mov|gif)$/i:/\\.(png|jpe?g|webp)$/i).test(f.filename));if(!matching.length)throw Error('Missing valid expected output filename/type');const f=matching[0];const url='http://10.0.0.157:8188/view?filename='+encodeURIComponent(f.filename)+(f.subfolder?'&subfolder='+encodeURIComponent(f.subfolder):'')+(f.type?'&type='+encodeURIComponent(f.type):'');return [{json:{rowId:job.currentJobId,outputUrl:url,filename:f.filename,isVideo:wantVideo,subfolder:f.subfolder||''},pairedItem:{item:0}}];"
@@ -288,8 +289,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        2688,
-        432
+        4032,
+        384
       ],
       "parameters": {
         "conditions": {
@@ -324,15 +325,17 @@
       "alwaysOutputData": true,
       "onError": "continueErrorOutput",
       "position": [
-        2912,
-        1088
+        4256,
+        1168
       ],
       "parameters": {
         "operation": "get",
         "dataTableId": {
           "__rl": true,
           "value": "xKckTZI3ZU5HqIpZ",
-          "mode": "list"
+          "mode": "list",
+          "cachedResultName": "ComfyUI",
+          "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
         },
         "matchType": "allConditions",
         "filters": {
@@ -355,8 +358,8 @@
       "typeVersion": 4.2,
       "onError": "continueErrorOutput",
       "position": [
-        3584,
-        1280
+        4928,
+        1264
       ],
       "parameters": {
         "url": "={{ (() => { const raw=String($json.URL||''); const m=/^(https?):\\/\\/([^/?#]+)(\\/view\\?[^#]*)$/i.exec(raw); if(!m||!['comfyui:8188','localhost:8188','127.0.0.1:8188','10.0.0.157:8188'].includes(m[2].toLowerCase())) throw new Error('Untrusted ComfyUI frame destination'); if(!/(?:\\?|&)filename=[^&]+/.test(m[3])) throw new Error('Missing ComfyUI frame filename'); return 'http://10.0.0.157:8188'+m[3]; })() }}",
@@ -391,7 +394,7 @@
       "executeOnce": false,
       "onError": "continueErrorOutput",
       "position": [
-        3808,
+        5152,
         1344
       ],
       "parameters": {
@@ -432,8 +435,8 @@
       "typeVersion": 2,
       "onError": "continueErrorOutput",
       "position": [
-        4032,
-        1424
+        5376,
+        1408
       ],
       "parameters": {
         "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst items = $input.all();\nconst frames = items.map(i => i.json.name).filter(Boolean);\nreturn [{ json: { frames } }];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
@@ -447,15 +450,17 @@
       "alwaysOutputData": true,
       "onError": "continueErrorOutput",
       "position": [
-        2240,
-        288
+        3584,
+        240
       ],
       "parameters": {
         "operation": "get",
         "dataTableId": {
           "__rl": true,
           "mode": "list",
-          "value": "haulC2FnGWqHb0no"
+          "value": "haulC2FnGWqHb0no",
+          "cachedResultName": "ComfyUI_Templates",
+          "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/haulC2FnGWqHb0no"
         },
         "matchType": "allConditions",
         "filters": {
@@ -477,15 +482,17 @@
       "continueOnFail": true,
       "onError": "continueErrorOutput",
       "position": [
-        2016,
-        224
+        3360,
+        160
       ],
       "parameters": {
         "operation": "update",
         "dataTableId": {
           "__rl": true,
           "mode": "list",
-          "value": "xKckTZI3ZU5HqIpZ"
+          "value": "xKckTZI3ZU5HqIpZ",
+          "cachedResultName": "ComfyUI",
+          "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
         },
         "matchType": "allConditions",
         "filters": {
@@ -644,14 +651,16 @@
       "alwaysOutputData": true,
       "position": [
         448,
-        288
+        1824
       ],
       "parameters": {
         "operation": "get",
         "dataTableId": {
           "__rl": true,
           "value": "xKckTZI3ZU5HqIpZ",
-          "mode": "list"
+          "mode": "list",
+          "cachedResultName": "ComfyUI",
+          "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
         },
         "matchType": "allConditions",
         "filters": {
@@ -672,15 +681,17 @@
       "continueOnFail": true,
       "onError": "continueErrorOutput",
       "position": [
-        6496,
-        432
+        8288,
+        544
       ],
       "parameters": {
         "operation": "update",
         "dataTableId": {
           "__rl": true,
           "mode": "list",
-          "value": "xKckTZI3ZU5HqIpZ"
+          "value": "xKckTZI3ZU5HqIpZ",
+          "cachedResultName": "ComfyUI",
+          "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
         },
         "matchType": "allConditions",
         "filters": {
@@ -780,8 +791,8 @@
       "type": "n8n-nodes-base.timeSaved",
       "typeVersion": 1,
       "position": [
-        6272,
-        576
+        8064,
+        688
       ],
       "parameters": {}
     },
@@ -791,14 +802,15 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1,
       "position": [
-        1568,
-        224
+        2912,
+        160
       ],
       "parameters": {
         "dataTableId": {
           "__rl": true,
           "mode": "list",
-          "value": "vxItbJ4B8uYBtqJ3"
+          "value": "vxItbJ4B8uYBtqJ3",
+          "cachedResultName": "running_job"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -885,15 +897,16 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1,
       "position": [
-        6944,
-        224
+        9184,
+        240
       ],
       "parameters": {
         "operation": "deleteRows",
         "dataTableId": {
           "__rl": true,
           "mode": "list",
-          "value": "vxItbJ4B8uYBtqJ3"
+          "value": "vxItbJ4B8uYBtqJ3",
+          "cachedResultName": "running_job"
         },
         "matchType": "allConditions",
         "filters": {
@@ -921,8 +934,8 @@
       "typeVersion": 2,
       "onError": "continueErrorOutput",
       "position": [
-        4704,
-        144
+        6496,
+        208
       ],
       "parameters": {
         "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nif ($json.error || ($json.node_errors && Object.keys($json.node_errors).length) || typeof $json.prompt_id !== 'string' || !$json.prompt_id) throw new Error('Generation submission failed');\nreturn [{json:{prompt_id:$json.prompt_id,_submittedAt:Date.now(),rowId:$('Inject fields').item.json.rowId}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
@@ -953,15 +966,17 @@
       "typeVersion": 1.1,
       "alwaysOutputData": true,
       "position": [
-        6944,
-        1728
+        9184,
+        2176
       ],
       "parameters": {
         "operation": "get",
         "dataTableId": {
           "__rl": true,
           "value": "xKckTZI3ZU5HqIpZ",
-          "mode": "list"
+          "mode": "list",
+          "cachedResultName": "ComfyUI",
+          "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
         },
         "matchType": "allConditions",
         "filters": {
@@ -986,7 +1001,7 @@
       "typeVersion": 2,
       "position": [
         1120,
-        224
+        304
       ],
       "parameters": {
         "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst params = typeof $json.Params === 'string' ? JSON.parse($json.Params || '{}') : ($json.Params || {});\nif (!params || typeof params !== 'object' || Array.isArray(params)) throw new Error('Invalid Params');\nconst types = {text_to_image:'Text to image',image_to_video:'Image to video',flf_to_video:'FLF to video'};\nconst type = types[$json.type] || $json.type;\nif(typeof type!=='string'||!type.trim())throw new Error('Missing job type');\nconst seed = params.seed ?? 0;\nif (!Number.isSafeInteger(Number(seed)) || Number(seed)<0) throw new Error('Invalid Params.seed');\nreturn [{json:{...$json,type,currentJobId:$json.id,currentJobJobID:$json.JobID ?? null,currentJobType:type,currentJobPrompt:$json.prompt || '',currentJobSeed:Number(seed),currentJobParams:params}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
@@ -999,8 +1014,8 @@
       "typeVersion": 2,
       "onError": "continueErrorOutput",
       "position": [
-        3136,
-        1152
+        4480,
+        1248
       ],
       "parameters": {
         "jsCode": "const result=$('Resolve exact dependencies before claim').item.json._dependency;if(result.status!=='ready'||!result.frames.length)throw Error('Exact prerequisites no longer ready');return result.frames.map(r=>({json:r,pairedItem:$input.all().map((_,item)=>({item}))}));"
@@ -1012,8 +1027,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        3360,
-        1232
+        4704,
+        1312
       ],
       "parameters": {
         "conditions": {
@@ -1046,15 +1061,17 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1,
       "position": [
-        6720,
-        0
+        8512,
+        -32
       ],
       "parameters": {
         "operation": "update",
         "dataTableId": {
           "__rl": true,
           "mode": "list",
-          "value": "xKckTZI3ZU5HqIpZ"
+          "value": "xKckTZI3ZU5HqIpZ",
+          "cachedResultName": "ComfyUI",
+          "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
         },
         "matchType": "allConditions",
         "filters": {
@@ -1170,7 +1187,7 @@
       "typeVersion": 2.3,
       "position": [
         896,
-        288
+        1824
       ],
       "parameters": {
         "conditions": {
@@ -1203,8 +1220,8 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        7392,
-        896
+        9632,
+        1408
       ],
       "parameters": {
         "options": {}
@@ -1216,8 +1233,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        7168,
-        224
+        9408,
+        1552
       ],
       "parameters": {
         "conditions": {
@@ -1260,8 +1277,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        2464,
-        368
+        3808,
+        304
       ],
       "parameters": {
         "conditions": {
@@ -1293,8 +1310,8 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.4,
       "position": [
-        6720,
-        1728
+        8512,
+        2176
       ],
       "parameters": {
         "rule": {
@@ -1314,8 +1331,8 @@
       "typeVersion": 2,
       "onError": "continueErrorOutput",
       "position": [
-        5152,
-        288
+        6944,
+        352
       ],
       "parameters": {
         "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst body=$json.body || {};\nconst pid=$('Store Prompt Info').item.json.prompt_id;\nconst result=body[pid];\nif ($json.error || ($json.statusCode && $json.statusCode >= 400)) throw new Error('History request failed');\nif (result?.status?.status_str === 'error' || result?.status?.messages?.some(m=>m[0]==='execution_error')) throw new Error('Generation error');\nconst done=!!result?.outputs && Object.values(result.outputs).some(o=>o?.images?.length || o?.gifs?.length);\nif (!done && Date.now()-$('Store Prompt Info').item.json._submittedAt >= 1200000) throw new Error('Generation polling timeout');\nreturn [{json:{...$json,_done:done}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
@@ -1328,7 +1345,7 @@
       "typeVersion": 2,
       "position": [
         672,
-        288
+        1824
       ],
       "parameters": {
         "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nreturn $input.all().filter(item => Number.isSafeInteger(item.json.id) && item.json.id > 0 && item.json.Working !== true);\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
@@ -1341,7 +1358,7 @@
       "typeVersion": 2,
       "position": [
         224,
-        288
+        1824
       ],
       "parameters": {
         "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst raw={...($json.query||{}),...($json.body||{})};const values=[raw.Id,raw.Row,raw.RowID].filter(v=>v!==undefined);const s=String(values[0]??'');if(!/^[1-9][0-9]*$/.test(s)||!Number.isSafeInteger(Number(s))||values.some(v=>String(v)!==s))throw new Error('invalid_request: Id must be one positive safe decimal row ID');if(raw.ByPass!==undefined && ![true,'true'].includes(raw.ByPass))throw new Error('invalid_request: ByPass must be true');return [{json:{workflowId:String($workflow.id),currentId:Number(s),lockId:null,source:'webhook',ByPass:true}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
@@ -1353,8 +1370,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1344,
-        224
+        2688,
+        160
       ],
       "parameters": {
         "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst row=$json;if(!Number.isSafeInteger(row.id)||row.id<=0)throw new Error('Invalid selected row');const source=$('Normalize Bypass Context').isExecuted?'webhook':'schedule';if(source==='webhook'&&row.id!==$('Normalize Bypass Context').first().json.currentId)throw new Error('Selected row mismatch');return [{json:{...row,_context:{workflowId:String($workflow.id),currentId:row.id,lockId:null,source,executionId:String($execution.id)}}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
@@ -1366,8 +1383,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1792,
-        224
+        3136,
+        160
       ],
       "parameters": {
         "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst row=$('Capture Internal Context').item.json;const c=row._context;const lock=$json;if(!Number.isSafeInteger(lock.id)||lock.id<=0||String(lock.workflow)!==c.workflowId||lock.rowId!==c.currentId||String(lock.executionId)!==c.executionId)throw new Error('Acquired lock ownership mismatch');return [{json:{...row,_context:{...c,lockId:lock.id}}}];\n})();\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
@@ -1380,11 +1397,11 @@
       "typeVersion": 2,
       "retryOnFail": true,
       "position": [
-        7168,
-        1728
+        9408,
+        2176
       ],
       "parameters": {
-        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst allowed=new Set(['Text to image','Image to video','FLF to video','text_to_image','image_to_video','flf_to_video']);return $input.all().flatMap((item,index)=>{const r=item.json;return Number.isSafeInteger(r.id)&&r.id>0&&typeof r.type==='string'&&r.type.trim().length>0&&r.Completed===false&&r.Working===false&&(r.LastError===null||r.LastError===undefined||r.LastError===\"\")?[{json:r,pairedItem:{item:index}}]:[];});\n})();\n__contractOutput.sort((a,b)=>{const count=r=>{try{return JSON.parse(r.Dependencies).inputs.length;}catch{return 999;}};return count(a.json)-count(b.json)||a.json.id-b.json.id;});\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
+        "jsCode": "const __contractInputs=$input.all();\nconst __contractOutput=(()=>{\nconst allowed=new Set(['Text to image','Image to video','FLF to video','FLF to video H3','text_to_image','image_to_video','flf_to_video']);return $input.all().flatMap((item,index)=>{const r=item.json;return Number.isSafeInteger(r.id)&&r.id>0&&typeof r.type==='string'&&r.type.trim().length>0&&r.Completed===false&&r.Working===false&&(r.LastError===null||r.LastError===undefined||r.LastError===\"\")?[{json:r,pairedItem:{item:index}}]:[];});\n})();\n__contractOutput.sort((a,b)=>{const count=r=>{try{return JSON.parse(r.Dependencies).inputs.length;}catch{return 999;}};return count(a.json)-count(b.json)||a.json.id-b.json.id;});\nreturn __contractOutput.map((item,index)=>{const original=__contractInputs.indexOf(item);return {...item,pairedItem:original>=0?{item:original}:(item.pairedItem??(__contractOutput.length===__contractInputs.length?{item:index}:__contractInputs.map((_,item)=>({item}))))};});"
       }
     },
     {
@@ -1393,8 +1410,8 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        7616,
-        128
+        9856,
+        1632
       ],
       "parameters": {}
     },
@@ -1405,15 +1422,16 @@
       "typeVersion": 1,
       "alwaysOutputData": true,
       "position": [
-        5376,
-        368
+        7168,
+        448
       ],
       "parameters": {
         "operation": "update",
         "dataTableId": {
           "__rl": true,
           "mode": "list",
-          "value": "vxItbJ4B8uYBtqJ3"
+          "value": "vxItbJ4B8uYBtqJ3",
+          "cachedResultName": "running_job"
         },
         "matchType": "allConditions",
         "filters": {
@@ -1478,8 +1496,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5600,
-        368
+        7392,
+        448
       ],
       "parameters": {
         "jsCode": "return [{json:$('Validate History').item.json,pairedItem:{item:0}}];"
@@ -1491,8 +1509,8 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        7840,
-        128
+        10080,
+        1632
       ],
       "parameters": {}
     },
@@ -1502,8 +1520,8 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        7616,
-        1536
+        9856,
+        1920
       ],
       "parameters": {}
     },
@@ -1513,8 +1531,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1,
       "position": [
-        0,
-        0
+        1344,
+        304
       ],
       "parameters": {
         "operation": "get",
@@ -1533,8 +1551,8 @@
       "typeVersion": 1,
       "executeOnce": true,
       "position": [
-        0,
-        0
+        1568,
+        304
       ],
       "parameters": {
         "operation": "get",
@@ -1552,11 +1570,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        0,
-        0
+        1792,
+        304
       ],
       "parameters": {
-        "jsCode": "const job=$('Capture Current Job').item.json;const rows=$('Read fresh dependency queue').all().map(i=>i.json);const templates=$input.all().map(i=>i.json);const matches=templates.filter(t=>t.type===job.type);let result={status:'failed',reason:'Template missing or ambiguous',frames:[]};if(matches.length===1){const template=matches[0];result=(()=>{\ntry {\nconst parse=(v,label)=>{const p=typeof v==='string'?JSON.parse(v):v;if(!p||typeof p!=='object'||Array.isArray(p))throw Error(label+' must be a JSON object');return p;};\nconst metadata=parse(template.Dependencies,'Template Dependencies');\nconst deps=parse(job.Dependencies,'Queue Dependencies');\nconst graph=parse(template.API,'Template API');\nif(!Object.keys(graph).length||Object.values(graph).some(n=>!n||typeof n.class_type!=='string'||!n.inputs))throw Error('Unconfigured template graph');\nif(metadata.version!==1||deps.version!==1||!Array.isArray(metadata.inputs)||!Array.isArray(deps.inputs))throw Error('Unsupported Dependencies version or inputs');\nif(metadata.inputs.length!==deps.inputs.length)throw Error('Required dependency roles do not match template');\nconst seen=new Set();const selected=[];const params=parse(job.Params||'{}','Params');\nconst byId=new Map(rows.map(r=>[r.id,r]));\nfunction visit(r,path){if(path.has(r.id))throw Error('Dependency cycle');const d=parse(r.Dependencies,'Ancestor Dependencies');if(d.version!==1||!Array.isArray(d.inputs))throw Error('Invalid ancestor dependency metadata');const next=new Set([...path,r.id]);for(const edge of d.inputs){if(!Number.isSafeInteger(edge.rowId)||edge.rowId<=0)throw Error('Invalid ancestor ID');const parent=byId.get(edge.rowId);if(!parent)throw Error('Missing prerequisite row '+edge.rowId);visit(parent,next);}}\nvisit(job,new Set());\nfor(const input of metadata.inputs){\n if(typeof input.role!=='string'||!input.role||seen.has(input.role))throw Error('Invalid or duplicate template role');seen.add(input.role);\n const target=input.target;if(!target||graph[target.node]?.class_type!=='LoadImage'||target.input!=='image'||!(target.input in graph[target.node].inputs))throw Error('Unvalidated image binding '+input.role);\n const matches=deps.inputs.filter(d=>d.role===input.role);if(matches.length!==1)throw Error('Missing/duplicate prerequisite role '+input.role);\n const edge=matches[0];if(!Number.isSafeInteger(edge.rowId)||edge.rowId<=0||edge.rowId===job.id)throw Error('Invalid prerequisite row ID');\n const p=byId.get(edge.rowId);if(!p)throw Error('Missing prerequisite row '+edge.rowId);\n const pp=parse(p.Params||'{}','Parent Params');if(String(p.JobID)!==String(job.JobID)||pp.scene_id!==params.scene_id||pp.frame_role!==input.role||p.type!==input.producerType)throw Error('Prerequisite ownership/type/scene/role mismatch '+edge.rowId);\n if(p.Completed!==true){if(p.LastError)throw Error('Prerequisite '+p.id+' failed: '+p.LastError);return {status:'waiting',reason:'Waiting for prerequisite '+p.id,frames:[]};}\n const u=String(p.URL||'');const match=/^http:\\/\\/(10\\.0\\.0\\.157:8188|comfyui:8188|127\\.0\\.0\\.1:8188|localhost:8188)\\/view\\?[^#]+$/.test(u);if(!match||!/(?:\\?|&)filename=[^&]+/.test(u)||!/(?:\\.png|\\.jpe?g|\\.webp)(?:&|$)/i.test(u))throw Error('Invalid image output URL '+p.id);\n selected.push({...p,_dependencyRole:input.role});\n}\nreturn {status:'ready',reason:'',frames:selected};\n} catch(e){return {status:'failed',reason:e.message,frames:[]};}\n\n})();}const manual=$('Normalize Bypass Context').isExecuted;const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'}).format(new Date()));if(!manual&&hour>=7&&hour<22)result={status:'waiting',reason:'Nighttime window closed',frames:[]};if(!['Text to image','Image to video','FLF to video'].includes(job.type))result={status:'failed',reason:'Unsupported template injection mapping; configure and validate before generation',frames:[]};if(!manual){const start=Date.parse($('Schedule Trigger').first().json.timestamp);if(!Number.isFinite(start)||Date.now()-start>=1500000)result={status:'waiting',reason:'Scheduled batch claim budget exhausted; carry over to next tick',frames:[]};}const live=rows.find(r=>r.id===job.id);if(!live||live.Completed===true||live.Working===true)result={status:'waiting',reason:'Row no longer pending',frames:[]};return [{json:{...job,_dependency:result},pairedItem:$input.all().map((_,item)=>({item}))}];"
+        "jsCode": "const job=$('Capture Current Job').item.json;const rows=$('Read fresh dependency queue').all().map(i=>i.json);const templates=$input.all().map(i=>i.json);const matches=templates.filter(t=>t.type===job.type);let result={status:'failed',reason:'Template missing or ambiguous',frames:[]};if(matches.length===1){const template=matches[0];result=(()=>{\ntry {\nconst parse=(v,label)=>{const p=typeof v==='string'?JSON.parse(v):v;if(!p||typeof p!=='object'||Array.isArray(p))throw Error(label+' must be a JSON object');return p;};\nconst metadata=parse(template.Dependencies,'Template Dependencies');\nconst deps=parse(job.Dependencies,'Queue Dependencies');\nconst graph=parse(template.API,'Template API');\nif(!Object.keys(graph).length||Object.values(graph).some(n=>!n||typeof n.class_type!=='string'||!n.inputs))throw Error('Unconfigured template graph');\nif(metadata.version!==1||deps.version!==1||!Array.isArray(metadata.inputs)||!Array.isArray(deps.inputs))throw Error('Unsupported Dependencies version or inputs');\nif(metadata.inputs.length!==deps.inputs.length)throw Error('Required dependency roles do not match template');\nconst seen=new Set();const selected=[];const params=parse(job.Params||'{}','Params');\nconst byId=new Map(rows.map(r=>[r.id,r]));\nfunction visit(r,path){if(path.has(r.id))throw Error('Dependency cycle');const d=parse(r.Dependencies,'Ancestor Dependencies');if(d.version!==1||!Array.isArray(d.inputs))throw Error('Invalid ancestor dependency metadata');const next=new Set([...path,r.id]);for(const edge of d.inputs){if(!Number.isSafeInteger(edge.rowId)||edge.rowId<=0)throw Error('Invalid ancestor ID');const parent=byId.get(edge.rowId);if(!parent)throw Error('Missing prerequisite row '+edge.rowId);visit(parent,next);}}\nvisit(job,new Set());\nfor(const input of metadata.inputs){\n if(typeof input.role!=='string'||!input.role||seen.has(input.role))throw Error('Invalid or duplicate template role');seen.add(input.role);\n const target=input.target;if(!target||graph[target.node]?.class_type!=='LoadImage'||target.input!=='image'||!(target.input in graph[target.node].inputs))throw Error('Unvalidated image binding '+input.role);\n const matches=deps.inputs.filter(d=>d.role===input.role);if(matches.length!==1)throw Error('Missing/duplicate prerequisite role '+input.role);\n const edge=matches[0];if(!Number.isSafeInteger(edge.rowId)||edge.rowId<=0||edge.rowId===job.id)throw Error('Invalid prerequisite row ID');\n const p=byId.get(edge.rowId);if(!p)throw Error('Missing prerequisite row '+edge.rowId);\n const pp=parse(p.Params||'{}','Parent Params');if(String(p.JobID)!==String(job.JobID)||pp.scene_id!==params.scene_id||pp.frame_role!==input.role||p.type!==input.producerType)throw Error('Prerequisite ownership/type/scene/role mismatch '+edge.rowId);\n if(p.Completed!==true){if(p.LastError)throw Error('Prerequisite '+p.id+' failed: '+p.LastError);return {status:'waiting',reason:'Waiting for prerequisite '+p.id,frames:[]};}\n const u=String(p.URL||'');const match=/^http:\\/\\/(10\\.0\\.0\\.157:8188|comfyui:8188|127\\.0\\.0\\.1:8188|localhost:8188)\\/view\\?[^#]+$/.test(u);if(!match||!/(?:\\?|&)filename=[^&]+/.test(u)||!/(?:\\.png|\\.jpe?g|\\.webp)(?:&|$)/i.test(u))throw Error('Invalid image output URL '+p.id);\n selected.push({...p,_dependencyRole:input.role});\n}\nreturn {status:'ready',reason:'',frames:selected};\n} catch(e){return {status:'failed',reason:e.message,frames:[]};}\n\n})();}const manual=$('Normalize Bypass Context').isExecuted;const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'}).format(new Date()));if(!manual&&hour>=7&&hour<22)result={status:'waiting',reason:'Nighttime window closed',frames:[]};if(!['Text to image','Image to video','FLF to video','FLF to video H3'].includes(job.type))result={status:'failed',reason:'Unsupported template injection mapping; configure and validate before generation',frames:[]};if(!manual){const start=Date.parse($('Schedule Trigger').first().json.timestamp);if(!Number.isFinite(start)||Date.now()-start>=1500000)result={status:'waiting',reason:'Scheduled batch claim budget exhausted; carry over to next tick',frames:[]};}const live=rows.find(r=>r.id===job.id);if(!live||live.Completed===true||live.Working===true)result={status:'waiting',reason:'Row no longer pending',frames:[]};return [{json:{...job,_dependency:result},pairedItem:$input.all().map((_,item)=>({item}))}];"
       }
     },
     {
@@ -1565,8 +1583,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        0,
-        0
+        2464,
+        240
       ],
       "parameters": {
         "conditions": {
@@ -1603,14 +1621,16 @@
       "onError": "continueErrorOutput",
       "position": [
         2016,
-        224
+        304
       ],
       "parameters": {
         "operation": "update",
         "dataTableId": {
           "__rl": true,
           "mode": "list",
-          "value": "xKckTZI3ZU5HqIpZ"
+          "value": "xKckTZI3ZU5HqIpZ",
+          "cachedResultName": "ComfyUI",
+          "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
         },
         "matchType": "allConditions",
         "filters": {
@@ -1769,8 +1789,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        0,
-        0
+        2240,
+        240
       ],
       "parameters": {
         "jsCode": "return [{json:$('Resolve exact dependencies before claim').item.json,pairedItem:$input.all().map((_,item)=>({item}))}];"
@@ -1783,8 +1803,8 @@
       "typeVersion": 1,
       "alwaysOutputData": true,
       "position": [
-        0,
-        0
+        8736,
+        2176
       ],
       "parameters": {
         "operation": "get",
@@ -1802,11 +1822,127 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        0,
-        0
+        8960,
+        2176
       ],
       "parameters": {
         "jsCode": "const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'}).format(new Date()));if(hour>=7&&hour<22)return [];if($input.all().some(i=>String(i.json.workflow)===String($workflow.id)&&i.json.status==='Working'))return [];return [{json:{night:true},pairedItem:$input.all().map((_,item)=>({item}))}];"
+      }
+    },
+    {
+      "id": "95f744fe-e448-4cc2-a42c-c079666bfec0",
+      "name": "Reserve Strata VRAM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueErrorOutput",
+      "position": [
+        5824,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.0.0.157:8082/v1/vram",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "{\"reserve_mib\":7000}",
+        "options": {
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pYyGWBAGmmY5Gy6h",
+          "name": "Strata Bearer (local 8082 only)"
+        }
+      }
+    },
+    {
+      "id": "8e27244a-0b7d-49f0-a620-d438bc3a7d4a",
+      "name": "Validate Strata reserve",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueErrorOutput",
+      "position": [
+        6048,
+        64
+      ],
+      "parameters": {
+        "jsCode": "const free = Number($json.vram_free_mib);\nconst cache = Number($json.expert_cache_mib);\nconst full = Number($json.expert_cache_full_mib);\n// Strata answers 200 even when it could not reach the requested reserve.\n// Accept the handoff when enough VRAM is actually free for ComfyUI, or\n// when the expert cache clearly shrank from its full size.\nconst shrunk = Number.isFinite(cache) && Number.isFinite(full) && cache < full;\nif ($json.status !== 'ok' || !(free >= 6000 || shrunk)) {\n  throw new Error(`Strata VRAM reserve insufficient: status=${$json.status || 'unknown'} free_mib=${$json.vram_free_mib ?? 'unknown'} expert_cache_mib=${$json.expert_cache_mib ?? 'unknown'}/${$json.expert_cache_full_mib ?? 'unknown'}`);\n}\nreturn [{ json: $('Inject fields').item.json }];"
+      }
+    },
+    {
+      "id": "21002bc0-56f2-4d06-9083-e00d550e7723",
+      "name": "Strata VRAM reserved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        8736,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4350c14b-b055-4718-b86e-7389285ea981",
+              "leftValue": "={{ $('Reserve Strata VRAM').isExecuted }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ac1ea992-222e-4b8e-ab8f-d4606f57ff63",
+      "name": "Release Strata VRAM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput",
+      "position": [
+        8960,
+        96
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.0.0.157:8082/v1/vram",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "{\"reserve_mib\":null}",
+        "options": {
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pYyGWBAGmmY5Gy6h",
+          "name": "Strata Bearer (local 8082 only)"
+        }
       }
     }
   ],
@@ -1891,7 +2027,7 @@
       "main": [
         [
           {
-            "node": "POST ComfyUI /prompt",
+            "node": "Reserve Strata VRAM",
             "type": "main",
             "index": 0
           }
@@ -2093,7 +2229,7 @@
       "main": [
         [
           {
-            "node": "Clear Running ID",
+            "node": "Strata VRAM reserved?",
             "type": "main",
             "index": 0
           }
@@ -2209,7 +2345,7 @@
       "main": [
         [
           {
-            "node": "Clear Running ID",
+            "node": "Strata VRAM reserved?",
             "type": "main",
             "index": 0
           }
@@ -2221,6 +2357,13 @@
         [
           {
             "node": "Capture Current Job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finish",
             "type": "main",
             "index": 0
           }
@@ -2468,6 +2611,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Continue Loop?",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -2503,6 +2653,71 @@
           }
         ]
       ]
+    },
+    "Reserve Strata VRAM": {
+      "main": [
+        [
+          {
+            "node": "Validate Strata reserve",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Strata reserve": {
+      "main": [
+        [
+          {
+            "node": "POST ComfyUI /prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Clear Working",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Strata VRAM reserved?": {
+      "main": [
+        [
+          {
+            "node": "Release Strata VRAM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clear Running ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Release Strata VRAM": {
+      "main": [
+        [
+          {
+            "node": "Clear Running ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -2510,11 +2725,11 @@
     "binaryMode": "separate",
     "timeSavedMode": "fixed",
     "callerPolicy": "workflowsFromSameOwner",
-    "availableInMCP": false,
+    "availableInMCP": true,
     "errorWorkflow": "buw89dDrqgXnuCDz",
     "executionTimeout": 3600,
     "timezone": "America/New_York"
   },
   "id": "MZK3Pv01FHqZbooz",
-  "active": false
+  "active": true
 }
