@@ -3075,6 +3075,10 @@ let cols = [];
     populateConfigForm();
   }
 
+  // Declared before init() runs: refreshUpdatePill's default argument reads it
+  // during init, and a const below the init() call is a TDZ ReferenceError.
+  const UPDATE_BRANCH_KEY = 'command-center-update-branch';
+
   init();
 
   function init() {
@@ -3198,7 +3202,6 @@ let cols = [];
     })();
   }
 
-  const UPDATE_BRANCH_KEY = 'command-center-update-branch';
   function preferredUpdateBranch() {
     const saved = localStorage.getItem(UPDATE_BRANCH_KEY);
     return saved === 'main' || saved === 'beta' ? saved : 'beta';
