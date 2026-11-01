@@ -8,7 +8,7 @@
       "typeVersion": 1.1,
       "position": [
         -672,
-        128
+        80
       ],
       "parameters": {
         "workflowInputs": {
@@ -27,8 +27,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1,
       "position": [
-        0,
-        0
+        -448,
+        80
       ],
       "parameters": {
         "operation": "get",
@@ -46,11 +46,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        0,
-        0
+        -224,
+        80
       ],
       "parameters": {
-        "jsCode": "const jobs=$('When Executed by Another Workflow').first().json.jobs;const templates=$input.all().map(i=>i.json);const result=(()=>{\nif(!Array.isArray(jobs)||!jobs.length)throw Error('No jobs supplied');\nconst metadata=new Map(templates.map(t=>[t.type,t]));const images=[],videos=[];\nconst parse=v=>typeof v==='string'?JSON.parse(v):v;\nfor(const job of jobs){const t=metadata.get(job.type);if(!t||!t.Dependencies)throw Error('Unconfigured template '+job.type);const d=parse(t.Dependencies);if(d.version!==1||!Array.isArray(d.inputs))throw Error('Invalid template Dependencies');const p=parse(job.Params);if(!p||!p.scene_id)throw Error('Missing scene linkage');if(!String(job.prompt||'').trim())throw Error('Missing job prompt');const normalized={...job,JobID:String(job.JobID),Dependencies:JSON.stringify({version:1,inputs:[]})};(d.inputs.length?videos:images).push(normalized);}\nfor(const job of videos){const d=parse(metadata.get(job.type).Dependencies);const p=parse(job.Params);const prerequisites=[];for(const input of d.inputs){const found=images.filter(i=>{const pp=parse(i.Params);return i.type===input.producerType&&i.JobID===job.JobID&&pp.scene_id===p.scene_id&&pp.frame_role===input.role;});if(found.length!==1)throw Error('Missing or ambiguous prerequisite producer for '+job.type+' scene '+p.scene_id+' role '+input.role);prerequisites.push({role:input.role,producerType:input.producerType,scene_id:p.scene_id});}job._prerequisites=prerequisites;}\nif(!images.length)throw Error('No image producers; dependency-first insertion required');\nreturn {images,videos};\n\n})();return [{json:result,pairedItem:$input.all().map((_,item)=>({item}))}];"
+        "jsCode": "const jobs=$('When Executed by Another Workflow').first().json.jobs;const templates=$input.all().map(i=>i.json);const result=(()=>{\nif(!Array.isArray(jobs)||!jobs.length)throw Error('No jobs supplied');\nconst metadata=new Map(templates.map(t=>[t.type,t]));const images=[],videos=[];\nconst parse=v=>typeof v==='string'?JSON.parse(v):v;\nfor(const job of jobs){const t=metadata.get(job.type);if(!t||!t.Dependencies)throw Error('Unconfigured template '+job.type);let tg;try{tg=typeof t.API==='string'?JSON.parse(t.API):t.API;}catch(e){throw Error('Invalid template API '+job.type);}if(!tg||!Object.keys(tg).length)throw Error('Unconfigured template API '+job.type);if(Object.values(tg).some(n=>['UNETLoader','VAELoader','CLIPLoader'].includes(n.class_type)))throw Error('Template still uses supported loaders without MultiGPU placement '+job.type);const d=parse(t.Dependencies);if(d.version!==1||!Array.isArray(d.inputs))throw Error('Invalid template Dependencies');const p=parse(job.Params);if(!p||!p.scene_id)throw Error('Missing scene linkage');if(!String(job.prompt||'').trim())throw Error('Missing job prompt');const normalized={...job,JobID:String(job.JobID),Dependencies:JSON.stringify({version:1,inputs:[]})};(d.inputs.length?videos:images).push(normalized);}\nfor(const job of videos){const d=parse(metadata.get(job.type).Dependencies);const p=parse(job.Params);const prerequisites=[];for(const input of d.inputs){const found=images.filter(i=>{const pp=parse(i.Params);return i.type===input.producerType&&i.JobID===job.JobID&&pp.scene_id===p.scene_id&&pp.frame_role===input.role;});if(found.length!==1)throw Error('Missing or ambiguous prerequisite producer for '+job.type+' scene '+p.scene_id+' role '+input.role);prerequisites.push({role:input.role,producerType:input.producerType,scene_id:p.scene_id});}job._prerequisites=prerequisites;}\nif(!images.length)throw Error('No image producers; dependency-first insertion required');\nreturn {images,videos};\n\n})();return [{json:result,pairedItem:$input.all().map((_,item)=>({item}))}];"
       }
     },
     {
@@ -60,7 +60,7 @@
       "typeVersion": 1,
       "position": [
         0,
-        0
+        80
       ],
       "parameters": {
         "fieldToSplitOut": "images",
@@ -73,14 +73,16 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        0,
-        224
+        224,
+        80
       ],
       "parameters": {
         "dataTableId": {
           "__rl": true,
           "value": "xKckTZI3ZU5HqIpZ",
-          "mode": "list"
+          "mode": "list",
+          "cachedResultName": "ComfyUI",
+          "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -245,8 +247,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        0,
-        0
+        448,
+        80
       ],
       "parameters": {
         "jsCode": "const prepared=$('Prepare dependency producers').first().json;const rows=$input.all().map(i=>i.json);const videos=prepared.videos.map(job=>{const inputs=job._prerequisites.map(edge=>{const parents=rows.filter(r=>{const p=JSON.parse(r.Params);return r.type===edge.producerType&&String(r.JobID)===job.JobID&&p.scene_id===edge.scene_id&&p.frame_role===edge.role;});if(parents.length!==1||!Number.isSafeInteger(parents[0].id)||parents[0].id<=0)throw Error('Native inserted prerequisite ID missing or ambiguous');return {role:edge.role,rowId:parents[0].id};});const {_prerequisites,...rest}=job;return {...rest,Dependencies:JSON.stringify({version:1,inputs})};});return [{json:{videos,insertedImages:rows.length},pairedItem:$input.all().map((_,item)=>({item}))}];"
@@ -258,8 +260,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        0,
-        0
+        672,
+        80
       ],
       "parameters": {
         "conditions": {
@@ -292,7 +294,7 @@
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
       "position": [
-        0,
+        896,
         0
       ],
       "parameters": {
@@ -306,14 +308,16 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        0,
-        224
+        1120,
+        0
       ],
       "parameters": {
         "dataTableId": {
           "__rl": true,
           "value": "xKckTZI3ZU5HqIpZ",
-          "mode": "list"
+          "mode": "list",
+          "cachedResultName": "ComfyUI",
+          "cachedResultUrl": "/projects/5mWwFhx8vRh8RSu0/datatables/xKckTZI3ZU5HqIpZ"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -478,8 +482,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        0,
-        0
+        1344,
+        80
       ],
       "parameters": {
         "jsCode": "return [{json:{insertedImages:$('Bind inserted prerequisite IDs').first().json.insertedImages,insertedDependentJobs:$('Bind inserted prerequisite IDs').first().json.videos.length},pairedItem:$input.all().map((_,item)=>({item}))}];"
@@ -599,9 +603,9 @@
     "binaryMode": "separate",
     "timeSavedMode": "fixed",
     "callerPolicy": "workflowsFromSameOwner",
-    "availableInMCP": false,
+    "availableInMCP": true,
     "errorWorkflow": "buw89dDrqgXnuCDz"
   },
   "id": "OxJfxFqOABCWu6Q6",
-  "active": false
+  "active": true
 }
